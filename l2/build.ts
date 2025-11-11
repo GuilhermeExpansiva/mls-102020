@@ -1,84 +1,114 @@
 /// <mls shortName="build" project="102020" enhancement="_blank" />
 
-import { createAllModels } from './_100554_collabLibModel';
+import { createAllModels, readProjectTypescriptAndCompileL1 } from './_100554_collabLibModel';
 import { createStorFile, IReqCreateStorFile } from './_100554_collabLibStor';
 import { getGlobalCss, getTokensCss } from './_100554_designSystemBase';
 import { getDependenciesByHtmlFile } from './_100554_libCompile';
 import { getProjectConfig, getProjectModuleConfig } from './_100554_libCommom';
-
 import { convertTagToFileName } from './_100554_utilsLit';
 
 let esBuild: any;
 export const DISTFOLDER = 'wwwroot';
 
 export async function buildModule(project: number, moduleName: string) {
-
     await loadEsbuild();
+
     const moduleConfig = await getProjectModule(project, moduleName);
-    const allPages = await getAllPages(project, moduleConfig.path) || [];
-    let buildRequired: boolean = false;
+    const allPages = (await getAllPages(project, moduleConfig.path)) || [];
 
     await prepareStyleFile(project, moduleConfig.theme);
     await prepareRunTimeFile(project);
 
-    for (let storFiles of allPages) {
-        let needBuild: boolean = false;
-        const storFilesDist = getDistStorFile(storFiles.ts);
+    const buildPromises: Promise<void>[] = [];
+    let buildRequired = false;
 
-        if (!storFilesDist.storFileDistJs || !storFilesDist.storFileDistHtml) needBuild = true;
-        else {
+    for (const page of allPages) {
+        const { ts, html, defs } = page;
+        const dist = getDistStorFile(ts);
 
-            const dtJsDist = new Date(storFilesDist.storFileDistJs.updatedAt || '');
-            const dtHtmlDist = new Date(storFilesDist.storFileDistHtml.updatedAt || '');
-
-            if (
-                storFiles.ts.updatedAt &&
-                storFiles.html.updatedAt
-            ) {
-
-                const dtJs = new Date(storFiles.ts.updatedAt);
-                const dtHtml = new Date(storFiles.html.updatedAt);
-                if (dtJsDist < dtJs || dtHtmlDist < dtHtml) needBuild = true;
-                else needBuild = false;
-
-                if (
-                    storFilesDist.storFileDistJs.inLocalStorage &&
-                    storFilesDist.storFileDistHtml.inLocalStorage &&
-                    !storFiles.ts.inLocalStorage &&
-                    !storFiles.html.inLocalStorage &&
-                    dtJsDist > dtJs &&
-                    dtHtml > dtHtml
-                ) {
-                    mls.stor.localStor.setContent(storFilesDist.storFileDistHtml, { content: null });
-                    mls.stor.localStor.setContent(storFilesDist.storFileDistJs, { content: null });
-                    needBuild = true;
-                } else if (!needBuild && !storFiles.html.inLocalStorage && !storFiles.ts.inLocalStorage) {
-                    mls.stor.localStor.setContent(storFilesDist.storFileDistHtml, { content: null });
-                    mls.stor.localStor.setContent(storFilesDist.storFileDistJs, { content: null });
-                    needBuild = false;
-                }
-
-            }
-
-            if (!needBuild) {
-                needBuild = await checkOrganismInPageIsOutdated(storFiles.defs.references?.widgets || [], dtHtmlDist, dtJsDist, storFiles.html.inLocalStorage, storFiles.ts.inLocalStorage);
-            }
-        }
-
-        console.info({
-            needBuild,
-            page: storFiles.ts.shortName
-        })
-
+        const needBuild = await needsRebuild(page, dist);
         if (needBuild) {
             buildRequired = true;
-            await buildPage(storFiles.ts, storFiles.html, moduleConfig.theme);
+            buildPromises.push(buildPage(ts, html, moduleConfig.theme));
         }
-
     }
 
+    await createL1Models();
+    await Promise.all(buildPromises);
     return buildRequired;
+}
 
+/**
+ * Verifica se a página precisa ser rebuildada
+ */
+async function needsRebuild(storFiles: any, dist: any): Promise<boolean> {
+    const { ts, html, defs } = storFiles;
+
+    if (!dist.storFileDistJs || !dist.storFileDistHtml) return true;
+
+    const dtJsDist = new Date(dist.storFileDistJs.updatedAt || '');
+    const dtHtmlDist = new Date(dist.storFileDistHtml.updatedAt || '');
+
+    if (ts.updatedAt && html.updatedAt) {
+        const dtJs = new Date(ts.updatedAt);
+        const dtHtml = new Date(html.updatedAt);
+
+        if (dtJsDist < dtJs || dtHtmlDist < dtHtml) return true;
+
+        const cleared = maybeClearLocalStorage(ts, html, dist, dtJsDist, dtHtmlDist, dtJs, dtHtml);
+        if (cleared) return true;
+    }
+
+    const organismsOutdated = await checkOrganismInPageIsOutdated(
+        defs.references?.widgets || [],
+        dtHtmlDist,
+        dtJsDist,
+        html.inLocalStorage,
+        ts.inLocalStorage
+    );
+
+    return organismsOutdated;
+}
+
+/**
+ * Regras de limpeza e sincronização com o localStorage
+ */
+function maybeClearLocalStorage(
+    ts: any,
+    html: any,
+    dist: any,
+    dtJsDist: Date,
+    dtHtmlDist: Date,
+    dtJs: Date,
+    dtHtml: Date
+): boolean {
+    const { storFileDistJs, storFileDistHtml } = dist;
+
+    const isInLocalStorage = storFileDistJs.inLocalStorage && storFileDistHtml.inLocalStorage;
+    const sourceNotLocal = !ts.inLocalStorage && !html.inLocalStorage;
+    if (isInLocalStorage && sourceNotLocal && dtJsDist > dtJs && dtHtmlDist > dtHtml) {
+        clearDistContent(storFileDistHtml, storFileDistJs);
+        return true;
+    }
+
+    if (!isInLocalStorage && !ts.inLocalStorage && !html.inLocalStorage) {
+        clearDistContent(storFileDistHtml, storFileDistJs);
+        return false;
+    }
+
+    return false;
+}
+
+/**
+ * Remove conteúdo antigo do localStorage
+ */
+function clearDistContent(storFileDistHtml: any, storFileDistJs: any) {
+    mls.stor.localStor.setContent(storFileDistHtml, { content: null });
+    mls.stor.localStor.setContent(storFileDistJs, { content: null });
+}
+
+async function createL1Models() {
+    await readProjectTypescriptAndCompileL1(mls.actualProject as number, '', true)
 }
 
 async function checkOrganismInPageIsOutdated(widgets: mls.l4.DefsWidget[], outdatedHtml: Date, outdatedTs: Date, outdatedHTMLLocal: boolean, outdatedTsLocal: boolean) {
@@ -168,7 +198,6 @@ async function executeEsBuild(importsMap: Record<string, string>, valids: string
 
             build.onResolve({ filter: /.*/ }, (args: any) => {
 
-
                 if (valids.includes(args.path)) {
                     return {
                         path: args.path,
@@ -189,20 +218,16 @@ async function executeEsBuild(importsMap: Record<string, string>, valids: string
 
                     const url = new URL(args.path, 'file:' + args.importer);
                     let path = url.pathname;
-
+                    
                     if (!(/_(\d+)_/.test(path))) {
 
                         const info = mls.l2.getPath(args.importer.replace('/l2/', '').replace('/', ''));
-
                         if (!info.project) info.project = mls.actualProject as number;
-
                         if (path.indexOf(`_${info.project}_`) < 0) {
                             path = url.pathname.replace('/', `/_${info.project}_`)
                         }
                     }
-
                     return { path, namespace: 'virtual' };
-
                 }
 
                 // import url externa
@@ -211,10 +236,8 @@ async function executeEsBuild(importsMap: Record<string, string>, valids: string
                     args.path.startsWith("../") ||
                     args.path.startsWith("/")) &&
                     args.importer.startsWith("https://")) {
-
                     const url = new URL(args.path, args.importer);
                     return { path: url.href, namespace: 'virtual' };
-
                 }
 
                 // import url externa
@@ -227,7 +250,6 @@ async function executeEsBuild(importsMap: Record<string, string>, valids: string
                 if (args.path.startsWith("http")) {
                     return { path: args.path, namespace: 'virtual' };
                 }
-
 
                 return null;
             });
