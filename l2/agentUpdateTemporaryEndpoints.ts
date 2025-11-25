@@ -112,7 +112,6 @@ async function getPrompts(context: mls.msg.ExecutionContext, organism: mls.cbe.I
     updatedAt
   }
 
-  console.info({ dataForReplace, organism });
   const prompts = await getPromptByHtml({ project: projectAgent, shortName: agentName, folder: '', data: dataForReplace })
 
   return prompts;
@@ -241,9 +240,9 @@ async function updateFile(context: mls.msg.ExecutionContext) {
 
   if (!result) throw new Error(`[${agentName}] updateFile: Not found "result"`);
 
-  console.info(result.logs)
-  console.info(result.moduleEndPoints);
-  console.info(result.endPoints);
+  // console.info(result.logs)
+  // console.info(result.moduleEndPoints);
+  // console.info(result.endPoints);
 
   if (context.modeSingleStep) {
     return context;
