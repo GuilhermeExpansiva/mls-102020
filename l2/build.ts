@@ -250,7 +250,7 @@ async function executeEsBuild(importsMap: Record<string, string>, valids: string
                     };
                 }
 
-                if ((args.path.startsWith("./") || args.path.startsWith("../")) &&
+                if ((args.path.startsWith("/") || args.path.startsWith("./") || args.path.startsWith("../")) &&
                     !args.importer.startsWith("https://") && !importsMap[args.importer]) {
 
                     const url = new URL(args.path, 'file:' + args.importer);
