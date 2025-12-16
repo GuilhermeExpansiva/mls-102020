@@ -8,6 +8,9 @@ import { createNewFile } from "/_100554_/l2/pluginNewFileBase";
 import { formatHtml } from '/_100554_/l2/collabDOMSync';
 import { addModule } from '/_100554_/l2/projectAST';
 import { getPayload3, PayLoad3 } from '/_102020_/l2/agents/agentNewPrototype3';
+import { getGlobalLess } from '/_100554_/l2/designSystemBase.js';
+import { createAllModels } from '/_100554_/l2/collabLibModel.js';
+import { removeTokensFromSource } from '/_100554_/l2/enhancementStyle.js';
 
 import {
     getNextPendingStepByAgentName,
@@ -169,6 +172,7 @@ async function createPage(context: mls.msg.ExecutionContext) {
 
     let finalSource = payload4.pageHtml;
 
+
     for (const [key, url] of Object.entries(resolvedImages)) {
         finalSource = replaceByPriority(finalSource, key, url);
     }
@@ -213,13 +217,13 @@ async function getPrompts(payload3: PayLoad3, organismDeclared: string[], pageIn
     const { pageName, pageGoal } = payload3.pages[pageIndex];
     const { pageHtml } = payload3.pagesWireframe[pageIndex];
 
-    const { moduleGoal, moduleName, userLanguage, requirements } = payload3.finalModuleDetails;
+    const { moduleGoal, moduleName, userLanguage, requirements, } = payload3.finalModuleDetails;
 
     const finalModuleDetails = {
         moduleGoal,
         moduleName,
         userLanguage,
-        requirements
+        requirements,
     };
 
     const data: Record<string, string> = {
@@ -230,7 +234,7 @@ async function getPrompts(payload3: PayLoad3, organismDeclared: string[], pageIn
         finalModuleDetails: JSON.stringify(finalModuleDetails, null, 2),
         organismDeclared: JSON.stringify(organismDeclared),
         project: actualProject?.toString() || '',
-        tag: tagName
+        tag: tagName,
     }
 
     const prompts = await getPromptByHtml({ project: agentProject, shortName: agentName, folder: 'agents', data })
@@ -387,8 +391,9 @@ async function generateFiles(
         const sourceHTML = generateHtmlPage(info, pageTagName, html);
         const sourceLess = generateLessPage(info, groupName, pageTagName, htmlFull);
         const sourceDefs = generateDefsPage(info, groupName, pageTagName, payload3, index, payload4.images, organism, task, step);
-
         await createNewFile({ project, folder, shortName, position: 'right', enhancement, sourceTS: sourceTS.trim(), sourceHTML, sourceLess, sourceDefs, openPreview: false });
+
+        // await updateGlobalCss(payload4.cssGlobal, project);
 
         return `page created: ${folder}/${shortName}`
 
@@ -397,11 +402,44 @@ async function generateFiles(
     }
 }
 
-async function createProjectFile(moduleName: string, project: number, payload3: PayLoad3) {
+async function updateGlobalCss(globalCss: string, project: number) {
+    const pathGlobal = mls.l2.getPath(`_${project}_project`);
+    let modelsGlobal = getModel({ folder: pathGlobal.folder, project: pathGlobal.project, shortName: pathGlobal.shortName });
+    if (!modelsGlobal) {
+        const keyToStorFile = mls.stor.getKeyToFiles(pathGlobal.project, 2, 'project', pathGlobal.folder, '.ts');
+        const storFile = mls.stor.files[keyToStorFile];
+        if (!storFile) throw new Error(`[${agentName}] updateFile: Not found project file`);
+        modelsGlobal = await createAllModels(storFile, true, true);
+    }
 
+    if (!modelsGlobal) throw new Error(`[${agentName}] updateFile: Not found models for project file`);
+    const css = await prepareGlobalCss(globalCss, project);
+    if (css && modelsGlobal.style) {
+        modelsGlobal.style.model.setValue(css);
+        mls.editor.forceModelUpdate(modelsGlobal.style.model);
+    }
+}
+
+async function prepareGlobalCss(css: string, projectId: number) {
+    let lines = css.split("\n");
+
+    if (lines[0].trim().startsWith("///")) {
+        lines.shift();
+    }
+
+    let cssContent = lines.join("\n").trim();
+    cssContent = removeTokensFromSource(cssContent);
+    return `/// <mls shortName="project" project="${projectId}" enhancement="enhancementStyle" folder="" />\n${cssContent}\n`;
+}
+
+function getModel(info: { project: number, shortName: string, folder: string }): mls.editor.IModels | undefined {
+    const key = mls.editor.getKeyModel(info.project, info.shortName, info.folder, mls.actualLevel);
+    return mls.editor.models[key];
+}
+
+async function createProjectFile(moduleName: string, project: number, payload3: PayLoad3) {
     const res = await addModule(project, moduleName, true);
     if (!res.ok) throw new Error(`[${agentName}](createProjectFile) ${res.message}`)
-
 }
 
 async function createModuleFile(shortName: string, project: number, folder: string, groupName: string, payload3: PayLoad3) {
@@ -431,9 +469,16 @@ async function generateOrganisms(payload3: PayLoad3, organisms: string[], htmlSt
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlString, 'text/html');
     const styles = doc.querySelectorAll('style[type="text/less"]');
+    const scripts = doc.querySelectorAll('script');
+
     const resultStyles = Array.from(styles).map(style => ({
         name: style.getAttribute('data-name'),
         content: style.textContent
+    }));
+
+    const resultScripts = Array.from(scripts).map(script => ({
+        name: script.getAttribute('id'),
+        content: script.textContent
     }));
 
     for await (let organism of organisms) {
@@ -441,6 +486,8 @@ async function generateOrganisms(payload3: PayLoad3, organisms: string[], htmlSt
         const organismEl = doc.querySelector(organism);
         if (!organismEl) continue;
         const styleData = resultStyles.find((result) => result.name === organism);
+        const scriptData = resultScripts.find((result) => result.name === organism);
+
         const organismData = payload3.organism.find((org) => org.organismTag === organism);
         if (!organismData) return;
 
@@ -452,9 +499,10 @@ async function generateOrganisms(payload3: PayLoad3, organisms: string[], htmlSt
 
         const organismHtml = organismEl.innerHTML;
         if (!organismHtml) continue;
-        const organismLess = styleData?.content?.replace(`${organism} {`, `${tagNameWithFolder} {`)
+        const organismLess = styleData?.content?.replace(`${organism} {`, `${tagNameWithFolder} {`);
+        const organismScript = scriptData?.content;
 
-        const sourceTS = generateTsOrganism(info, tagNameWithFolder, groupName, organismHtml);
+        const sourceTS = generateTsOrganism(info, tagNameWithFolder, groupName, organismHtml, organismScript);
         const sourceHTML = generateHtmlOrganism(info, tagNameWithFolder);
         const sourceLess = generateLessOrganism(info, groupName, organismLess || '');
         const sourceDefs = generateDefsOrganism(info, groupName, tagNameWithFolder, payload3, organism);
@@ -652,7 +700,9 @@ function generateTsOrganism(
     },
     tagName: string,
     groupName: string,
-    organismHtml: string) {
+    organismHtml: string,
+    organismScript: string | null | undefined
+) {
 
     const enhancement = enhancementTs;
     const shortName = info.shortName;
@@ -674,6 +724,13 @@ import { IcaOrganismBase } from '/_100554_/l2/icaOrganismBase.js';
 
 @customElement('${tagName}')
 export class ${shortName} extends IcaOrganismBase {
+
+    ${organismScript ? `
+        firstUpdated(){
+            ${organismScript}
+        }
+    `: ''}
+
     render(){
         return html\`${doc.body.innerHTML}\`
     }
@@ -897,43 +954,44 @@ function getPayload3Mock(): PayLoad3 {
 
     const data: PayLoad3 = {
         "finalModuleDetails": {
-            "userLanguage": "pt",
-            "executionRegions": "Brasil",
-            "userPrompt": "criar site petshop",
-            "moduleGoal": "Desenvolver um site para um petshop, voltado principalmente para donos de cães e gatos, mas também atendendo outros animais de estimação. O site deve ser amigável e acolhedor, com funcionalidades para clientes e administradores.",
+            "userLanguage": "pt-BR",
+            "executionRegions": "BR",
+            "userPrompt": "criar um web site para petshop",
+            "moduleGoal": "Desenvolver um website completo para petshop com funcionalidades de agendamento de serviços e loja online, direcionado para donos de pets, com tom amigável e profissional",
             "moduleName": "petshop",
             "requirements": [
-                "Site em português.",
-                "Acesso para clientes (usuários comuns) e administradores (gestão de conteúdo).",
-                "Funcionalidades principais: agendamento de banho e tosa, catálogo de produtos, página de contato.",
-                "Fluxo de agendamento: escolha de serviço, data, horário, dados do pet, confirmação por e-mail.",
-                "Catálogo de produtos com categorias e filtros.",
-                "Administradores podem gerenciar produtos, agendamentos e textos do site.",
-                "Integração com Instagram, Facebook e WhatsApp.",
-                "Site responsivo e com acessibilidade básica.",
-                "Tom de comunicação amigável e acolhedor.",
-                "Sugestão de cores e imagens para o site (logo já existente).",
-                "Público-alvo: donos de cães, gatos e outros animais de estimação."
+                "Website para petshop com público-alvo donos de pets",
+                "Dois papéis de usuário: administrador e cliente",
+                "Tom amigável e profissional",
+                "Idioma: apenas português",
+                "Funcionalidades principais: agendamento de serviços e loja online",
+                "Criação de conteúdo e imagens necessária",
+                "Design moderno e limpo como referência",
+                "Serviços oferecidos: banho, tosa, consulta veterinária e vacinação",
+                "Categorias de produtos: ração, brinquedos, acessórios e produtos de higiene",
+                "Métodos de pagamento: cartão de crédito, PIX e boleto",
+                "Fluxo de agendamento: confirmação automática com lembretes por email",
+                "Horários de funcionamento: segunda a sábado, das 8h às 18h"
             ],
             "userRequestsEnhancements": [
                 {
-                    "description": "Adicionar blog ou área de notícias.",
+                    "description": "Incluir gestão automática de estoque para os produtos",
+                    "priority": "should"
+                },
+                {
+                    "description": "Permitir criação de perfis detalhados para pets (histórico médico, preferências)",
+                    "priority": "should"
+                },
+                {
+                    "description": "Implementar programa de fidelidade ou sistema de pontos para clientes",
                     "priority": "could"
                 },
                 {
-                    "description": "Implementar sistema de fidelidade ou cupons para clientes.",
+                    "description": "Incluir opções de entrega para produtos comprados online",
                     "priority": "could"
                 },
                 {
-                    "description": "Permitir avaliações e comentários de clientes nos produtos ou serviços.",
-                    "priority": "could"
-                },
-                {
-                    "description": "Oferecer agendamento para outros serviços além de banho e tosa.",
-                    "priority": "could"
-                },
-                {
-                    "description": "Disponibilizar o site em outros idiomas.",
+                    "description": "Adicionar integração com redes sociais para compartilhamento e login",
                     "priority": "could"
                 }
             ]
@@ -941,167 +999,214 @@ function getPayload3Mock(): PayLoad3 {
         "pages": [
             {
                 "pageSequential": 0,
-                "pageName": "home",
-                "pageGoal": "Apresentar o petshop, principais serviços, destaques e facilitar navegação para agendamento, catálogo e contato.",
+                "pageName": "homePage",
+                "pageGoal": "Página inicial para apresentar o petshop, serviços e produtos de forma atrativa",
                 "pageRequirements": [
-                    "Exibir banner de boas-vindas.",
-                    "Destaque para agendamento de banho e tosa.",
-                    "Acesso rápido ao catálogo de produtos.",
-                    "Links para redes sociais.",
-                    "Apresentação do petshop."
+                    "Exibir banner principal com chamada para ação",
+                    "Listar serviços oferecidos",
+                    "Destaques de produtos",
+                    "Informações de contato e horários"
                 ]
             },
             {
                 "pageSequential": 1,
-                "pageName": "agendamento",
-                "pageGoal": "Permitir que clientes agendem banho e tosa, escolhendo serviço, data, horário e informando dados do pet.",
+                "pageName": "servicesPage",
+                "pageGoal": "Página para listar serviços e permitir agendamento",
                 "pageRequirements": [
-                    "Escolha de serviço (banho, tosa, ambos).",
-                    "Seleção de data e horário disponíveis.",
-                    "Formulário para dados do pet e do tutor.",
-                    "Confirmação do agendamento por e-mail."
+                    "Listar serviços: banho, tosa, consulta veterinária e vacinação",
+                    "Formulário de agendamento com confirmação automática",
+                    "Lembretes por email"
                 ]
             },
             {
                 "pageSequential": 2,
-                "pageName": "catalogoProdutos",
-                "pageGoal": "Exibir produtos do petshop com categorias e filtros para facilitar a busca.",
+                "pageName": "shopPage",
+                "pageGoal": "Loja online para venda de produtos",
                 "pageRequirements": [
-                    "Lista de produtos com imagens, nome, preço e categoria.",
-                    "Filtros por categoria e busca por nome.",
-                    "Possibilidade de exibir detalhes do produto."
+                    "Categorizar produtos: ração, brinquedos, acessórios e produtos de higiene",
+                    "Carrinho de compras",
+                    "Integração com métodos de pagamento: cartão, PIX, boleto"
                 ]
             },
             {
                 "pageSequential": 3,
-                "pageName": "contato",
-                "pageGoal": "Permitir que clientes entrem em contato com o petshop e acessem links para redes sociais.",
+                "pageName": "appointmentPage",
+                "pageGoal": "Página dedicada ao agendamento de serviços",
                 "pageRequirements": [
-                    "Formulário de contato.",
-                    "Exibir telefone, endereço e e-mail.",
-                    "Links para Instagram, Facebook e WhatsApp."
+                    "Formulário de agendamento",
+                    "Seleção de serviços e horários disponíveis",
+                    "Confirmação automática e lembretes"
                 ]
             },
             {
                 "pageSequential": 4,
-                "pageName": "adminPanel",
-                "pageGoal": "Permitir que administradores gerenciem produtos, agendamentos e textos do site.",
+                "pageName": "aboutPage",
+                "pageGoal": "Página sobre o petshop",
                 "pageRequirements": [
-                    "Login de administrador.",
-                    "Gestão de produtos (CRUD).",
-                    "Gestão de agendamentos (visualizar, editar, cancelar).",
-                    "Gestão de textos institucionais do site."
+                    "Informações sobre a empresa",
+                    "Horários de funcionamento",
+                    "Equipe e missão"
+                ]
+            },
+            {
+                "pageSequential": 5,
+                "pageName": "contactPage",
+                "pageGoal": "Página de contato",
+                "pageRequirements": [
+                    "Formulário de contato",
+                    "Informações de localização e telefone",
+                    "Mapa integrado"
+                ]
+            },
+            {
+                "pageSequential": 6,
+                "pageName": "adminPanel",
+                "pageGoal": "Painel administrativo para gerenciar agendamentos, produtos e clientes",
+                "pageRequirements": [
+                    "Gerenciar agendamentos",
+                    "Gerenciar produtos e estoque",
+                    "Visualizar pedidos e clientes"
+                ]
+            },
+            {
+                "pageSequential": 7,
+                "pageName": "petProfilePage",
+                "pageGoal": "Página para clientes criarem e gerenciarem perfis de pets",
+                "pageRequirements": [
+                    "Criar perfis de pets",
+                    "Histórico médico e preferências"
                 ]
             }
         ],
         "plugins": [
             {
                 "pluginSequential": 0,
-                "pluginName": "pluginWhatsapp",
+                "pluginName": "pluginstripe",
                 "pluginType": "third-party",
-                "pluginGoal": "Facilitar contato rápido via WhatsApp.",
+                "pluginGoal": "Integrar métodos de pagamento como cartão de crédito, PIX e boleto",
                 "pluginRequirements": [
-                    "Botão flutuante para abrir conversa no WhatsApp.",
-                    "Configuração do número do petshop."
+                    "Processar pagamentos online",
+                    "Suporte a PIX e boleto no Brasil"
                 ]
             },
             {
                 "pluginSequential": 1,
-                "pluginName": "pluginInstagram",
+                "pluginName": "plugingoogleanalytics",
                 "pluginType": "third-party",
-                "pluginGoal": "Exibir feed ou link para Instagram do petshop.",
+                "pluginGoal": "Rastrear uso e comportamento dos usuários no site",
                 "pluginRequirements": [
-                    "Exibir últimas postagens ou link direto para perfil."
+                    "Coletar dados de visitantes",
+                    "Análise de tráfego e conversões"
                 ]
             },
             {
                 "pluginSequential": 2,
-                "pluginName": "pluginFacebook",
-                "pluginType": "third-party",
-                "pluginGoal": "Exibir link para página do Facebook do petshop.",
-                "pluginRequirements": [
-                    "Link ou widget para página do Facebook."
-                ]
-            },
-            {
-                "pluginSequential": 3,
-                "pluginName": "pluginScrollToTop",
+                "pluginName": "pluginthemeswitcher",
                 "pluginType": "ui",
-                "pluginGoal": "Melhorar navegação em páginas longas.",
+                "pluginGoal": "Permitir alternância entre temas claro e escuro",
                 "pluginRequirements": [
-                    "Botão flutuante para rolar ao topo da página."
+                    "Botão para mudar tema",
+                    "Aplicar tokens de cor dinamicamente"
                 ]
             }
         ],
         "pagesWireframe": [
             {
                 "pageSequential": 0,
-                "pageName": "home",
+                "pageName": "homePage",
                 "pageHtml": [
                     "<body>",
                     "<header>",
                     "<organism-nav></organism-nav>",
-                    "<organism-banner-welcome></organism-banner-welcome>",
                     "</header>",
                     "<main>",
-                    "<organism-services-highlight></organism-services-highlight>",
-                    "<organism-featured-products></organism-featured-products>",
-                    "<organism-about-petshop></organism-about-petshop>",
+                    "<organism-hero-banner></organism-hero-banner>",
+                    "<organism-services-overview></organism-services-overview>",
+                    "<organism-products-highlights></organism-products-highlights>",
+                    "<organism-contact-info></organism-contact-info>",
                     "</main>",
-                    "<aside>",
-                    "<organism-social-links></organism-social-links>",
-                    "</aside>",
                     "<footer>",
-                    "<organism-footer-info></organism-footer-info>",
+                    "<organism-footer></organism-footer>",
                     "</footer>",
                     "</body>"
                 ]
             },
             {
                 "pageSequential": 1,
-                "pageName": "agendamento",
+                "pageName": "servicesPage",
                 "pageHtml": [
                     "<body>",
                     "<header>",
                     "<organism-nav></organism-nav>",
                     "</header>",
                     "<main>",
-                    "<organism-scheduling-steps></organism-scheduling-steps>",
-                    "<organism-scheduling-confirmation></organism-scheduling-confirmation>",
+                    "<organism-services-list></organism-services-list>",
+                    "<organism-appointment-form></organism-appointment-form>",
                     "</main>",
-                    "<aside>",
-                    "<organism-help-contact></organism-help-contact>",
-                    "</aside>",
                     "<footer>",
-                    "<organism-footer-info></organism-footer-info>",
+                    "<organism-footer></organism-footer>",
                     "</footer>",
                     "</body>"
                 ]
             },
             {
                 "pageSequential": 2,
-                "pageName": "catalogoProdutos",
+                "pageName": "shopPage",
                 "pageHtml": [
                     "<body>",
                     "<header>",
                     "<organism-nav></organism-nav>",
                     "</header>",
-                    "<main>",
-                    "<organism-product-filters></organism-product-filters>",
-                    "<organism-product-list></organism-product-list>",
-                    "</main>",
                     "<aside>",
-                    "<organism-category-list></organism-category-list>",
+                    "<organism-product-filters></organism-product-filters>",
                     "</aside>",
+                    "<main>",
+                    "<organism-product-grid></organism-product-grid>",
+                    "<organism-shopping-cart></organism-shopping-cart>",
+                    "</main>",
                     "<footer>",
-                    "<organism-footer-info></organism-footer-info>",
+                    "<organism-footer></organism-footer>",
                     "</footer>",
                     "</body>"
                 ]
             },
             {
                 "pageSequential": 3,
-                "pageName": "contato",
+                "pageName": "appointmentPage",
+                "pageHtml": [
+                    "<body>",
+                    "<header>",
+                    "<organism-nav></organism-nav>",
+                    "</header>",
+                    "<main>",
+                    "<organism-appointment-form></organism-appointment-form>",
+                    "</main>",
+                    "<footer>",
+                    "<organism-footer></organism-footer>",
+                    "</footer>",
+                    "</body>"
+                ]
+            },
+            {
+                "pageSequential": 4,
+                "pageName": "aboutPage",
+                "pageHtml": [
+                    "<body>",
+                    "<header>",
+                    "<organism-nav></organism-nav>",
+                    "</header>",
+                    "<main>",
+                    "<organism-about-content></organism-about-content>",
+                    "</main>",
+                    "<footer>",
+                    "<organism-footer></organism-footer>",
+                    "</footer>",
+                    "</body>"
+                ]
+            },
+            {
+                "pageSequential": 5,
+                "pageName": "contactPage",
                 "pageHtml": [
                     "<body>",
                     "<header>",
@@ -1109,32 +1214,50 @@ function getPayload3Mock(): PayLoad3 {
                     "</header>",
                     "<main>",
                     "<organism-contact-form></organism-contact-form>",
-                    "<organism-contact-info></organism-contact-info>",
+                    "<organism-map></organism-map>",
                     "</main>",
-                    "<aside>",
-                    "<organism-social-links></organism-social-links>",
-                    "</aside>",
                     "<footer>",
-                    "<organism-footer-info></organism-footer-info>",
+                    "<organism-footer></organism-footer>",
                     "</footer>",
                     "</body>"
                 ]
             },
             {
-                "pageSequential": 4,
+                "pageSequential": 6,
                 "pageName": "adminPanel",
                 "pageHtml": [
                     "<body>",
                     "<header>",
                     "<organism-admin-nav></organism-admin-nav>",
                     "</header>",
+                    "<aside>",
+                    "<organism-admin-sidebar></organism-admin-sidebar>",
+                    "</aside>",
                     "<main>",
-                    "<organism-admin-products></organism-admin-products>",
-                    "<organism-admin-schedules></organism-admin-schedules>",
-                    "<organism-admin-texts></organism-admin-texts>",
+                    "<organism-appointments-management></organism-appointments-management>",
+                    "<organism-products-management></organism-products-management>",
+                    "<organism-orders-management></organism-orders-management>",
                     "</main>",
                     "<footer>",
-                    "<organism-footer-info></organism-footer-info>",
+                    "<organism-footer></organism-footer>",
+                    "</footer>",
+                    "</body>"
+                ]
+            },
+            {
+                "pageSequential": 7,
+                "pageName": "petProfilePage",
+                "pageHtml": [
+                    "<body>",
+                    "<header>",
+                    "<organism-nav></organism-nav>",
+                    "</header>",
+                    "<main>",
+                    "<organism-pet-profiles-list></organism-pet-profiles-list>",
+                    "<organism-pet-profile-form></organism-pet-profile-form>",
+                    "</main>",
+                    "<footer>",
+                    "<organism-footer></organism-footer>",
                     "</footer>",
                     "</body>"
                 ]
@@ -1145,66 +1268,82 @@ function getPayload3Mock(): PayLoad3 {
                 "organismSequential": 0,
                 "organismTag": "organism-nav",
                 "planning": {
-                    "context": "Navegação principal do site, visível em todas as páginas.",
-                    "goal": "Exibir menu de navegação com links para as principais páginas do site.",
+                    "context": "Navegação principal do site, presente em todas as páginas públicas, para facilitar o acesso a seções principais.",
+                    "goal": "Exibir menu de navegação com links para páginas principais como Início, Serviços, Loja, Sobre e Contato.",
                     "userStories": [
                         {
-                            "story": "Como visitante, quero acessar facilmente as principais áreas do site.",
+                            "story": "Como usuário, quero navegar facilmente entre as seções do site para encontrar informações rapidamente.",
                             "derivedRequirements": [
                                 {
-                                    "description": "Menu com links para Home, Agendamento, Catálogo, Contato."
+                                    "description": "Incluir links para homePage, servicesPage, shopPage, aboutPage e contactPage",
+                                    "comment": "Links devem ser responsivos e acessíveis"
+                                },
+                                {
+                                    "description": "Adicionar botão de login/cadastro para clientes",
+                                    "comment": "Integração com autenticação"
                                 }
                             ]
                         },
                         {
-                            "story": "Como usuário mobile, quero um menu adaptado para telas pequenas.",
+                            "story": "Como administrador, quero acessar o painel admin diretamente da navegação.",
                             "derivedRequirements": [
                                 {
-                                    "description": "Menu responsivo com botão de abrir/fechar."
+                                    "description": "Link condicional para adminPanel se logado como admin",
+                                    "comment": "Verificação de papel de usuário"
                                 }
                             ]
                         }
                     ],
                     "constraints": [
-                        "Deve ser responsivo.",
-                        "Deve ter contraste adequado."
+                        "Deve ser responsivo para mobile e desktop",
+                        "Usar tokens de cor para temas claro e escuro"
                     ]
                 }
             },
             {
                 "organismSequential": 1,
-                "organismTag": "organism-banner-welcome",
+                "organismTag": "organism-hero-banner",
                 "planning": {
-                    "context": "Banner de destaque na home.",
-                    "goal": "Dar boas-vindas ao visitante e destacar o propósito do petshop.",
+                    "context": "Banner principal na página inicial para capturar atenção e direcionar ações.",
+                    "goal": "Exibir imagem ou vídeo atrativo com título, subtítulo e botão de chamada para ação, como agendar serviço ou ver produtos.",
                     "userStories": [
                         {
-                            "story": "Como visitante, quero sentir confiança e acolhimento ao acessar o site.",
+                            "story": "Como visitante, quero ver um banner atrativo que me incentive a explorar os serviços do petshop.",
                             "derivedRequirements": [
                                 {
-                                    "description": "Mensagem de boas-vindas e imagem ilustrativa."
+                                    "description": "Incluir imagem de pets felizes",
+                                    "comment": "Tom amigável e profissional"
+                                },
+                                {
+                                    "description": "Botão para redirecionar a servicesPage ou appointmentPage",
+                                    "comment": "Chamada para ação clara"
                                 }
                             ]
                         }
                     ],
                     "constraints": [
-                        "Imagem otimizada para web.",
-                        "Texto acessível para leitores de tela."
+                        "Deve carregar rapidamente",
+                        "Responsivo"
                     ]
                 }
             },
             {
                 "organismSequential": 2,
-                "organismTag": "organism-services-highlight",
+                "organismTag": "organism-services-overview",
                 "planning": {
-                    "context": "Destaque dos principais serviços na home.",
-                    "goal": "Apresentar rapidamente os serviços de banho e tosa, incentivando o agendamento.",
+                    "context": "Visão geral dos serviços na homePage para informar rapidamente.",
+                    "goal": "Listar serviços oferecidos com ícones e breves descrições.",
                     "userStories": [
                         {
-                            "story": "Como dono de pet, quero saber rapidamente quais serviços o petshop oferece.",
+                            "story": "Como dono de pet, quero ver os serviços disponíveis para decidir qual agendar.",
                             "derivedRequirements": [
                                 {
-                                    "description": "Cards ou blocos com descrição dos serviços."
+                                    "description": "Exibir banho, tosa, consulta veterinária e vacinação",
+                                    "comment": "Baseado em servicesOffered"
+                                },
+                                {
+                                    "description": "Links para servicesPage para mais detalhes",
+                                    "comment": "Navegação fluida"
                                 }
                             ]
                         }
@@ -1213,16 +1352,17 @@ function getPayload3Mock(): PayLoad3 {
             },
             {
                 "organismSequential": 3,
-                "organismTag": "organism-featured-products",
+                "organismTag": "organism-products-highlights",
                 "planning": {
-                    "context": "Exibição de produtos em destaque na home.",
-                    "goal": "Mostrar produtos populares ou em promoção.",
+                    "context": "Destaques de produtos na homePage para promover vendas.",
+                    "goal": "Mostrar produtos em destaque das categorias ração, brinquedos, acessórios e higiene.",
                     "userStories": [
                         {
-                            "story": "Como cliente, quero ver sugestões de produtos logo na página inicial.",
+                            "story": "Como cliente, quero ver produtos recomendados para comprar online.",
                             "derivedRequirements": [
                                 {
-                                    "description": "Lista de produtos destacados com imagem, nome e preço."
+                                    "description": "Grid de produtos com imagens e preços",
+                                    "comment": "Integração com shopPage"
                                 }
                             ]
                         }
@@ -1231,16 +1371,17 @@ function getPayload3Mock(): PayLoad3 {
             },
             {
                 "organismSequential": 4,
-                "organismTag": "organism-about-petshop",
+                "organismTag": "organism-contact-info",
                 "planning": {
-                    "context": "Sessão institucional na home.",
-                    "goal": "Apresentar a história e valores do petshop.",
+                    "context": "Informações de contato na homePage.",
+                    "goal": "Exibir horários, telefone e endereço.",
                     "userStories": [
                         {
-                            "story": "Como visitante, quero conhecer mais sobre o petshop.",
+                            "story": "Como usuário, quero ver horários de funcionamento para planejar visita.",
                             "derivedRequirements": [
                                 {
-                                    "description": "Texto institucional editável pelo admin."
+                                    "description": "Mostrar segunda a sábado, 8h-18h",
+                                    "comment": "Baseado em businessHours"
                                 }
                             ]
                         }
@@ -1249,16 +1390,17 @@ function getPayload3Mock(): PayLoad3 {
             },
             {
                 "organismSequential": 5,
-                "organismTag": "organism-social-links",
+                "organismTag": "organism-footer",
                 "planning": {
-                    "context": "Links para redes sociais em home, contato e aside.",
-                    "goal": "Facilitar acesso às redes sociais do petshop.",
+                    "context": "Rodapé comum a todas as páginas.",
+                    "goal": "Exibir links de navegação, redes sociais e copyright.",
                     "userStories": [
                         {
-                            "story": "Como cliente, quero acessar rapidamente as redes sociais do petshop.",
+                            "story": "Como usuário, quero acessar links rápidos no rodapé.",
                             "derivedRequirements": [
                                 {
-                                    "description": "Ícones para Instagram, Facebook e WhatsApp."
+                                    "description": "Incluir links para políticas de privacidade e termos",
+                                    "comment": "Conformidade legal"
                                 }
                             ]
                         }
@@ -1267,16 +1409,17 @@ function getPayload3Mock(): PayLoad3 {
             },
             {
                 "organismSequential": 6,
-                "organismTag": "organism-footer-info",
+                "organismTag": "organism-services-list",
                 "planning": {
-                    "context": "Rodapé do site.",
-                    "goal": "Exibir informações institucionais, direitos autorais e links úteis.",
+                    "context": "Lista de serviços na servicesPage.",
+                    "goal": "Exibir detalhes dos serviços com opção de agendamento.",
                     "userStories": [
                         {
-                            "story": "Como visitante, quero encontrar informações de contato e políticas no rodapé.",
+                            "story": "Como cliente, quero ver descrições e preços dos serviços para escolher.",
                             "derivedRequirements": [
                                 {
-                                    "description": "Endereço, telefone, e-mail e links institucionais."
+                                    "description": "Listar serviços com botões de agendamento",
+                                    "comment": "Link para appointmentPage"
                                 }
                             ]
                         }
@@ -1285,16 +1428,21 @@ function getPayload3Mock(): PayLoad3 {
             },
             {
                 "organismSequential": 7,
-                "organismTag": "organism-scheduling-steps",
+                "organismTag": "organism-appointment-form",
                 "planning": {
-                    "context": "Fluxo de agendamento de banho e tosa.",
-                    "goal": "Permitir ao cliente escolher serviço, data, horário e informar dados do pet.",
+                    "context": "Formulário de agendamento em servicesPage e appointmentPage.",
+                    "goal": "Permitir seleção de serviço, data, horário e confirmação.",
                     "userStories": [
                         {
-                            "story": "Como cliente, quero agendar banho e tosa de forma simples e rápida.",
+                            "story": "Como cliente, quero agendar um serviço facilmente com confirmação automática.",
                             "derivedRequirements": [
                                 {
-                                    "description": "Formulário multi-etapas: serviço, data/horário, dados do pet/tutor."
+                                    "description": "Campos para nome, pet, serviço, data/hora",
+                                    "comment": "Validação de horários disponíveis"
+                                },
+                                {
+                                    "description": "Enviar lembrete por email",
+                                    "comment": "Baseado em appointmentFlow"
                                 }
                             ]
                         }
@@ -1303,16 +1451,17 @@ function getPayload3Mock(): PayLoad3 {
             },
             {
                 "organismSequential": 8,
-                "organismTag": "organism-scheduling-confirmation",
+                "organismTag": "organism-product-filters",
                 "planning": {
-                    "context": "Confirmação do agendamento.",
-                    "goal": "Exibir resumo e confirmação do agendamento, com envio de e-mail.",
+                    "context": "Filtros na shopPage.",
+                    "goal": "Permitir filtrar produtos por categoria.",
                     "userStories": [
                         {
-                            "story": "Como cliente, quero receber confirmação do meu agendamento.",
+                            "story": "Como comprador, quero filtrar produtos para encontrar o que preciso.",
                             "derivedRequirements": [
                                 {
-                                    "description": "Resumo do agendamento e disparo de e-mail de confirmação."
+                                    "description": "Filtros por ração, brinquedos, acessórios, higiene",
+                                    "comment": "Baseado em productsCategories"
                                 }
                             ]
                         }
@@ -1321,16 +1470,17 @@ function getPayload3Mock(): PayLoad3 {
             },
             {
                 "organismSequential": 9,
-                "organismTag": "organism-help-contact",
+                "organismTag": "organism-product-grid",
                 "planning": {
-                    "context": "Ajuda e contato rápido durante o agendamento.",
-                    "goal": "Oferecer informações de contato e suporte durante o agendamento.",
+                    "context": "Grid de produtos na shopPage.",
+                    "goal": "Exibir produtos em grid com imagens, nomes e preços.",
                     "userStories": [
                         {
-                            "story": "Como cliente, quero tirar dúvidas durante o agendamento.",
+                            "story": "Como cliente, quero navegar produtos e adicionar ao carrinho.",
                             "derivedRequirements": [
                                 {
-                                    "description": "Exibir telefone, WhatsApp e horário de atendimento."
+                                    "description": "Botões de adicionar ao carrinho",
+                                    "comment": "Integração com shopping-cart"
                                 }
                             ]
                         }
@@ -1339,16 +1489,17 @@ function getPayload3Mock(): PayLoad3 {
             },
             {
                 "organismSequential": 10,
-                "organismTag": "organism-product-filters",
+                "organismTag": "organism-shopping-cart",
                 "planning": {
-                    "context": "Filtros e busca no catálogo de produtos.",
-                    "goal": "Permitir filtrar produtos por categoria e buscar por nome.",
+                    "context": "Carrinho de compras na shopPage.",
+                    "goal": "Mostrar itens selecionados, total e checkout.",
                     "userStories": [
                         {
-                            "story": "Como cliente, quero filtrar produtos por categoria.",
+                            "story": "Como comprador, quero revisar meu carrinho e finalizar compra.",
                             "derivedRequirements": [
                                 {
-                                    "description": "Filtro por categoria e campo de busca."
+                                    "description": "Integração com pluginStripe para pagamento",
+                                    "comment": "Suporte a cartão, PIX, boleto"
                                 }
                             ]
                         }
@@ -1357,16 +1508,17 @@ function getPayload3Mock(): PayLoad3 {
             },
             {
                 "organismSequential": 11,
-                "organismTag": "organism-product-list",
+                "organismTag": "organism-about-content",
                 "planning": {
-                    "context": "Listagem dos produtos do petshop.",
-                    "goal": "Exibir produtos com imagem, nome, preço e categoria.",
+                    "context": "Conteúdo na aboutPage.",
+                    "goal": "Exibir história, missão e equipe do petshop.",
                     "userStories": [
                         {
-                            "story": "Como cliente, quero ver todos os produtos disponíveis.",
+                            "story": "Como visitante, quero conhecer mais sobre o petshop.",
                             "derivedRequirements": [
                                 {
-                                    "description": "Grid/lista de produtos com detalhes básicos."
+                                    "description": "Texto e imagens sobre a empresa",
+                                    "comment": "Tom profissional"
                                 }
                             ]
                         }
@@ -1375,16 +1527,17 @@ function getPayload3Mock(): PayLoad3 {
             },
             {
                 "organismSequential": 12,
-                "organismTag": "organism-category-list",
+                "organismTag": "organism-contact-form",
                 "planning": {
-                    "context": "Lista de categorias no catálogo.",
-                    "goal": "Exibir categorias para navegação rápida.",
+                    "context": "Formulário de contato na contactPage.",
+                    "goal": "Permitir envio de mensagens.",
                     "userStories": [
                         {
-                            "story": "Como cliente, quero navegar por categorias de produtos.",
+                            "story": "Como usuário, quero entrar em contato com dúvidas.",
                             "derivedRequirements": [
                                 {
-                                    "description": "Lista clicável de categorias."
+                                    "description": "Campos para nome, email, mensagem",
+                                    "comment": "Envio por email"
                                 }
                             ]
                         }
@@ -1393,16 +1546,17 @@ function getPayload3Mock(): PayLoad3 {
             },
             {
                 "organismSequential": 13,
-                "organismTag": "organism-contact-form",
+                "organismTag": "organism-map",
                 "planning": {
-                    "context": "Formulário de contato na página de contato.",
-                    "goal": "Permitir que clientes enviem mensagens ao petshop.",
+                    "context": "Mapa na contactPage.",
+                    "goal": "Mostrar localização do petshop.",
                     "userStories": [
                         {
-                            "story": "Como cliente, quero enviar dúvidas ou solicitações pelo site.",
+                            "story": "Como cliente, quero ver onde fica o petshop.",
                             "derivedRequirements": [
                                 {
-                                    "description": "Formulário com campos de nome, e-mail, mensagem."
+                                    "description": "Integração com Google Maps",
+                                    "comment": "Exibir endereço"
                                 }
                             ]
                         }
@@ -1411,16 +1565,17 @@ function getPayload3Mock(): PayLoad3 {
             },
             {
                 "organismSequential": 14,
-                "organismTag": "organism-contact-info",
+                "organismTag": "organism-admin-nav",
                 "planning": {
-                    "context": "Informações de contato na página de contato.",
-                    "goal": "Exibir telefone, endereço e e-mail do petshop.",
+                    "context": "Navegação específica para admin.",
+                    "goal": "Menu para painel admin.",
                     "userStories": [
                         {
-                            "story": "Como cliente, quero encontrar facilmente as informações de contato.",
+                            "story": "Como administrador, quero navegar no painel facilmente.",
                             "derivedRequirements": [
                                 {
-                                    "description": "Exibir dados de contato em destaque."
+                                    "description": "Links para seções de gerenciamento",
+                                    "comment": "Acesso restrito"
                                 }
                             ]
                         }
@@ -1429,16 +1584,17 @@ function getPayload3Mock(): PayLoad3 {
             },
             {
                 "organismSequential": 15,
-                "organismTag": "organism-admin-nav",
+                "organismTag": "organism-admin-sidebar",
                 "planning": {
-                    "context": "Navegação do painel administrativo.",
-                    "goal": "Permitir que administradores naveguem entre as áreas de gestão.",
+                    "context": "Sidebar no adminPanel.",
+                    "goal": "Menu lateral para navegação admin.",
                     "userStories": [
                         {
-                            "story": "Como administrador, quero acessar rapidamente as áreas de produtos, agendamentos e textos.",
+                            "story": "Como admin, quero acessar rapidamente agendamentos e produtos.",
                             "derivedRequirements": [
                                 {
-                                    "description": "Menu lateral ou superior com links para cada área."
+                                    "description": "Links para appointments-management, etc.",
+                                    "comment": "Organização clara"
                                 }
                             ]
                         }
@@ -1447,16 +1603,17 @@ function getPayload3Mock(): PayLoad3 {
             },
             {
                 "organismSequential": 16,
-                "organismTag": "organism-admin-products",
+                "organismTag": "organism-appointments-management",
                 "planning": {
-                    "context": "Gestão de produtos no painel admin.",
-                    "goal": "Permitir CRUD de produtos.",
+                    "context": "Gerenciamento de agendamentos no admin.",
+                    "goal": "Listar e editar agendamentos.",
                     "userStories": [
                         {
-                            "story": "Como administrador, quero adicionar, editar e remover produtos.",
+                            "story": "Como admin, quero visualizar e confirmar agendamentos.",
                             "derivedRequirements": [
                                 {
-                                    "description": "Formulário de cadastro e edição, lista de produtos."
+                                    "description": "Tabela de agendamentos com ações",
+                                    "comment": "Baseado em appointmentFlow"
                                 }
                             ]
                         }
@@ -1465,16 +1622,17 @@ function getPayload3Mock(): PayLoad3 {
             },
             {
                 "organismSequential": 17,
-                "organismTag": "organism-admin-schedules",
+                "organismTag": "organism-products-management",
                 "planning": {
-                    "context": "Gestão de agendamentos no painel admin.",
-                    "goal": "Visualizar, editar e cancelar agendamentos.",
+                    "context": "Gerenciamento de produtos no admin.",
+                    "goal": "Adicionar, editar produtos e estoque.",
                     "userStories": [
                         {
-                            "story": "Como administrador, quero ver todos os agendamentos e gerenciá-los.",
+                            "story": "Como admin, quero gerenciar inventário.",
                             "derivedRequirements": [
                                 {
-                                    "description": "Tabela de agendamentos com ações de editar/cancelar."
+                                    "description": "Formulários para CRUD de produtos",
+                                    "comment": "Integração com inventoryManagement (should)"
                                 }
                             ]
                         }
@@ -1483,16 +1641,55 @@ function getPayload3Mock(): PayLoad3 {
             },
             {
                 "organismSequential": 18,
-                "organismTag": "organism-admin-texts",
+                "organismTag": "organism-orders-management",
                 "planning": {
-                    "context": "Gestão de textos institucionais no painel admin.",
-                    "goal": "Permitir editar textos do site.",
+                    "context": "Gerenciamento de pedidos no admin.",
+                    "goal": "Visualizar pedidos e status.",
                     "userStories": [
                         {
-                            "story": "Como administrador, quero atualizar textos institucionais facilmente.",
+                            "story": "Como admin, quero acompanhar vendas.",
                             "derivedRequirements": [
                                 {
-                                    "description": "Editor de texto para áreas institucionais do site."
+                                    "description": "Lista de pedidos com detalhes",
+                                    "comment": "Integração com pagamentos"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            },
+            {
+                "organismSequential": 19,
+                "organismTag": "organism-pet-profiles-list",
+                "planning": {
+                    "context": "Lista de perfis de pets.",
+                    "goal": "Mostrar perfis criados pelo cliente.",
+                    "userStories": [
+                        {
+                            "story": "Como dono de pet, quero gerenciar perfis dos meus pets.",
+                            "derivedRequirements": [
+                                {
+                                    "description": "Listar pets com opções de editar",
+                                    "comment": "Baseado em petProfiles (should)"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            },
+            {
+                "organismSequential": 20,
+                "organismTag": "organism-pet-profile-form",
+                "planning": {
+                    "context": "Formulário para criar/editar perfil de pet.",
+                    "goal": "Campos para nome, raça, histórico médico, preferências.",
+                    "userStories": [
+                        {
+                            "story": "Como cliente, quero adicionar detalhes do meu pet para personalizar serviços.",
+                            "derivedRequirements": [
+                                {
+                                    "description": "Campos obrigatórios e opcionais",
+                                    "comment": "Armazenamento seguro"
                                 }
                             ]
                         }
@@ -1500,6 +1697,22 @@ function getPayload3Mock(): PayLoad3 {
                 }
             }
         ],
+        "visualIdentity": {
+            "logoDescription": "A simple, friendly SVG logo featuring a paw print inside a circle, with clean lines and a modern style, using primary and secondary colors for a professional yet approachable look.",
+            "fontFamily": "Roboto for body text and Montserrat for headings",
+            "iconStyle": "outline",
+            "illustrationStyle": "flat illustrations with soft colors depicting pets and pet care items",
+            "colorPalette": {
+                "primary": "#007BFF",
+                "secondary": "#28A745",
+                "text": "#333333",
+                "background": "#FFFFFF",
+                "border": "#E0E0E0",
+                "error": "#DC3545",
+                "warning": "#FFC107",
+                "success": "#28A745"
+            }
+        },
     }
     return data;
 }
@@ -1508,7 +1721,7 @@ function getPayload3Mock(): PayLoad3 {
 export interface PayLoad4 {
     pageHtml: string,
     organismToImplement: string[],
-    images: Images[]
+    images: Images[],
 }
 
 interface Images {
