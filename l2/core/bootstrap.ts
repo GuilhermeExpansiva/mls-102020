@@ -1,3 +1,4 @@
+/// <mls fileReference="_102020_/l2/core/bootstrap.ts" enhancement="_blank" />
 export interface CollabNavigationItem {
   label: string;
   href: string;

@@ -1,3 +1,4 @@
+/// <mls fileReference="_102020_/l2/shared/layout/aura-contents.ts" enhancement="_blank" />
 import { LitElement, html } from '/_102020_/l2/shared/lit.js';
 
 export class AuraContents extends LitElement {

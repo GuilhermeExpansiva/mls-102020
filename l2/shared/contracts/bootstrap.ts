@@ -1,3 +1,4 @@
+/// <mls fileReference="_102020_/l2/shared/contracts/bootstrap.ts" enhancement="_blank" />
 export type AuraShellMode = 'spa' | 'pwa';
 
 export type AuraDeviceKind = 'desktop' | 'mobile';

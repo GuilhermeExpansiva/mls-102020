@@ -1,3 +1,4 @@
+/// <mls fileReference="_102020_/l2/shared/lit-remote.d.ts" enhancement="_blank" />
 declare module 'https://esm.sh/lit@3' {
   export class LitElement extends HTMLElement {
     static styles?: unknown;

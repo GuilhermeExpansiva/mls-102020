@@ -1,3 +1,4 @@
+/// <mls fileReference="_102020_/l2/shared/layout/aura-shell-events.ts" enhancement="_blank" />
 export const AURA_TOGGLE_ASIDE_EVENT = 'collab-aura:toggle-aside';
 export const AURA_OPEN_ASIDE_EVENT = 'collab-aura:open-aside';
 export const AURA_CLOSE_ASIDE_EVENT = 'collab-aura:close-aside';

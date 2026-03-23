@@ -1,3 +1,4 @@
+/// <mls fileReference="_102020_/l2/shared/layout/aura-aside.ts" enhancement="_blank" />
 import { LitElement, html } from '/_102020_/l2/shared/lit.js';
 import type { AuraBootConfig } from '/_102020_/l2/shared/contracts/bootstrap.js';
 import { closeAuraAside } from '/_102020_/l2/shared/layout/aura-shell-events.js';

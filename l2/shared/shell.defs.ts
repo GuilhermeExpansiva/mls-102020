@@ -1,3 +1,4 @@
+/// <mls fileReference="_102020_/l2/shared/shell.defs.ts" enhancement="_blank" />
 export const skill = {
   componentId: 'collab-aura-shell',
   purpose: 'Render the frontend shell, expose header/aside/content regions, and mount module-owned region renderers.',

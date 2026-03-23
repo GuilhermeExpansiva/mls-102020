@@ -1,3 +1,4 @@
+/// <mls fileReference="_102020_/l2/shared/bootstrap.ts" enhancement="_blank" />
 import '/_102020_/l2/shared/shell.js';
 
 function ensureShellRoot() {

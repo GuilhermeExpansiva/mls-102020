@@ -1,3 +1,4 @@
+/// <mls fileReference="_102020_/l2/shared/shell.ts" enhancement="_blank" />
 import type { AuraAsideMode, AuraBootConfig, AuraDeviceKind } from '/_102020_/l2/shared/contracts/bootstrap.js';
 import '/_102020_/l2/shared/layout/aura-aside.js';
 import '/_102020_/l2/shared/layout/aura-header.js';
