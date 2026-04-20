@@ -18,21 +18,21 @@ export const skills = [
     {
         name: 'groupEnterText',
         description: 'Allows the user to input free-form text. Ideal for names, descriptions, comments, emails, passwords, and any textual data. Implementations include input, textarea, password input, masked input, input OTP, search input, and tag input.',
-        skillReference: '/_102020_/l2/skills/molecules/groupEnterText',
-        skillUsageReference: ''
+        skillReference: '/_102020_/l2/skills/molecules/groupEnterText/creation',
+        skillUsageReference: '/_102020_/l2/skills/molecules/groupEnterText/usage'
     },
 
     {
         name: 'groupEnterNumber',
         description: 'Allows the user to input numeric values. Ideal for quantities, measurements, percentages, ages, weights, and numeric configurations. Implementations include number input, stepper, slider, percentage input, and quantity selector.',
-        skillReference: '/_102020_/l2/skills/molecules/groupEnterNumber',
-        skillUsageReference: ''
+        skillReference: '/_102020_/l2/skills/molecules/groupEnterNumber/creation',
+        skillUsageReference: '/_102020_/l2/skills/molecules/groupEnterNumber/usage',
     },
     {
         name: 'groupEnterMoney',
         description: 'Allows the user to input monetary values with locale-aware formatting. Ideal for prices, payments, budgets, and financial transactions. Handles currency symbols, thousand separators, and decimal precision. Implementations include currency input, price field, money input, and currency converter.',
-        skillReference: '/_102020_/l2/skills/molecules/groupEnterMoney',
-        skillUsageReference: ''
+        skillReference: '/_102020_/l2/skills/molecules/groupEnterMoney/creation',
+        skillUsageReference: '/_102020_/l2/skills/molecules/groupEnterMoney/usage',
     },
     {
         name: 'groupEnterDatetime',

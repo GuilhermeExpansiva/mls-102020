@@ -17,18 +17,8 @@ export const skill = `
 
 ## 2. Tag Name — CRITICAL RULE
 
-**The component tag name MUST be copied verbatim from the \`@customElement(...)\` decorator in the \`.ts\` file.**
-
-\`\`\`typescript
-// In the .ts file:
-@customElement('molecules--group-enter-datetime--datetime-popup-picker-102020')
-\`\`\`
-
-\`\`\`html
-<!-- In the playground — use EXACTLY the same string, opening AND closing tag: -->
-<molecules--group-enter-datetime--datetime-popup-picker-102020 ...>
-</molecules--group-enter-datetime--datetime-popup-picker-102020>
-\`\`\`
+**Extract the component tag name MUST be copied verbatim from the \`@customElement(...)\` decorator in the \`.ts\` file.**
+Use same tag in playground example
 
 ### Rules
 
@@ -53,6 +43,31 @@ The naming convention formula (\`kebab-case(folder)--kebab-case(component)-(proj
 | \`@propertyCompositeDataSource\` | ✓ SIM | \`{{playground.demo.prop}}\` |
 | \`@property\` | ✗ NÃO | Valor direto |
 | \`@state\` | ✗ NÃO | Não aparece |
+
+## Attribute Names in HTML (non-string properties)
+
+Properties decorated with \`@propertyDataSource\` that have type \`Boolean\`, \`Number\`, or \`Object\` and a camelCase name **must use the kebab-case \`attribute\` name in HTML**, not the TypeScript property name.
+
+Always check the decorator in the \`.ts\` file to find the correct attribute name:
+
+\`\`\`typescript
+// Declared in the .ts
+@propertyDataSource({ type: Boolean, attribute: 'is-editing' })
+isEditing: boolean = false;
+
+@propertyDataSource({ type: Number, attribute: 'max-length' })
+maxLength: number | null = null;
+\`\`\`
+
+\`\`\`html
+<!-- ❌ WRONG — TypeScript property name used as HTML attribute -->
+<molecules--my-component-102020 isEditing="true" maxLength="100">
+
+<!-- ✅ CORRECT — kebab-case attribute name from the decorator -->
+<molecules--my-component-102020 is-editing="true" max-length="100">
+\`\`\`
+
+This applies to all HTML in the playground: \`<demo>\` element and \`<template>\` block.
 
 ---
 
@@ -117,6 +132,8 @@ O \`widget-playground-state-102020\` DEVE vir ANTES de qualquer demo no HTML.
 
 ---
 
+
+
 ## 6. Styling (Tailwind)
 
 | Elemento | Classes |
@@ -164,7 +181,7 @@ O \`widget-playground-state-102020\` DEVE vir ANTES de qualquer demo no HTML.
           value="{{playground.basic.value}}"
           error="{{playground.basic.error}}"
           disabled="false"
-          isEditing="true">
+          is-editing="true">
           <Label>Field</Label>
         </molecules--component-102020>
       </demo>
@@ -184,7 +201,7 @@ O \`widget-playground-state-102020\` DEVE vir ANTES de qualquer demo no HTML.
   value="{{playground.basic.value}}"
   error="{{playground.basic.error}}"
   disabled="false"
-  isEditing="true">
+  is-editing="true">
   <Label>Field</Label>
 </molecules--component-102020>
             </template>

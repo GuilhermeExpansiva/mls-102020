@@ -3,6 +3,7 @@
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import { skill } from '/_102020_/l2/skills/molecules/playgroundGenerator.js';
 import { skills as skillList } from '/_102020_/l2/skills/molecules/index';
+import { convertFileNameToTag } from '/_102027_/l2/utils'
 
 export function createAgent(): IAgentAsync {
     return {
@@ -33,6 +34,7 @@ async function beforePromptImplicit(
     if (!files.ts) throw new Error(`(${agent.agentName})[beforePromptStep] invalid file`);
     const source = await getSource(files.ts);
     const usageSkill = await getUsageByGroupSkill(data.group);
+    const tagName = convertFileNameToTag(path);
 
     const addMessageAI: mls.msg.AgentIntentAddMessageAI = {
         type: "add-message-ai",
@@ -42,6 +44,7 @@ async function beforePromptImplicit(
             inputAI: [{
                 type: "system",
                 content: system1
+                    .replace("{{ tagName }}", tagName)
                     .replace("{{ skill }}", skill)
                     .replace("{{ usageSkill }}", usageSkill)
             }, {
@@ -72,11 +75,16 @@ async function beforePromptStep(
     console.info({ data });
 
     const path = mls.stor.getPathToFile(data.fileReference);
+    const tagName = convertFileNameToTag(path);
 
     const files = await mls.stor.getFiles({ ...path, loadContent: false });
     if (!files.ts) throw new Error(`(${agent.agentName})[beforePromptStep] invalid file`);
     const source = await getSource(files.ts);
     const usageSkill = await getUsageByGroupSkill(data.group);
+
+    console.info({
+        tagNamePlaygrond: tagName
+    })
 
     const continueIntent: mls.msg.AgentIntentPromptReady = {
         type: "prompt_ready",
@@ -88,6 +96,7 @@ async function beforePromptStep(
         parentStepId: parentStep.stepId,
         humanPrompt: `#Molecule Source \n\n \`\`\`typescript \n ${source} \n\`\`\``,
         systemPrompt: system1
+            .replace("{{ tagName }}", tagName)
             .replace("{{ skill }}", skill)
             .replace("{{ usageSkill }}", usageSkill)
     }
@@ -170,7 +179,7 @@ async function getUsageByGroupSkill(group: string) {
 }
 
 const system1 = `
-<!-- modelType: code-->
+<!-- modelType: code -->
 <!-- modelTypeList: geminiChat (2.5 pro), code (grok), deepseekchat, codeflash (gemini), deepseekreasoner, mini (4.1) ou nano (openai), codeinstruct (4.1), codereasoning(gpt5), code2 (kimi 2.5) -->
 
 Task: Analyze the provided TypeScript code and produce usage examples for the component according to the following criteria:
@@ -183,6 +192,9 @@ Task: Analyze the provided TypeScript code and produce usage examples for the co
 # The examples must:
 -Be realistic and ready to use
 -Follow best practices
+
+## Molecule tagName
+{{ tagName }}
 
 ##Playground Definition
 {{ skill }}

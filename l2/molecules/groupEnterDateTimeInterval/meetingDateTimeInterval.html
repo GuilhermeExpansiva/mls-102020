@@ -1,0 +1,363 @@
+<div class="mx-auto p-8 font-sans">
+<header class="text-center mb-12">
+<h1 class="text-3xl font-semibold text-slate-800 mb-2">Meeting DateTime Interval Picker</h1>
+<span class="inline-block px-3 py-1 bg-sky-100 text-sky-700 rounded-full text-sm font-medium">enter + datetime-interval</span>
+</header>
+<widget-playground-state-102020 state='{"playground":{"basic":{"startDatetime":"2026-04-20T09:00:00","endDatetime":"2026-04-20T10:00:00","error":"","name":"meetingPeriod","locale":"en-US","timezone":"","minDatetime":"","maxDatetime":"","minDurationMinutes":0,"maxDurationMinutes":0,"minuteStep":15,"allowSameInstant":false,"isEditing":true,"disabled":false,"readonly":false,"required":false,"loading":false},"disabled":{"startDatetime":"2026-04-20T09:00:00","endDatetime":"2026-04-20T10:00:00","error":"","name":"meetingPeriod","locale":"en-US","timezone":"","minDatetime":"","maxDatetime":"","minDurationMinutes":0,"maxDurationMinutes":0,"minuteStep":15,"allowSameInstant":false,"isEditing":true,"disabled":true,"readonly":false,"required":false,"loading":false},"loading":{"startDatetime":"2026-04-20T09:00:00","endDatetime":"2026-04-20T10:00:00","error":"","name":"meetingPeriod","locale":"en-US","timezone":"","minDatetime":"","maxDatetime":"","minDurationMinutes":0,"maxDurationMinutes":0,"minuteStep":15,"allowSameInstant":false,"isEditing":true,"disabled":false,"readonly":false,"required":false,"loading":true},"error":{"startDatetime":"2026-04-20T09:00:00","endDatetime":"2026-04-20T10:00:00","error":"End must be after start","name":"meetingPeriod","locale":"en-US","timezone":"","minDatetime":"","maxDatetime":"","minDurationMinutes":0,"maxDurationMinutes":0,"minuteStep":15,"allowSameInstant":false,"isEditing":true,"disabled":false,"readonly":false,"required":false,"loading":false},"viewMode":{"startDatetime":"2026-04-20T09:00:00","endDatetime":"2026-04-20T10:00:00","error":"","name":"meetingPeriod","locale":"en-US","timezone":"","minDatetime":"","maxDatetime":"","minDurationMinutes":0,"maxDurationMinutes":0,"minuteStep":15,"allowSameInstant":false,"isEditing":false,"disabled":false,"readonly":false,"required":false,"loading":false},"advanced":{"startDatetime":"2026-04-20T09:00:00","endDatetime":"2026-04-20T18:00:00","error":"","name":"reservation","locale":"pt-BR","timezone":"America/Sao_Paulo","minDatetime":"2026-04-20T08:00:00","maxDatetime":"2026-04-21T20:00:00","minDurationMinutes":60,"maxDurationMinutes":480,"minuteStep":30,"allowSameInstant":true,"isEditing":true,"disabled":false,"readonly":false,"required":true,"loading":false}}}'>
+</widget-playground-state-102020>
+<section class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+
+<!-- 1. Basic -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Basic</h3>
+<demo id="demo-basic">
+<molecules--group-enter-date-time-interval--meeting-date-time-interval-102020
+  startDatetime="{{playground.basic.startDatetime}}"
+  endDatetime="{{playground.basic.endDatetime}}"
+  error="{{playground.basic.error}}"
+  name="{{playground.basic.name}}"
+  locale="{{playground.basic.locale}}"
+  minuteStep="{{playground.basic.minuteStep}}"
+  isEditing="{{playground.basic.isEditing}}"
+  disabled="{{playground.basic.disabled}}">
+  <Label>Meeting Period</Label>
+  <LabelStart>Start</LabelStart>
+  <LabelEnd>End</LabelEnd>
+</molecules--group-enter-date-time-interval--meeting-date-time-interval-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-text-102020 label="startDatetime" value="{{playground.basic.startDatetime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="endDatetime" value="{{playground.basic.endDatetime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="error" value="{{playground.basic.error}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="name" value="{{playground.basic.name}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="locale" value="{{playground.basic.locale}}"></widget-playground-state-text-102020>
+<widget-playground-state-number-102020 label="minuteStep" value="{{playground.basic.minuteStep}}"></widget-playground-state-number-102020>
+<widget-playground-state-boolean-102020 label="isEditing" value="{{playground.basic.isEditing}}"></widget-playground-state-boolean-102020>
+<widget-playground-state-boolean-102020 label="disabled" value="{{playground.basic.disabled}}"></widget-playground-state-boolean-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-basic">
+<template>
+<molecules--group-enter-date-time-interval--meeting-date-time-interval-102020
+  startDatetime="{{playground.basic.startDatetime}}"
+  endDatetime="{{playground.basic.endDatetime}}"
+  error="{{playground.basic.error}}"
+  name="{{playground.basic.name}}"
+  locale="{{playground.basic.locale}}"
+  minuteStep="{{playground.basic.minuteStep}}"
+  isEditing="{{playground.basic.isEditing}}"
+  disabled="{{playground.basic.disabled}}">
+  <Label>Meeting Period</Label>
+  <LabelStart>Start</LabelStart>
+  <LabelEnd>End</LabelEnd>
+</molecules--group-enter-date-time-interval--meeting-date-time-interval-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 2. Disabled -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Disabled</h3>
+<demo id="demo-disabled">
+<molecules--group-enter-date-time-interval--meeting-date-time-interval-102020
+  startDatetime="{{playground.disabled.startDatetime}}"
+  endDatetime="{{playground.disabled.endDatetime}}"
+  error="{{playground.disabled.error}}"
+  name="{{playground.disabled.name}}"
+  locale="{{playground.disabled.locale}}"
+  minuteStep="{{playground.disabled.minuteStep}}"
+  isEditing="{{playground.disabled.isEditing}}"
+  disabled="{{playground.disabled.disabled}}">
+  <Label>Meeting Period</Label>
+  <LabelStart>Start</LabelStart>
+  <LabelEnd>End</LabelEnd>
+</molecules--group-enter-date-time-interval--meeting-date-time-interval-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-text-102020 label="startDatetime" value="{{playground.disabled.startDatetime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="endDatetime" value="{{playground.disabled.endDatetime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="error" value="{{playground.disabled.error}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="name" value="{{playground.disabled.name}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="locale" value="{{playground.disabled.locale}}"></widget-playground-state-text-102020>
+<widget-playground-state-number-102020 label="minuteStep" value="{{playground.disabled.minuteStep}}"></widget-playground-state-number-102020>
+<widget-playground-state-boolean-102020 label="isEditing" value="{{playground.disabled.isEditing}}"></widget-playground-state-boolean-102020>
+<widget-playground-state-boolean-102020 label="disabled" value="{{playground.disabled.disabled}}"></widget-playground-state-boolean-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-disabled">
+<template>
+<molecules--group-enter-date-time-interval--meeting-date-time-interval-102020
+  startDatetime="{{playground.disabled.startDatetime}}"
+  endDatetime="{{playground.disabled.endDatetime}}"
+  error="{{playground.disabled.error}}"
+  name="{{playground.disabled.name}}"
+  locale="{{playground.disabled.locale}}"
+  minuteStep="{{playground.disabled.minuteStep}}"
+  isEditing="{{playground.disabled.isEditing}}"
+  disabled="{{playground.disabled.disabled}}">
+  <Label>Meeting Period</Label>
+  <LabelStart>Start</LabelStart>
+  <LabelEnd>End</LabelEnd>
+</molecules--group-enter-date-time-interval--meeting-date-time-interval-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 3. Loading -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Loading</h3>
+<demo id="demo-loading">
+<molecules--group-enter-date-time-interval--meeting-date-time-interval-102020
+  startDatetime="{{playground.loading.startDatetime}}"
+  endDatetime="{{playground.loading.endDatetime}}"
+  error="{{playground.loading.error}}"
+  name="{{playground.loading.name}}"
+  locale="{{playground.loading.locale}}"
+  minuteStep="{{playground.loading.minuteStep}}"
+  isEditing="{{playground.loading.isEditing}}"
+  loading="{{playground.loading.loading}}">
+  <Label>Meeting Period</Label>
+  <LabelStart>Start</LabelStart>
+  <LabelEnd>End</LabelEnd>
+</molecules--group-enter-date-time-interval--meeting-date-time-interval-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-text-102020 label="startDatetime" value="{{playground.loading.startDatetime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="endDatetime" value="{{playground.loading.endDatetime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="error" value="{{playground.loading.error}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="name" value="{{playground.loading.name}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="locale" value="{{playground.loading.locale}}"></widget-playground-state-text-102020>
+<widget-playground-state-number-102020 label="minuteStep" value="{{playground.loading.minuteStep}}"></widget-playground-state-number-102020>
+<widget-playground-state-boolean-102020 label="isEditing" value="{{playground.loading.isEditing}}"></widget-playground-state-boolean-102020>
+<widget-playground-state-boolean-102020 label="loading" value="{{playground.loading.loading}}"></widget-playground-state-boolean-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-loading">
+<template>
+<molecules--group-enter-date-time-interval--meeting-date-time-interval-102020
+  startDatetime="{{playground.loading.startDatetime}}"
+  endDatetime="{{playground.loading.endDatetime}}"
+  error="{{playground.loading.error}}"
+  name="{{playground.loading.name}}"
+  locale="{{playground.loading.locale}}"
+  minuteStep="{{playground.loading.minuteStep}}"
+  isEditing="{{playground.loading.isEditing}}"
+  loading="{{playground.loading.loading}}">
+  <Label>Meeting Period</Label>
+  <LabelStart>Start</LabelStart>
+  <LabelEnd>End</LabelEnd>
+</molecules--group-enter-date-time-interval--meeting-date-time-interval-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 4. Error -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Error State</h3>
+<demo id="demo-error">
+<molecules--group-enter-date-time-interval--meeting-date-time-interval-102020
+  startDatetime="{{playground.error.startDatetime}}"
+  endDatetime="{{playground.error.endDatetime}}"
+  error="{{playground.error.error}}"
+  name="{{playground.error.name}}"
+  locale="{{playground.error.locale}}"
+  minuteStep="{{playground.error.minuteStep}}"
+  isEditing="{{playground.error.isEditing}}">
+  <Label>Meeting Period</Label>
+  <LabelStart>Start</LabelStart>
+  <LabelEnd>End</LabelEnd>
+  <Helper>End must be after start</Helper>
+</molecules--group-enter-date-time-interval--meeting-date-time-interval-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-text-102020 label="startDatetime" value="{{playground.error.startDatetime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="endDatetime" value="{{playground.error.endDatetime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="error" value="{{playground.error.error}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="name" value="{{playground.error.name}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="locale" value="{{playground.error.locale}}"></widget-playground-state-text-102020>
+<widget-playground-state-number-102020 label="minuteStep" value="{{playground.error.minuteStep}}"></widget-playground-state-number-102020>
+<widget-playground-state-boolean-102020 label="isEditing" value="{{playground.error.isEditing}}"></widget-playground-state-boolean-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-error">
+<template>
+<molecules--group-enter-date-time-interval--meeting-date-time-interval-102020
+  startDatetime="{{playground.error.startDatetime}}"
+  endDatetime="{{playground.error.endDatetime}}"
+  error="{{playground.error.error}}"
+  name="{{playground.error.name}}"
+  locale="{{playground.error.locale}}"
+  minuteStep="{{playground.error.minuteStep}}"
+  isEditing="{{playground.error.isEditing}}">
+  <Label>Meeting Period</Label>
+  <LabelStart>Start</LabelStart>
+  <LabelEnd>End</LabelEnd>
+  <Helper>End must be after start</Helper>
+</molecules--group-enter-date-time-interval--meeting-date-time-interval-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 5. View Mode -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">View Mode (Read-only)</h3>
+<demo id="demo-viewMode">
+<molecules--group-enter-date-time-interval--meeting-date-time-interval-102020
+  startDatetime="{{playground.viewMode.startDatetime}}"
+  endDatetime="{{playground.viewMode.endDatetime}}"
+  error="{{playground.viewMode.error}}"
+  name="{{playground.viewMode.name}}"
+  locale="{{playground.viewMode.locale}}"
+  minuteStep="{{playground.viewMode.minuteStep}}"
+  isEditing="{{playground.viewMode.isEditing}}">
+  <Label>Meeting Period</Label>
+  <LabelStart>Start</LabelStart>
+  <LabelEnd>End</LabelEnd>
+</molecules--group-enter-date-time-interval--meeting-date-time-interval-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-text-102020 label="startDatetime" value="{{playground.viewMode.startDatetime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="endDatetime" value="{{playground.viewMode.endDatetime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="error" value="{{playground.viewMode.error}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="name" value="{{playground.viewMode.name}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="locale" value="{{playground.viewMode.locale}}"></widget-playground-state-text-102020>
+<widget-playground-state-number-102020 label="minuteStep" value="{{playground.viewMode.minuteStep}}"></widget-playground-state-number-102020>
+<widget-playground-state-boolean-102020 label="isEditing" value="{{playground.viewMode.isEditing}}"></widget-playground-state-boolean-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-viewMode">
+<template>
+<molecules--group-enter-date-time-interval--meeting-date-time-interval-102020
+  startDatetime="{{playground.viewMode.startDatetime}}"
+  endDatetime="{{playground.viewMode.endDatetime}}"
+  error="{{playground.viewMode.error}}"
+  name="{{playground.viewMode.name}}"
+  locale="{{playground.viewMode.locale}}"
+  minuteStep="{{playground.viewMode.minuteStep}}"
+  isEditing="{{playground.viewMode.isEditing}}">
+  <Label>Meeting Period</Label>
+  <LabelStart>Start</LabelStart>
+  <LabelEnd>End</LabelEnd>
+</molecules--group-enter-date-time-interval--meeting-date-time-interval-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 6. Advanced (Reservation with constraints, custom locale/timezone, all slots) -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Advanced (Reservation with Constraints)</h3>
+<demo id="demo-advanced">
+<molecules--group-enter-date-time-interval--meeting-date-time-interval-102020
+  startDatetime="{{playground.advanced.startDatetime}}"
+  endDatetime="{{playground.advanced.endDatetime}}"
+  error="{{playground.advanced.error}}"
+  name="{{playground.advanced.name}}"
+  locale="{{playground.advanced.locale}}"
+  timezone="{{playground.advanced.timezone}}"
+  minDatetime="{{playground.advanced.minDatetime}}"
+  maxDatetime="{{playground.advanced.maxDatetime}}"
+  minDurationMinutes="{{playground.advanced.minDurationMinutes}}"
+  maxDurationMinutes="{{playground.advanced.maxDurationMinutes}}"
+  minuteStep="{{playground.advanced.minuteStep}}"
+  allowSameInstant="{{playground.advanced.allowSameInstant}}"
+  isEditing="{{playground.advanced.isEditing}}"
+  disabled="{{playground.advanced.disabled}}"
+  readonly="{{playground.advanced.readonly}}"
+  required="{{playground.advanced.required}}">
+  <Label>Reservation</Label>
+  <LabelStart>Check-in</LabelStart>
+  <LabelEnd>Check-out</LabelEnd>
+  <Helper>Reservations between 1 and 8 hours. Times in São Paulo timezone.</Helper>
+</molecules--group-enter-date-time-interval--meeting-date-time-interval-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-text-102020 label="startDatetime" value="{{playground.advanced.startDatetime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="endDatetime" value="{{playground.advanced.endDatetime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="error" value="{{playground.advanced.error}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="name" value="{{playground.advanced.name}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="locale" value="{{playground.advanced.locale}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="timezone" value="{{playground.advanced.timezone}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="minDatetime" value="{{playground.advanced.minDatetime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="maxDatetime" value="{{playground.advanced.maxDatetime}}"></widget-playground-state-text-102020>
+<widget-playground-state-number-102020 label="minDurationMinutes" value="{{playground.advanced.minDurationMinutes}}"></widget-playground-state-number-102020>
+<widget-playground-state-number-102020 label="maxDurationMinutes" value="{{playground.advanced.maxDurationMinutes}}"></widget-playground-state-number-102020>
+<widget-playground-state-number-102020 label="minuteStep" value="{{playground.advanced.minuteStep}}"></widget-playground-state-number-102020>
+<widget-playground-state-boolean-102020 label="allowSameInstant" value="{{playground.advanced.allowSameInstant}}"></widget-playground-state-boolean-102020>
+<widget-playground-state-boolean-102020 label="isEditing" value="{{playground.advanced.isEditing}}"></widget-playground-state-boolean-102020>
+<widget-playground-state-boolean-102020 label="disabled" value="{{playground.advanced.disabled}}"></widget-playground-state-boolean-102020>
+<widget-playground-state-boolean-102020 label="readonly" value="{{playground.advanced.readonly}}"></widget-playground-state-boolean-102020>
+<widget-playground-state-boolean-102020 label="required" value="{{playground.advanced.required}}"></widget-playground-state-boolean-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-advanced">
+<template>
+<molecules--group-enter-date-time-interval--meeting-date-time-interval-102020
+  startDatetime="{{playground.advanced.startDatetime}}"
+  endDatetime="{{playground.advanced.endDatetime}}"
+  error="{{playground.advanced.error}}"
+  name="{{playground.advanced.name}}"
+  locale="{{playground.advanced.locale}}"
+  timezone="{{playground.advanced.timezone}}"
+  minDatetime="{{playground.advanced.minDatetime}}"
+  maxDatetime="{{playground.advanced.maxDatetime}}"
+  minDurationMinutes="{{playground.advanced.minDurationMinutes}}"
+  maxDurationMinutes="{{playground.advanced.maxDurationMinutes}}"
+  minuteStep="{{playground.advanced.minuteStep}}"
+  allowSameInstant="{{playground.advanced.allowSameInstant}}"
+  isEditing="{{playground.advanced.isEditing}}"
+  disabled="{{playground.advanced.disabled}}"
+  readonly="{{playground.advanced.readonly}}"
+  required="{{playground.advanced.required}}">
+  <Label>Reservation</Label>
+  <LabelStart>Check-in</LabelStart>
+  <LabelEnd>Check-out</LabelEnd>
+  <Helper>Reservations between 1 and 8 hours. Times in São Paulo timezone.</Helper>
+</molecules--group-enter-date-time-interval--meeting-date-time-interval-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+</section>
+</div>
