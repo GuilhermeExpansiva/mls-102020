@@ -217,7 +217,7 @@ async function getBaseMolecule() {
 }
 
 const system1 = `
-<!-- modelType: codereasoning-->
+<!-- modelType: code-->
 <!-- modelTypeList: geminiChat (2.5 pro), code (grok), deepseekchat, codeflash (gemini), deepseekreasoner, mini (4.1) ou nano (openai), codeinstruct (4.1), codereasoning(gpt5), code2 (kimi 2.5) -->
 
 You are a planner responsible for defining the creation details of a new web component (widget) that will be included in an HTML page.

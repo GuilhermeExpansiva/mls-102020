@@ -117,6 +117,25 @@ label: string = '';
 \`\`\`
 **Binding:** \`Hello {{page1.userId}} - {{page1.userName}}\`
 
+### Attribute mapping (important for non-string types)
+
+All properties with **camelCase names** (more than one word) and type \`Boolean\`, \`Number\`, or \`Object\` **must** declare the \`attribute\` explicitly in kebab-case to ensure correct attribute reflection across all environments.
+
+\`\`\`typescript
+@propertyDataSource({ type: Boolean, attribute: 'is-editing' })
+isEditing: boolean = false;
+
+@propertyDataSource({ type: Number, attribute: 'max-length' })
+maxLength: number | null = null;
+
+@propertyDataSource({ type: Number, attribute: 'min-duration-minutes' })
+minDurationMinutes: number = 0;
+\`\`\`
+
+Rule: \`camelCase\` property name → \`kebab-case\` attribute name, always.
+
+Single-word properties of any type can omit the \`attribute\` field.
+
 ---
 
 ### \`@@state\`
@@ -587,7 +606,7 @@ handleIcaStateChange(key: string, value: any) {
 // Skill Group: [group-name] (e.g., select + one)
 // This molecule does NOT contain business logic.
 
-import { html, TemplateResult, classMap, nothing, unsafeHTML } from 'lit';
+import { html, TemplateResult, classMap, nothing, unsafeHTML, ...(anothers if need) } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { propertyDataSource } from '/_102027_/l2/collabDecorators';
 import { MoleculeAuraElement } from '/_102020_/l2/moleculeBase.js';

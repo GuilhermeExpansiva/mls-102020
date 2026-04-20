@@ -1,0 +1,293 @@
+<div class="mx-auto p-8 font-sans">
+<header class="text-center mb-12">
+<h1 class="text-3xl font-semibold text-slate-800 mb-2">Work Shift Time Interval Picker</h1>
+<span class="inline-block px-3 py-1 bg-sky-100 text-sky-700 rounded-full text-sm font-medium">enter + time-interval</span>
+</header>
+<widget-playground-state-102020 state='{"playground":{"basic":{"startTime":"","endTime":"","error":""},"disabled":{"startTime":"","endTime":"","error":""},"loading":{"startTime":"","endTime":"","error":""},"error":{"startTime":"","endTime":"","error":"Invalid interval"},"viewMode":{"startTime":"08:00","endTime":"17:00","error":""},"overnight":{"startTime":"22:00","endTime":"06:00","error":""},"advanced":{"startTime":"09:30:00","endTime":"18:15:00","error":""}}}'>
+</widget-playground-state-102020>
+<section class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+
+<!-- 1. Basic -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Basic</h3>
+<demo id="demo-basic">
+<molecules--group-enter-time-interval--work-shift-molecule-102020
+  startTime="{{playground.basic.startTime}}"
+  endTime="{{playground.basic.endTime}}"
+  error="{{playground.basic.error}}"
+  isEditing="true">
+  <Label>Work Shift</Label>
+  <LabelStart>Start</LabelStart>
+  <LabelEnd>End</LabelEnd>
+</molecules--group-enter-time-interval--work-shift-molecule-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-text-102020 label="startTime" value="{{playground.basic.startTime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="endTime" value="{{playground.basic.endTime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="error" value="{{playground.basic.error}}"></widget-playground-state-text-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-basic">
+<template>
+<molecules--group-enter-time-interval--work-shift-molecule-102020
+  startTime="{{playground.basic.startTime}}"
+  endTime="{{playground.basic.endTime}}"
+  error="{{playground.basic.error}}"
+  isEditing="true">
+  <Label>Work Shift</Label>
+  <LabelStart>Start</LabelStart>
+  <LabelEnd>End</LabelEnd>
+</molecules--group-enter-time-interval--work-shift-molecule-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 2. Disabled -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Disabled</h3>
+<demo id="demo-disabled">
+<molecules--group-enter-time-interval--work-shift-molecule-102020
+  startTime="{{playground.disabled.startTime}}"
+  endTime="{{playground.disabled.endTime}}"
+  error="{{playground.disabled.error}}"
+  isEditing="true"
+  disabled="true">
+  <Label>Lunch Break</Label>
+  <LabelStart>From</LabelStart>
+  <LabelEnd>To</LabelEnd>
+  <Helper>Disabled field</Helper>
+</molecules--group-enter-time-interval--work-shift-molecule-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-text-102020 label="startTime" value="{{playground.disabled.startTime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="endTime" value="{{playground.disabled.endTime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="error" value="{{playground.disabled.error}}"></widget-playground-state-text-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-disabled">
+<template>
+<molecules--group-enter-time-interval--work-shift-molecule-102020
+  startTime="{{playground.disabled.startTime}}"
+  endTime="{{playground.disabled.endTime}}"
+  error="{{playground.disabled.error}}"
+  isEditing="true"
+  disabled="true">
+  <Label>Lunch Break</Label>
+  <LabelStart>From</LabelStart>
+  <LabelEnd>To</LabelEnd>
+  <Helper>Disabled field</Helper>
+</molecules--group-enter-time-interval--work-shift-molecule-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 3. Loading -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Loading State</h3>
+<demo id="demo-loading">
+<molecules--group-enter-time-interval--work-shift-molecule-102020
+  startTime="{{playground.loading.startTime}}"
+  endTime="{{playground.loading.endTime}}"
+  error="{{playground.loading.error}}"
+  isEditing="true"
+  loading="true">
+  <Label>Shift (Loading)</Label>
+  <LabelStart>Start</LabelStart>
+  <LabelEnd>End</LabelEnd>
+</molecules--group-enter-time-interval--work-shift-molecule-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-text-102020 label="startTime" value="{{playground.loading.startTime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="endTime" value="{{playground.loading.endTime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="error" value="{{playground.loading.error}}"></widget-playground-state-text-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-loading">
+<template>
+<molecules--group-enter-time-interval--work-shift-molecule-102020
+  startTime="{{playground.loading.startTime}}"
+  endTime="{{playground.loading.endTime}}"
+  error="{{playground.loading.error}}"
+  isEditing="true"
+  loading="true">
+  <Label>Shift (Loading)</Label>
+  <LabelStart>Start</LabelStart>
+  <LabelEnd>End</LabelEnd>
+</molecules--group-enter-time-interval--work-shift-molecule-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 4. Error -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Error State</h3>
+<demo id="demo-error">
+<molecules--group-enter-time-interval--work-shift-molecule-102020
+  startTime="{{playground.error.startTime}}"
+  endTime="{{playground.error.endTime}}"
+  error="{{playground.error.error}}"
+  isEditing="true">
+  <Label>Meeting Time</Label>
+  <LabelStart>From</LabelStart>
+  <LabelEnd>To</LabelEnd>
+  <Helper>Choose a valid interval</Helper>
+</molecules--group-enter-time-interval--work-shift-molecule-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-text-102020 label="startTime" value="{{playground.error.startTime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="endTime" value="{{playground.error.endTime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="error" value="{{playground.error.error}}"></widget-playground-state-text-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-error">
+<template>
+<molecules--group-enter-time-interval--work-shift-molecule-102020
+  startTime="{{playground.error.startTime}}"
+  endTime="{{playground.error.endTime}}"
+  error="{{playground.error.error}}"
+  isEditing="true">
+  <Label>Meeting Time</Label>
+  <LabelStart>From</LabelStart>
+  <LabelEnd>To</LabelEnd>
+  <Helper>Choose a valid interval</Helper>
+</molecules--group-enter-time-interval--work-shift-molecule-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 5. View Mode (Read-only) -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">View Mode (Read-only)</h3>
+<demo id="demo-viewMode">
+<molecules--group-enter-time-interval--work-shift-molecule-102020
+  startTime="{{playground.viewMode.startTime}}"
+  endTime="{{playground.viewMode.endTime}}"
+  error="{{playground.viewMode.error}}"
+  isEditing="false">
+  <Label>Scheduled Shift</Label>
+  <LabelStart>Start</LabelStart>
+  <LabelEnd>End</LabelEnd>
+</molecules--group-enter-time-interval--work-shift-molecule-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-text-102020 label="startTime" value="{{playground.viewMode.startTime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="endTime" value="{{playground.viewMode.endTime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="error" value="{{playground.viewMode.error}}"></widget-playground-state-text-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-viewMode">
+<template>
+<molecules--group-enter-time-interval--work-shift-molecule-102020
+  startTime="{{playground.viewMode.startTime}}"
+  endTime="{{playground.viewMode.endTime}}"
+  error="{{playground.viewMode.error}}"
+  isEditing="false">
+  <Label>Scheduled Shift</Label>
+  <LabelStart>Start</LabelStart>
+  <LabelEnd>End</LabelEnd>
+</molecules--group-enter-time-interval--work-shift-molecule-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 6. Overnight, AM/PM, min/max, seconds, advanced -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Advanced: Overnight, AM/PM, Seconds, Min/Max</h3>
+<demo id="demo-advanced">
+<molecules--group-enter-time-interval--work-shift-molecule-102020
+  startTime="{{playground.advanced.startTime}}"
+  endTime="{{playground.advanced.endTime}}"
+  error="{{playground.advanced.error}}"
+  isEditing="true"
+  hour12="true"
+  showSeconds="true"
+  minuteStep="15"
+  minTime="08:00"
+  maxTime="23:00"
+  minDurationMinutes="30"
+  maxDurationMinutes="600"
+  allowOvernight="true"
+  allowSameTime="true"
+  locale="en-US">
+  <Label>Night Shift</Label>
+  <LabelStart>Begins</LabelStart>
+  <LabelEnd>Ends</LabelEnd>
+  <Helper>Supports overnight, AM/PM, seconds, min/max, and duration limits</Helper>
+</molecules--group-enter-time-interval--work-shift-molecule-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-text-102020 label="startTime" value="{{playground.advanced.startTime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="endTime" value="{{playground.advanced.endTime}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="error" value="{{playground.advanced.error}}"></widget-playground-state-text-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-advanced">
+<template>
+<molecules--group-enter-time-interval--work-shift-molecule-102020
+  startTime="{{playground.advanced.startTime}}"
+  endTime="{{playground.advanced.endTime}}"
+  error="{{playground.advanced.error}}"
+  isEditing="true"
+  hour12="true"
+  showSeconds="true"
+  minuteStep="15"
+  minTime="08:00"
+  maxTime="23:00"
+  minDurationMinutes="30"
+  maxDurationMinutes="600"
+  allowOvernight="true"
+  allowSameTime="true"
+  locale="en-US">
+  <Label>Night Shift</Label>
+  <LabelStart>Begins</LabelStart>
+  <LabelEnd>Ends</LabelEnd>
+  <Helper>Supports overnight, AM/PM, seconds, min/max, and duration limits</Helper>
+</molecules--group-enter-time-interval--work-shift-molecule-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+</section>
+</div>

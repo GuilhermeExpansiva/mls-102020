@@ -1,6 +1,8 @@
 /// <mls fileReference="_102020_/l2/agents/agentNewMolecule.ts" enhancement="_102027_/l2/enhancementAgent.ts"/>
 
-import { IAgentAsync, IAgentMeta } from '/_100554_/l2/aiAgentBase.js';
+import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
+import { appendLongTermMemory } from '/_102027_/l2/aiAgentHelper.js';
+import { convertFileNameToTag } from '/_102027_/l2/utils';
 
 // import { skill as skillDesing } from '/_102020_/l2/skills/aura/design.js';
 import { skill as skillAura } from '/_102020_/l2/skills/aura/overview.js';
@@ -30,52 +32,8 @@ async function beforePromptAtomic(
 ): Promise<mls.msg.AgentIntent[]> {
 
     if (userPrompt) throw new Error(`[beforePromptAtomic] invalid args: '${userPrompt}'`);
-    const data = await getMoleculeSkill(file);
-    const skillByGroup = await getGroupSkill(data.group);
-    const baseMolecule = await getBaseMolecule();
-
-    console.info({
-        skillMoleculeGeral: skillMolecule,
-        skillMolecule: data.skill,
-        skillGroup: skillByGroup
-    });
-
-
-    const system2 = `
-
-    ## File Reference : ${data.fileReference}
     
-    ## Skill Group: ${data.group}
-    \`\`\`
-        ${skillByGroup}
-    \`\`\`
-
-    `
-    const inputs: mls.msg.IAMessageInputType[] = [
-        {
-            type: "system", content: system1
-                //.replace("{{systemSkillDesign}}", skillDesing)
-                .replace("{{systemSkillAura}}", skillAura)
-                .replace("{{systemSkillMolecule}}", skillMolecule)
-                .replace("{{systemBaseMolecule}}", baseMolecule)
-        },
-        { type: "system", content: system2 },
-        { type: "human", content: data.skill }
-    ]
-
-    const addMessageAI: mls.msg.AgentIntentAddMessageAI = {
-        type: "add-message-ai",
-        request: {
-            action: 'addMessageAI',
-            agentName: agent.agentName,
-            inputAI: inputs,
-            taskTitle: `Generating molecule file ${mls.stor.getShortPath(file)}`,
-            threadId: context.message.threadId,
-            userMessage: context.message.content,
-            longTermMemory: {}
-        }
-    }
-    return [addMessageAI];
+    return [];
 
 };
 
@@ -87,7 +45,7 @@ async function beforePromptImplicit(
 
     if (!userPrompt || userPrompt.length < 5) throw new Error('invalid prompt');
     const baseMolecule = await getBaseMolecule();
-    const userPrompt2 = await getSystemUser(userPrompt);
+    const userPrompt2 = await getSystemUser(context, userPrompt);
 
     const addMessageAI: mls.msg.AgentIntentAddMessageAI = {
         type: "add-message-ai",
@@ -127,7 +85,7 @@ async function beforePromptStep(
 
     if (!args) throw new Error(`(${agent.agentName})[beforePromptStep] args invalid`);
     const baseMolecule = await getBaseMolecule();
-    const userPrompt = await getSystemUser(args);
+    const userPrompt = await getSystemUser(context, args);
 
     const continueIntent: mls.msg.AgentIntentPromptReady = {
         type: "prompt_ready",
@@ -149,14 +107,20 @@ async function beforePromptStep(
 }
 
 
-async function getSystemUser(fileReference: string) {
+async function getSystemUser(context: mls.msg.ExecutionContext, fileReference: string) {
 
     const path = mls.stor.getPathToFile(fileReference);
     const files = await mls.stor.getFiles({ ...path, loadContent: false });
-    if(!files.ts) throw new Error(`[getSystemUser] invalid file: ${fileReference}`)   
+    if (!files.ts) throw new Error(`[getSystemUser] invalid file: ${fileReference}`)
     const data = await getMoleculeSkill(files.ts);
     const skillByGroup = await getGroupSkill(data.group);
+    const tagName = convertFileNameToTag(path)
+
+    await appendLongTermMemory(context, { 'group': data.group });
+
     const system2 = `
+
+    ## TagName : ${tagName}
 
     ## File Reference : ${data.fileReference}
     
@@ -208,7 +172,9 @@ async function processOutput(context: mls.msg.ExecutionContext, output: Result):
 
     console.info(output);
     const fileRef = await updateFiles(context, output);
-    console.info({ fileRef, group: output.group });
+    const group = context.task?.iaCompressed?.longMemory['group'];
+
+    console.info({ fileRef, group: group });
 
     const newStep: mls.msg.AgentIntentAddStep = {
         type: "add-step",
@@ -225,7 +191,7 @@ async function processOutput(context: mls.msg.ExecutionContext, output: Result):
             status: 'waiting_human_input',
             nextSteps: [],
             agentName: "agentNewMoleculePlayground",
-            prompt: JSON.stringify({ group : output.group, fileReference: fileRef}),
+            prompt: JSON.stringify({ group: group, fileReference: fileRef }),
             rags: null,
         }
     };
@@ -236,18 +202,13 @@ async function processOutput(context: mls.msg.ExecutionContext, output: Result):
 async function updateFiles(context: mls.msg.ExecutionContext, result: Result): Promise<string> {
 
     const molecule = result.ts;
-    const html = result.htmlUseCaseExample;
-
     const fileReference = molecule.trim().split('\n')[0];
     const tripleSlash = mls.common.tripleslash.parseXMLTripleSlash(fileReference);
     let fileInfo = mls.stor.convertFileReferenceToFile(tripleSlash.variables['fileReference']);
     if (!fileReference || fileInfo.project < 1) throw new Error(`Invalid step in create file, incorrect meta fileRecerence: ${fileReference}`);
 
     const paramsTs = { ...fileInfo, content: molecule, versionRef: new Date().toISOString(), extension: ".ts" };
-    const paramsHtml = { ...fileInfo, content: html, versionRef: new Date().toISOString(), extension: ".html" };
-
     await updateStorFile(paramsTs);
-    // await updateStorFile(paramsHtml);
 
     return tripleSlash.variables['fileReference'];
 
@@ -260,15 +221,16 @@ async function updateStorFile(params: { project: number, shortName: string, leve
     console.log(`[agentNewMolecule] updating file: ${path}`);
     console.log(`[agentNewMolecule] updating content: ${params.content}`);
 
-    const modelDefs = await file.getOrCreateModel();
-    modelDefs.model.setValue(params.content);
+    const models = await file.getOrCreateModel();
+    models.model.setValue(params.content);
+    mls.editor.forceModelUpdate(models.model);
 
 }
 
 
 async function getGroupSkill(group: string) {
     const path = skillList.find((item) => item.name === group)?.skillReference;
-    if(!path) throw new Error(`[getGroupSkill] skill for group not found: ${path}`);
+    if (!path) throw new Error(`[getGroupSkill] skill for group not found: ${path}`);
     const module = await import(path);
     if (!module || !module.skill) throw new Error(`[getGroupSkill] skill for group not found: ${path}`);
     if (typeof module.skill !== 'string') throw new Error(`[getGroupSkill] invalid type of skill: ${path}, must be string`);
@@ -302,7 +264,7 @@ async function getMoleculeSkill(file: mls.stor.IFileInfo): Promise<{ skill: stri
 
 
 const system1 = `
-<!-- modelType: codereasoning-->
+<!-- modelType: code-->
 <!-- modelTypeList: geminiChat (2.5 pro), code (grok), deepseekchat, codeflash (gemini), deepseekreasoner, mini (4.1) ou nano (openai), codeinstruct (4.1), codereasoning(gpt5), code2 (kimi 2.5) -->
 
 You are a senior Frontend Architect and Staff Software Engineer with 20+ years of experience building large-scale web applications using TypeScript, Lit, and state-driven architectures.
@@ -341,8 +303,6 @@ export type Output =
 
 export type Result = {
     ts: string,
-    htmlUseCaseExample: string // Example of use molecule with static data, no script
-    group: string,
 }
 
 `
@@ -356,8 +316,6 @@ export type Output =
 
 export type Result = {
     ts: string,
-    htmlUseCaseExample: string // Example of use molecule with static data, no script
-    group: string,
 }
 //#endregion 
 
