@@ -6,8 +6,8 @@ export const skills = [
     {
         name: 'groupSelectOne',
         description: 'Allows the user to select exactly one option from a list of mutually exclusive choices. Ideal for scenarios where a single, clear decision is required. Implementations include dropdown, radio group, segmented control, knob, and list picker.',
-        skillReference: '/_102020_/l2/skills/molecules/groupSelectOne',
-        skillUsageReference: ''
+        skillReference: '/_102020_/l2/skills/molecules/groupSelectOne/creation',
+        skillUsageReference: '/_102020_/l2/skills/molecules/groupSelectOne/usage',
     },
     {
         name: 'groupSelectMany',

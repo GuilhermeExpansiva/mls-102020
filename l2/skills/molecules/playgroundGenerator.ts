@@ -5,7 +5,6 @@ export const skill = `
 > Gera páginas HTML interativas de demonstração para Molecules do sistema Collab Aura.
 
 ---
-
 ## 1. Metadata
 
 | Field       | Value                              |
