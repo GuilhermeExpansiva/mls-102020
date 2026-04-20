@@ -3,7 +3,6 @@
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import { appendLongTermMemory } from '/_102027_/l2/aiAgentHelper.js';
 import { convertFileNameToTag } from '/_102027_/l2/utils';
-
 // import { skill as skillDesing } from '/_102020_/l2/skills/aura/design.js';
 import { skill as skillAura } from '/_102020_/l2/skills/aura/overview.js';
 import { skill as skillMolecule } from '/_102020_/l2/skills/aura/moleculeGeneration2.js';
@@ -114,7 +113,9 @@ async function getSystemUser(context: mls.msg.ExecutionContext, fileReference: s
     if (!files.ts) throw new Error(`[getSystemUser] invalid file: ${fileReference}`)
     const data = await getMoleculeSkill(files.ts);
     const skillByGroup = await getGroupSkill(data.group);
-    const tagName = convertFileNameToTag(path)
+    const tagName = convertFileNameToTag(path);
+
+    console.info(skillByGroup)
 
     await appendLongTermMemory(context, { 'group': data.group });
 
@@ -242,7 +243,8 @@ async function getBaseMolecule() {
     const key = mls.stor.getKeyToFile({ project: 102020, shortName: 'moleculeBase', folder: '', extension: '.ts', level: 2 })
     const storFile = mls.stor.files[key];
     if (!storFile) return '';
-    return await storFile.getContent() as string
+    const content = await storFile.getContent() as string;
+    return content;
 }
 
 async function getMoleculeSkill(file: mls.stor.IFileInfo): Promise<{ skill: string, group: string, fileReference: string }> {

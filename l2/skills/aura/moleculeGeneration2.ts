@@ -6,6 +6,7 @@ export const skill = `# Molecule Generation Skill
 
 ---
 
+
 ## 1. Metadata
 
 | Field       | Value                                                           |
@@ -165,18 +166,11 @@ private isOpen = false;
 Slot Tags are **unknown HTML elements** that define the molecule's internal structure. The user writes them declaratively, and the molecule reads and interprets them.
 
 \`\`\`html
-<molecules--select-102020 value="a">
-  <Trigger>
-    <Value placeholder="Select..." />
-  </Trigger>
-  <Content>
-    <Group label="Fruits">
-      <Item value="apple">Apple</Item>
-      <Item value="banana">Banana</Item>
-    </Group>
-    <Item value="other">Other</Item>
-  </Content>
-</molecules--select-102020>
+<molecules--example-102020 attr1="a">
+  <SlotTagExampe></SlotTagExampe>
+  <SlotTagExampe2></SlotTagExampe2>
+  
+</molecules--example-102020>
 \`\`\`
 
 ### Defining Slot Tags
@@ -199,10 +193,6 @@ Use the helper methods from \`MoleculeAuraElement\`:
 | \`getSlotAttr(tag, attr)\` | \`string \\| null\` | Attribute value from a slot tag |
 | \`getSlotContent(tag)\` | \`string\` | innerHTML of a slot tag |
 | \`hasSlot(tag)\` | \`boolean\` | Check if slot tag exists |
-| \`getItems(selector?)\` | \`ParsedItem[]\` | Parsed items with value, label, disabled |
-| \`getGroups(selector?)\` | \`ParsedGroup[]\` | Parsed groups with label and items |
-| \`getStandaloneItems(selector?)\` | \`ParsedItem[]\` | Items not inside groups |
-| \`findItem(value)\` | \`ParsedItem \\| undefined\` | Find item by value |
 
 ---
 
@@ -322,24 +312,6 @@ private getItemClasses(item: ParsedItem, isSelected: boolean): string {
   ].filter(Boolean).join(' ');
 }
 
-render() {
-  const items = this.getItems();
-
-  return html\\\`
-    \\\${items.map(item => {
-      const isSelected = item.value === this.value;
-      
-      return html\\\`
-        <button 
-          class=\\\${this.getItemClasses(item, isSelected)}
-          @click=\\\${() => this.handleSelect(item.value)}
-        >
-          \\\${item.label}
-        </button>
-      \\\`;
-    })}
-  \\\`;
-}
 \`\`\`
 
 ---
@@ -716,47 +688,9 @@ export class [ComponentName]Molecule extends MoleculeAuraElement {
     }
 
     const placeholder = this.getSlotAttr('Value', 'placeholder') || this.msg.placeholder;
-    const items = this.getItems();
-    const selectedItem = this.findItem(this.value);
 
     return html\\\`
-      <div class="relative w-full">
-        
-        <!-- Trigger -->
-        <button 
-          type="button"
-          class="w-full px-4 py-2 text-left border rounded-lg bg-white"
-          ?disabled=\\\${this.disabled}
-          @click=\\\${() => this.isOpen = !this.isOpen}
-          @blur=\\\${this.handleBlur}
-        >
-          \\\${selectedItem ? selectedItem.label : placeholder}
-        </button>
-
-        <!-- Content -->
-        \\\${this.isOpen ? html\\\`
-          <div class="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg">
-            \\\${items.length > 0 ? items.map(item => html\\\`
-              <div 
-                class=\\\${classMap({
-                  'px-4 py-2 cursor-pointer': true,
-                  'hover:bg-gray-100': !item.disabled,
-                  'bg-blue-50': item.value === this.value,
-                  'opacity-50 cursor-not-allowed': item.disabled,
-                })}
-                @click=\\\${() => !item.disabled && this.handleSelect(item.value)}
-              >
-                \\\${item.label}
-              </div>
-            \`) : html\\\`
-              <div class="px-4 py-2 text-gray-500">
-                \\\${this.getSlotContent('Empty') || this.msg.noResults}
-              </div>
-            \\\`}
-          </div>
-        \\\` : nothing}
-
-      </div>
+        /// Implementation here
     \\\`;
   }
 }
@@ -767,15 +701,6 @@ export class [ComponentName]Molecule extends MoleculeAuraElement {
 ## 13. Skill Groups
 
 Each molecule belongs to a **Skill Group** that defines its contract:
-
-| Group | Category | Contract File |
-|-------|----------|---------------|
-| \`select + one\` | Data Entry | \`contract-select-one.md\` |
-| \`select + many\` | Data Entry | \`contract-select-many.md\` |
-| \`toggle + state\` | Data Entry | \`contract-toggle-state.md\` |
-| \`enter + text\` | Data Entry | \`contract-enter-text.md\` |
-| \`enter + number\` | Data Entry | \`contract-enter-number.md\` |
-| \`enter + money\` | Data Entry | \`contract-enter-money.md\` |
 
 The contract defines:
 - **Properties** (value, disabled, etc.)

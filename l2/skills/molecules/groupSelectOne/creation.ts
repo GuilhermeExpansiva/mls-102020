@@ -1,0 +1,278 @@
+/// <mls fileReference="_102020_/l2/skills/molecules/groupSelectOne/creation.ts" enhancement="_blank"/>
+
+export const skill = `# select + one — Creation
+
+> Implementation reference for creating molecules in the **select + one** group.
+> Follow the general Lit/Aura rules defined in \`molecule-generation2.md\`.
+
+---
+
+## 1. Metadata
+
+| Field | Value |
+|-------|-------|
+| **Group** | \`select + one\` |
+| **Category** | Data Entry |
+| **Version** | \`1.0.0\` |
+
+---
+
+## 2. Slot Tags
+
+| Tag | Required | Description |
+|-----|:--------:|-------------|
+| \`Label\` | No | Label displayed above or beside the field |
+| \`Helper\` | No | Help text displayed below the field |
+| \`Trigger\` | No | Custom content for the trigger button. When no item is selected, this content acts as the placeholder |
+| \`Item\` | Yes | Defines one selectable option. Attributes: \`value\` (required), \`disabled\` |
+| \`Group\` | No | Groups items under a named heading. Attribute: \`label\` |
+| \`Empty\` | No | Content shown when no items are available |
+
+\`\`\`typescript
+slotTags = ['Label', 'Helper', 'Trigger', 'Item', 'Group', 'Empty'];
+\`\`\`
+
+### Slot Hierarchy
+
+\`\`\`
+component (root)
+├── <Label>
+├── <Trigger>
+├── <Group label="...">
+│   └── <Item value="...">
+├── <Item value="...">
+├── <Empty>
+└── <Helper>
+\`\`\`
+
+---
+
+## 3. Properties
+
+### 3.1 Data
+
+| Property | Type | Default | Decorator | Description |
+|----------|------|---------|-----------|-------------|
+| \`value\` | \`string \| null\` | \`null\` | \`@propertyDataSource\` | Value of the currently selected item |
+| \`error\` | \`string\` | \`''\` | \`@propertyDataSource\` | Error message (empty = no error) |
+| \`name\` | \`string\` | \`''\` | \`@propertyDataSource\` | Field name (for forms) |
+
+### 3.2 Configuration
+
+| Property | Type | Default | Decorator | Description |
+|----------|------|---------|-----------|-------------|
+| \`placeholder\` | \`string\` | \`''\` | \`@propertyDataSource\` | Text shown when no item is selected (fallback when no \`Trigger\` slot) |
+| \`searchable\` | \`boolean\` | \`false\` | \`@propertyDataSource\` | Show a search input inside the selector to filter items |
+
+### 3.3 States
+
+| Property | Type | Default | Decorator | Description |
+|----------|------|---------|-----------|-------------|
+| \`isEditing\` | \`boolean\` | \`true\` | \`@propertyDataSource\` | Edit mode (true) or view mode (false) |
+| \`disabled\` | \`boolean\` | \`false\` | \`@propertyDataSource\` | Field is disabled |
+| \`readonly\` | \`boolean\` | \`false\` | \`@propertyDataSource\` | Field is read-only |
+| \`required\` | \`boolean\` | \`false\` | \`@propertyDataSource\` | A selection is required |
+| \`loading\` | \`boolean\` | \`false\` | \`@propertyDataSource\` | Loading state (items not yet available) |
+
+### 3.4 Internal State
+
+| Property | Type | Default | Decorator | Description |
+|----------|------|---------|-----------|-------------|
+| \`isOpen\` | \`boolean\` | \`false\` | \`@state\` | Whether the selector panel is currently open |
+| \`searchQuery\` | \`string\` | \`''\` | \`@state\` | Current search filter text (used when \`searchable=true\`) |
+
+---
+
+## 4. Value Contract
+
+### Storage Format
+
+- Value stored and emitted as a plain **string** matching the \`value\` attribute of the selected \`<Item>\`
+- \`null\` means no item selected
+- The label displayed in the trigger is read from the selected \`<Item>\` inner content — never stored
+
+### View Mode
+
+- If value is \`null\`: display placeholder or \`"—"\`
+- Otherwise: display the label of the selected item as plain text
+- Label is obtained via \`this.findItem(this.value)?.label\`
+
+---
+
+## 5. Events
+
+| Event | Detail | Bubbles | Description |
+|-------|--------|:-------:|-------------|
+| \`change\` | \`{ value: string \| null }\` | ✓ | Selection confirmed |
+| \`blur\` | \`{}\` | ✓ | Field lost focus |
+| \`focus\` | \`{}\` | ✓ | Field received focus |
+
+### Dispatch Example
+
+\`\`\`typescript
+this.dispatchEvent(new CustomEvent('change', {
+  bubbles: true,
+  composed: true,
+  detail: { value: this.value }
+}));
+\`\`\`
+
+---
+
+## 6. isEditing Mode
+
+| Mode | \`isEditing\` | Behavior |
+|------|-------------|----------|
+| **Edit** | \`true\` | Renders trigger button + selector panel |
+| **View** | \`false\` | Renders selected item label as static text |
+
+- In view mode: no trigger, no panel, no events, no error, no helper
+
+---
+
+## 7. Open/Close Behavior
+
+- Clicking the trigger toggles \`isOpen\`
+- Selecting an item sets \`value\`, closes the panel (\`isOpen = false\`), emits \`change\`
+- Pressing \`Escape\` closes the panel without changing value
+- Clicking outside the component closes the panel (use a \`@click\` listener on \`document\` in \`connectedCallback\`, remove in \`disconnectedCallback\`)
+- When \`disabled\` or \`readonly\`: trigger click is ignored, panel never opens
+
+---
+
+## 8. Validation Rules
+
+| Rule | Behavior |
+|------|----------|
+| \`required\` and \`value === null\` | Error state until an item is selected |
+| Item with \`disabled\` attribute | Rendered but not selectable; clicking it is ignored |
+
+---
+
+## 9. Error Handling
+
+| \`error\` value | Behavior |
+|---------------|----------|
+| \`''\` | No error — show Helper if slot exists |
+| \`'any message'\` | Show error message, apply error visual state |
+
+- Error never shown in view mode
+- Page/Organism is responsible for setting the error message
+
+---
+
+## 10. Visual States
+
+| State | Behavior |
+|-------|----------|
+| **Normal** | Default appearance |
+| **Open** | Selector panel visible |
+| **Selected** | Trigger shows selected item label |
+| **Disabled** | Reduced opacity, no interaction |
+| **Readonly** | No interaction, text selectable |
+| **Error** | Error border/style, error message visible |
+| **Loading** | Loading indicator in trigger; panel does not open |
+| **View Mode** | Selected label as plain text |
+
+---
+
+## 11. Rendering Logic
+
+### Reading items and groups inline
+
+Use \`getSlots\` directly inside \`render()\` — no helper methods needed:
+
+\`\`\`typescript
+// Read all items
+const items = this.getSlots('Item').map(el => ({
+  value: el.getAttribute('value') || '',
+  label: el.innerHTML,
+  disabled: el.hasAttribute('disabled'),
+}));
+
+// Read groups with their nested items
+const groups = this.getSlots('Group').map(group => ({
+  label: group.getAttribute('label') || '',
+  items: Array.from(group.querySelectorAll('Item')).map(el => ({
+    value: el.getAttribute('value') || '',
+    label: el.innerHTML,
+    disabled: el.hasAttribute('disabled'),
+  })),
+}));
+
+// Find selected item label
+const selectedLabel = items.find(i => i.value === this.value)?.label || null;
+
+// Filter when searchable
+const q = this.searchQuery.toLowerCase();
+const filtered = items.filter(i => i.label.toLowerCase().includes(q));
+\`\`\`
+
+### Logic
+
+\`\`\`
+RENDER:
+
+IF isEditing === false (View Mode):
+  1. IF hasSlot('Label'): render label
+  2. Render selected item label or placeholder or "—"
+  3. RETURN
+
+IF isEditing === true (Edit Mode):
+  1. Container — apply state styles
+
+  2. IF hasSlot('Label'): render label
+
+  3. Trigger button:
+     - IF loading: render loading indicator, disable trigger
+     - IF value is set: render selected item label
+       ELSE: render Trigger slot content or placeholder or "—"
+     - Chevron icon indicating open/closed state
+     - @click: toggle isOpen (unless disabled/readonly/loading)
+     - @blur: emit \`blur\` event
+     - @focus: emit \`focus\` event
+
+  4. IF isOpen:
+     Selector panel:
+     - IF searchable: render search input bound to searchQuery
+     - IF groups exist:
+         FOR each group: render group label + group items
+         Render standalone items after groups
+       ELSE:
+         Render all items (filtered by searchQuery if searchable)
+     - FOR each item:
+         Highlight if item.value === value (currently selected)
+         Dim if item.disabled
+         @click: IF NOT disabled → set value, isOpen=false, emit \`change\`
+     - IF no items (or all filtered out): render Empty slot or default message
+
+  5. Below trigger:
+     IF error !== '': render error message
+     ELSE IF hasSlot('Helper'): render helper text
+\`\`\`
+
+---
+
+## 12. Accessibility (a11y)
+
+| Requirement | Implementation |
+|-------------|----------------|
+| Trigger | \`role="combobox"\`, \`aria-expanded\`, \`aria-haspopup="listbox"\` |
+| Panel | \`role="listbox"\` |
+| Items | \`role="option"\`, \`aria-selected\`, \`aria-disabled\` |
+| Label | \`aria-labelledby\` pointing to rendered label |
+| Error | \`aria-describedby\` pointing to error element |
+| Invalid | \`aria-invalid="true"\` when error exists |
+| Required | \`aria-required="true"\` |
+| Keyboard | \`ArrowDown\`/\`ArrowUp\` navigate items; \`Enter\` selects; \`Escape\` closes |
+
+---
+
+## 13. Changelog
+
+| Version | Date | Description |
+|---------|------|-------------|
+| 1.0.0 | 2026-04-20 | Initial creation reference |
+| 1.1.0 | 2026-04-20 | Removed item parsing helpers; inline pattern in Rendering Logic |
+
+`

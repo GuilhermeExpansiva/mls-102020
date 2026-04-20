@@ -796,9 +796,3 @@ export class DatePickerMolecule extends MoleculeAuraElement {
     `;
   }
 }
-
-declare global {
-  interface HTMLElementTagNameMap {
-    'group-enter-date--date-picker-102020': DatePickerMolecule;
-  }
-}
