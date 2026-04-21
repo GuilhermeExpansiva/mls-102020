@@ -1,0 +1,258 @@
+<div class="mx-auto p-8 font-sans">
+<header class="text-center mb-12">
+<h1 class="text-3xl font-semibold text-slate-800 mb-2">Rate Stars</h1>
+<span class="inline-block px-3 py-1 bg-sky-100 text-sky-700 rounded-full text-sm font-medium">rate + item</span>
+</header>
+<widget-playground-state-102020 state='{"playground":{"basic":{"value":0,"error":""},"disabled":{"value":0,"error":""},"customItems":{"value":0,"error":""},"error":{"value":0,"error":"Avaliação obrigatória"},"viewMode":{"value":4,"error":""},"readonly":{"value":3,"error":""}}}'></widget-playground-state-102020>
+<section class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+
+<!-- 1. Basic -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Basic (1–5 stars, editable)</h3>
+<demo id="demo-basic">
+<molecules--group-rate-item--rate-stars-102020
+  value="{{playground.basic.value}}"
+  error="{{playground.basic.error}}"
+  min="1"
+  max="5"
+  is-editing="true">
+  <Label>How would you rate this product?</Label>
+</molecules--group-rate-item--rate-stars-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-number-102020 label="value" value="{{playground.basic.value}}"></widget-playground-state-number-102020>
+<widget-playground-state-text-102020 label="error" value="{{playground.basic.error}}"></widget-playground-state-text-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-basic">
+<template>
+<molecules--group-rate-item--rate-stars-102020
+  value="{{playground.basic.value}}"
+  error="{{playground.basic.error}}"
+  min="1"
+  max="5"
+  is-editing="true">
+  <Label>How would you rate this product?</Label>
+</molecules--group-rate-item--rate-stars-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 2. Disabled -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Disabled</h3>
+<demo id="demo-disabled">
+<molecules--group-rate-item--rate-stars-102020
+  value="{{playground.disabled.value}}"
+  error="{{playground.disabled.error}}"
+  min="1"
+  max="5"
+  disabled="true"
+  is-editing="true">
+  <Label>Rate this service</Label>
+</molecules--group-rate-item--rate-stars-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-number-102020 label="value" value="{{playground.disabled.value}}"></widget-playground-state-number-102020>
+<widget-playground-state-text-102020 label="error" value="{{playground.disabled.error}}"></widget-playground-state-text-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-disabled">
+<template>
+<molecules--group-rate-item--rate-stars-102020
+  value="{{playground.disabled.value}}"
+  error="{{playground.disabled.error}}"
+  min="1"
+  max="5"
+  disabled="true"
+  is-editing="true">
+  <Label>Rate this service</Label>
+</molecules--group-rate-item--rate-stars-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 3. Custom Items (emojis) -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Custom Items (Emoji faces)</h3>
+<demo id="demo-custom-items">
+<molecules--group-rate-item--rate-stars-102020
+  value="{{playground.customItems.value}}"
+  error="{{playground.customItems.error}}"
+  is-editing="true">
+  <Label>How did you feel?</Label>
+  <Item value="1">😡</Item>
+  <Item value="2">😕</Item>
+  <Item value="3">😐</Item>
+  <Item value="4">🙂</Item>
+  <Item value="5">😍</Item>
+  <Helper>Tap an emoji to rate your experience</Helper>
+</molecules--group-rate-item--rate-stars-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-number-102020 label="value" value="{{playground.customItems.value}}"></widget-playground-state-number-102020>
+<widget-playground-state-text-102020 label="error" value="{{playground.customItems.error}}"></widget-playground-state-text-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-custom-items">
+<template>
+<molecules--group-rate-item--rate-stars-102020
+  value="{{playground.customItems.value}}"
+  error="{{playground.customItems.error}}"
+  is-editing="true">
+  <Label>How did you feel?</Label>
+  <Item value="1">😡</Item>
+  <Item value="2">😕</Item>
+  <Item value="3">😐</Item>
+  <Item value="4">🙂</Item>
+  <Item value="5">😍</Item>
+  <Helper>Tap an emoji to rate your experience</Helper>
+</molecules--group-rate-item--rate-stars-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 4. Error State -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Error State (required)</h3>
+<demo id="demo-error">
+<molecules--group-rate-item--rate-stars-102020
+  value="{{playground.error.value}}"
+  error="{{playground.error.error}}"
+  min="1"
+  max="5"
+  required="true"
+  is-editing="true">
+  <Label>Rate your satisfaction</Label>
+</molecules--group-rate-item--rate-stars-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-number-102020 label="value" value="{{playground.error.value}}"></widget-playground-state-number-102020>
+<widget-playground-state-text-102020 label="error" value="{{playground.error.error}}"></widget-playground-state-text-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-error">
+<template>
+<molecules--group-rate-item--rate-stars-102020
+  value="{{playground.error.value}}"
+  error="{{playground.error.error}}"
+  min="1"
+  max="5"
+  required="true"
+  is-editing="true">
+  <Label>Rate your satisfaction</Label>
+</molecules--group-rate-item--rate-stars-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 5. View Mode (read-only, not editing) -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">View Mode (not editing)</h3>
+<demo id="demo-view-mode">
+<molecules--group-rate-item--rate-stars-102020
+  value="{{playground.viewMode.value}}"
+  error="{{playground.viewMode.error}}"
+  min="1"
+  max="5"
+  is-editing="false">
+  <Label>Your rating</Label>
+</molecules--group-rate-item--rate-stars-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-number-102020 label="value" value="{{playground.viewMode.value}}"></widget-playground-state-number-102020>
+<widget-playground-state-text-102020 label="error" value="{{playground.viewMode.error}}"></widget-playground-state-text-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-view-mode">
+<template>
+<molecules--group-rate-item--rate-stars-102020
+  value="{{playground.viewMode.value}}"
+  error="{{playground.viewMode.error}}"
+  min="1"
+  max="5"
+  is-editing="false">
+  <Label>Your rating</Label>
+</molecules--group-rate-item--rate-stars-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 6. Readonly (not editable, but focusable) -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Readonly (not editable, focusable)</h3>
+<demo id="demo-readonly">
+<molecules--group-rate-item--rate-stars-102020
+  value="{{playground.readonly.value}}"
+  error="{{playground.readonly.error}}"
+  min="1"
+  max="5"
+  readonly="true"
+  is-editing="true">
+  <Label>Readonly rating</Label>
+</molecules--group-rate-item--rate-stars-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-number-102020 label="value" value="{{playground.readonly.value}}"></widget-playground-state-number-102020>
+<widget-playground-state-text-102020 label="error" value="{{playground.readonly.error}}"></widget-playground-state-text-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-readonly">
+<template>
+<molecules--group-rate-item--rate-stars-102020
+  value="{{playground.readonly.value}}"
+  error="{{playground.readonly.error}}"
+  min="1"
+  max="5"
+  readonly="true"
+  is-editing="true">
+  <Label>Readonly rating</Label>
+</molecules--group-rate-item--rate-stars-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+</section>
+</div>
