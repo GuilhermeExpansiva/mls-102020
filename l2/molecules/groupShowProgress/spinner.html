@@ -1,0 +1,226 @@
+<div class="mx-auto p-8 font-sans">
+<header class="text-center mb-12">
+  <h1 class="text-3xl font-semibold text-slate-800 mb-2">Spinner</h1>
+  <span class="inline-block px-3 py-1 bg-sky-100 text-sky-700 rounded-full text-sm font-medium">show + progress</span>
+</header>
+<widget-playground-state-102020 state='{"playground":{"basic":{"value":null,"size":"md","label":"","show-value":false},"small":{"value":null,"size":"sm","label":"Saving...","show-value":false},"determinate":{"value":65,"size":"md","label":"Uploading file","show-value":true},"large":{"value":null,"size":"lg","label":"Loading dashboard","show-value":false},"withLabel":{"value":null,"size":"md","label":"Loading user data","show-value":false},"tiny":{"value":null,"size":"xs","label":"","show-value":false}}}'>
+</widget-playground-state-102020>
+<section class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+  <!-- 1. Basic indeterminate spinner -->
+  <article class="bg-white border border-slate-200 rounded-xl p-6">
+    <h3 class="text-lg font-semibold text-slate-800 mb-4">Basic Spinner (Indeterminate)</h3>
+    <demo id="demo-basic">
+      <molecules--group-show-progress--spinner-102020
+        value="{{playground.basic.value}}"
+        size="{{playground.basic.size}}"
+        label="{{playground.basic.label}}"
+        show-value="{{playground.basic['show-value']}}">
+      </molecules--group-show-progress--spinner-102020>
+    </demo>
+    <details class="mt-4">
+      <summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+      <div class="mt-2 p-4 border border-slate-200 rounded-lg">
+        <widget-playground-state-number-102020 label="value" value="{{playground.basic.value}}"></widget-playground-state-number-102020>
+        <widget-playground-state-text-102020 label="size" value="{{playground.basic.size}}"></widget-playground-state-text-102020>
+        <widget-playground-state-text-102020 label="label" value="{{playground.basic.label}}"></widget-playground-state-text-102020>
+        <widget-playground-state-boolean-102020 label="show-value" value="{{playground.basic['show-value']}}"></widget-playground-state-boolean-102020>
+      </div>
+    </details>
+    <details class="mt-2">
+      <summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+      <div class="mt-2">
+        <widget-playground-state-preview-code-102020 target="demo-basic">
+          <template>
+<molecules--group-show-progress--spinner-102020
+  value="{{playground.basic.value}}"
+  size="{{playground.basic.size}}"
+  label="{{playground.basic.label}}"
+  show-value="{{playground.basic['show-value']}}">
+</molecules--group-show-progress--spinner-102020>
+          </template>
+        </widget-playground-state-preview-code-102020>
+      </div>
+    </details>
+  </article>
+  <!-- 2. Small spinner for button (indeterminate) -->
+  <article class="bg-white border border-slate-200 rounded-xl p-6">
+    <h3 class="text-lg font-semibold text-slate-800 mb-4">Small Spinner (Button)</h3>
+    <demo id="demo-small">
+      <molecules--group-show-progress--spinner-102020
+        value="{{playground.small.value}}"
+        size="{{playground.small.size}}"
+        label="{{playground.small.label}}"
+        show-value="{{playground.small['show-value']}}">
+      </molecules--group-show-progress--spinner-102020>
+    </demo>
+    <details class="mt-4">
+      <summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+      <div class="mt-2 p-4 border border-slate-200 rounded-lg">
+        <widget-playground-state-number-102020 label="value" value="{{playground.small.value}}"></widget-playground-state-number-102020>
+        <widget-playground-state-text-102020 label="size" value="{{playground.small.size}}"></widget-playground-state-text-102020>
+        <widget-playground-state-text-102020 label="label" value="{{playground.small.label}}"></widget-playground-state-text-102020>
+        <widget-playground-state-boolean-102020 label="show-value" value="{{playground.small['show-value']}}"></widget-playground-state-boolean-102020>
+      </div>
+    </details>
+    <details class="mt-2">
+      <summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+      <div class="mt-2">
+        <widget-playground-state-preview-code-102020 target="demo-small">
+          <template>
+<molecules--group-show-progress--spinner-102020
+  value="{{playground.small.value}}"
+  size="{{playground.small.size}}"
+  label="{{playground.small.label}}"
+  show-value="{{playground.small['show-value']}}">
+</molecules--group-show-progress--spinner-102020>
+          </template>
+        </widget-playground-state-preview-code-102020>
+      </div>
+    </details>
+  </article>
+  <!-- 3. Determinate spinner with value and show-value -->
+  <article class="bg-white border border-slate-200 rounded-xl p-6">
+    <h3 class="text-lg font-semibold text-slate-800 mb-4">Determinate Spinner (65%)</h3>
+    <demo id="demo-determinate">
+      <molecules--group-show-progress--spinner-102020
+        value="{{playground.determinate.value}}"
+        size="{{playground.determinate.size}}"
+        label="{{playground.determinate.label}}"
+        show-value="{{playground.determinate['show-value']}}">
+      </molecules--group-show-progress--spinner-102020>
+    </demo>
+    <details class="mt-4">
+      <summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+      <div class="mt-2 p-4 border border-slate-200 rounded-lg">
+        <widget-playground-state-number-102020 label="value" value="{{playground.determinate.value}}"></widget-playground-state-number-102020>
+        <widget-playground-state-text-102020 label="size" value="{{playground.determinate.size}}"></widget-playground-state-text-102020>
+        <widget-playground-state-text-102020 label="label" value="{{playground.determinate.label}}"></widget-playground-state-text-102020>
+        <widget-playground-state-boolean-102020 label="show-value" value="{{playground.determinate['show-value']}}"></widget-playground-state-boolean-102020>
+      </div>
+    </details>
+    <details class="mt-2">
+      <summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+      <div class="mt-2">
+        <widget-playground-state-preview-code-102020 target="demo-determinate">
+          <template>
+<molecules--group-show-progress--spinner-102020
+  value="{{playground.determinate.value}}"
+  size="{{playground.determinate.size}}"
+  label="{{playground.determinate.label}}"
+  show-value="{{playground.determinate['show-value']}}">
+</molecules--group-show-progress--spinner-102020>
+          </template>
+        </widget-playground-state-preview-code-102020>
+      </div>
+    </details>
+  </article>
+  <!-- 4. Large spinner for dashboard -->
+  <article class="bg-white border border-slate-200 rounded-xl p-6">
+    <h3 class="text-lg font-semibold text-slate-800 mb-4">Large Spinner (Dashboard)</h3>
+    <demo id="demo-large">
+      <molecules--group-show-progress--spinner-102020
+        value="{{playground.large.value}}"
+        size="{{playground.large.size}}"
+        label="{{playground.large.label}}"
+        show-value="{{playground.large['show-value']}}">
+      </molecules--group-show-progress--spinner-102020>
+    </demo>
+    <details class="mt-4">
+      <summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+      <div class="mt-2 p-4 border border-slate-200 rounded-lg">
+        <widget-playground-state-number-102020 label="value" value="{{playground.large.value}}"></widget-playground-state-number-102020>
+        <widget-playground-state-text-102020 label="size" value="{{playground.large.size}}"></widget-playground-state-text-102020>
+        <widget-playground-state-text-102020 label="label" value="{{playground.large.label}}"></widget-playground-state-text-102020>
+        <widget-playground-state-boolean-102020 label="show-value" value="{{playground.large['show-value']}}"></widget-playground-state-boolean-102020>
+      </div>
+    </details>
+    <details class="mt-2">
+      <summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+      <div class="mt-2">
+        <widget-playground-state-preview-code-102020 target="demo-large">
+          <template>
+<molecules--group-show-progress--spinner-102020
+  value="{{playground.large.value}}"
+  size="{{playground.large.size}}"
+  label="{{playground.large.label}}"
+  show-value="{{playground.large['show-value']}}">
+</molecules--group-show-progress--spinner-102020>
+          </template>
+        </widget-playground-state-preview-code-102020>
+      </div>
+    </details>
+  </article>
+  <!-- 5. Indeterminate with accessible label -->
+  <article class="bg-white border border-slate-200 rounded-xl p-6">
+    <h3 class="text-lg font-semibold text-slate-800 mb-4">Spinner with Accessible Label</h3>
+    <demo id="demo-withLabel">
+      <molecules--group-show-progress--spinner-102020
+        value="{{playground.withLabel.value}}"
+        size="{{playground.withLabel.size}}"
+        label="{{playground.withLabel.label}}"
+        show-value="{{playground.withLabel['show-value']}}">
+      </molecules--group-show-progress--spinner-102020>
+    </demo>
+    <details class="mt-4">
+      <summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+      <div class="mt-2 p-4 border border-slate-200 rounded-lg">
+        <widget-playground-state-number-102020 label="value" value="{{playground.withLabel.value}}"></widget-playground-state-number-102020>
+        <widget-playground-state-text-102020 label="size" value="{{playground.withLabel.size}}"></widget-playground-state-text-102020>
+        <widget-playground-state-text-102020 label="label" value="{{playground.withLabel.label}}"></widget-playground-state-text-102020>
+        <widget-playground-state-boolean-102020 label="show-value" value="{{playground.withLabel['show-value']}}"></widget-playground-state-boolean-102020>
+      </div>
+    </details>
+    <details class="mt-2">
+      <summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+      <div class="mt-2">
+        <widget-playground-state-preview-code-102020 target="demo-withLabel">
+          <template>
+<molecules--group-show-progress--spinner-102020
+  value="{{playground.withLabel.value}}"
+  size="{{playground.withLabel.size}}"
+  label="{{playground.withLabel.label}}"
+  show-value="{{playground.withLabel['show-value']}}">
+</molecules--group-show-progress--spinner-102020>
+          </template>
+        </widget-playground-state-preview-code-102020>
+      </div>
+    </details>
+  </article>
+  <!-- 6. Extra small spinner (xs) -->
+  <article class="bg-white border border-slate-200 rounded-xl p-6">
+    <h3 class="text-lg font-semibold text-slate-800 mb-4">Extra Small Spinner (xs)</h3>
+    <demo id="demo-tiny">
+      <molecules--group-show-progress--spinner-102020
+        value="{{playground.tiny.value}}"
+        size="{{playground.tiny.size}}"
+        label="{{playground.tiny.label}}"
+        show-value="{{playground.tiny['show-value']}}">
+      </molecules--group-show-progress--spinner-102020>
+    </demo>
+    <details class="mt-4">
+      <summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+      <div class="mt-2 p-4 border border-slate-200 rounded-lg">
+        <widget-playground-state-number-102020 label="value" value="{{playground.tiny.value}}"></widget-playground-state-number-102020>
+        <widget-playground-state-text-102020 label="size" value="{{playground.tiny.size}}"></widget-playground-state-text-102020>
+        <widget-playground-state-text-102020 label="label" value="{{playground.tiny.label}}"></widget-playground-state-text-102020>
+        <widget-playground-state-boolean-102020 label="show-value" value="{{playground.tiny['show-value']}}"></widget-playground-state-boolean-102020>
+      </div>
+    </details>
+    <details class="mt-2">
+      <summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+      <div class="mt-2">
+        <widget-playground-state-preview-code-102020 target="demo-tiny">
+          <template>
+<molecules--group-show-progress--spinner-102020
+  value="{{playground.tiny.value}}"
+  size="{{playground.tiny.size}}"
+  label="{{playground.tiny.label}}"
+  show-value="{{playground.tiny['show-value']}}">
+</molecules--group-show-progress--spinner-102020>
+          </template>
+        </widget-playground-state-preview-code-102020>
+      </div>
+    </details>
+  </article>
+</section>
+</div>
