@@ -71,8 +71,48 @@ export const skills = [
         skillReference: '/_102020_/l2/skills/molecules/groupEnterTimeInterval/creation',
         skillUsageReference: '/_102020_/l2/skills/molecules/groupEnterTimeInterval/usage'
     },
+    {
+        name: 'groupLocatePosition',
+        description: 'Allows the user to inform or visualize a geographic location. Supports address search with autocomplete (suggestions provided by the page via BFF), geolocation capture, and map preview. Value is stored as a JSON string containing lat, lng, and address. Implementations include address autocomplete, map picker, geolocation button, and area selector.',
+        skillReference: '/_102020_/l2/skills/molecules/groupLocatePosition/creation',
+        skillUsageReference: '/_102020_/l2/skills/molecules/groupLocatePosition/usage'
+    },
 
-    // Category 3: Data Display
+    {
+        name: 'groupSelectFileForUpload',
+        description: 'Allows the user to select one or more files to be uploaded. Stateless — emits selected File objects via change event; the page is responsible for uploading via BFF. Supports drag-and-drop, file type and size validation, and emits a reject event for invalid files. Implementations include drag-drop zone, file button, multi-file upload, camera capture, and paste from clipboard.',
+        skillReference: '/_102020_/l2/skills/molecules/groupSelectFileForUpload/creation',
+        skillUsageReference: '/_102020_/l2/skills/molecules/groupSelectFileForUpload/usage'
+    },
+
+    {
+        name: 'groupShowProgress',
+        description: 'Indicates the progress of an operation or process. Visual primitive designed for composition inside other components. Supports determinate mode (0-100%) and indeterminate mode (unknown duration). Implementations include progress bar, progress ring/circle, spinner, and percentage indicator.',
+        skillReference: '/_102020_/l2/skills/molecules/groupShowProgress/creation',
+        skillUsageReference: '/_102020_/l2/skills/molecules/groupShowProgress/usage'
+    },
+    {
+        name: 'groupRateItem',
+        description: 'Allows the user to rate or score an item. Supports auto-generated options from a numeric range (min/max/step) or custom options via Item slot tags (emoji, icons, text). Value is always a number. Implementations include star rating, thumbs up/down, emoji rating, NPS scale, and satisfaction slider.',
+        skillReference: '/_102020_/l2/skills/molecules/groupRateItem/creation',
+        skillUsageReference: '/_102020_/l2/skills/molecules/groupRateItem/usage'
+    },
+    {
+        name: 'groupViewChart',
+        description: 'Displays data through graphical representation. Data provided via Series and Point slot tags. All chart implementations share the same data contract — swap the component tag to change visualization. Supports multi-series (Line, Bar, Area, Radar, Scatter) and single-series (Pie, Donut, Funnel). Implementations include bar chart, line chart, area chart, pie chart, donut chart, scatter chart, radar chart, and funnel chart.',
+        skillReference: '/_102020_/l2/skills/molecules/groupViewChart/creation',
+        skillUsageReference: '/_102020_/l2/skills/molecules/groupViewChart/usage'
+    },
+
+
+
+
+
+
+
+
+
+
     {
         name: 'groupViewData',
         description: 'Display a collection of data with adaptive layout. The component decides the best presentation based on context (viewport, configuration). Use when displaying multiple records with defined fields and rich content.',

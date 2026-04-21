@@ -53,7 +53,7 @@ async function beforePromptImplicit(
             }],
             taskTitle: `Prepare playground`,
             threadId: context.message.threadId,
-            userMessage: 'Generate playground',
+            userMessage: context.message.content,
         }
     };
     return [addMessageAI];

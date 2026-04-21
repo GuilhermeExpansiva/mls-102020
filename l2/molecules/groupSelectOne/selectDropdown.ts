@@ -115,7 +115,6 @@ export class SelectDropdownMolecule extends MoleculeAuraElement {
     }));
   }
   private handlePanelKeydown(e: KeyboardEvent, items: { value: string; label: string; disabled: boolean }[]) {
-    // Keyboard navigation: ArrowDown, ArrowUp, Enter, Escape
     const enabledItems = items.filter(i => !i.disabled);
     const currentIdx = enabledItems.findIndex(i => i.value === this.value);
     if (e.key === 'ArrowDown') {
@@ -160,12 +159,13 @@ export class SelectDropdownMolecule extends MoleculeAuraElement {
     );
   }
   private getPanelItems(): { value: string; label: string; disabled: boolean }[] {
-    // Standalone items (not in groups)
-    return this.getSlots('Item').map(el => ({
-      value: el.getAttribute('value') || '',
-      label: el.innerHTML,
-      disabled: el.hasAttribute('disabled'),
-    }));
+    return this.getSlots('Item')
+      .filter(el => !el.parentElement?.tagName?.toUpperCase()?.startsWith('GROUP'))
+      .map(el => ({
+        value: el.getAttribute('value') || '',
+        label: el.innerHTML,
+        disabled: el.hasAttribute('disabled'),
+      }));
   }
   private getPanelGroups(): { label: string; items: { value: string; label: string; disabled: boolean }[] }[] {
     return this.getSlots('Group').map(group => ({
@@ -176,6 +176,12 @@ export class SelectDropdownMolecule extends MoleculeAuraElement {
         disabled: el.hasAttribute('disabled'),
       })),
     }));
+  }
+  private getAllItems(
+    items: { value: string; label: string; disabled: boolean }[],
+    groups: { label: string; items: { value: string; label: string; disabled: boolean }[] }[]
+  ): { value: string; label: string; disabled: boolean }[] {
+    return [...groups.flatMap(g => g.items), ...items];
   }
   private renderLabel(): TemplateResult | typeof nothing {
     if (!this.hasSlot('Label')) return nothing;
@@ -199,7 +205,6 @@ export class SelectDropdownMolecule extends MoleculeAuraElement {
     items: { value: string; label: string; disabled: boolean }[],
     groups: { label: string; items: { value: string; label: string; disabled: boolean }[] }[]
   ): TemplateResult {
-    // Filter items/groups by searchQuery if searchable
     const q = this.searchQuery.toLowerCase();
     let filteredItems = items;
     let filteredGroups = groups;
@@ -213,11 +218,12 @@ export class SelectDropdownMolecule extends MoleculeAuraElement {
         .filter(g => g.items.length > 0);
     }
     const hasAny = filteredItems.length > 0 || filteredGroups.length > 0;
+    const allFilteredItems = this.getAllItems(filteredItems, filteredGroups);
     return html`
       <div
         class="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-auto"
         role="listbox"
-        @keydown=${(e: KeyboardEvent) => this.handlePanelKeydown(e, [...filteredItems, ...filteredGroups.flatMap(g => g.items)])}
+        @keydown=${(e: KeyboardEvent) => this.handlePanelKeydown(e, allFilteredItems)}
       >
         ${this.searchable
           ? html`<div class="p-2"><input
@@ -261,10 +267,10 @@ export class SelectDropdownMolecule extends MoleculeAuraElement {
   render(): TemplateResult {
     const lang = this.getMessageKey(messages);
     this.msg = messages[lang];
-    // Read items/groups inline
     const items = this.getPanelItems();
     const groups = this.getPanelGroups();
-    const selectedLabel = this.getTriggerLabel(items);
+    const allItems = this.getAllItems(items, groups);
+    const selectedLabel = this.getTriggerLabel(allItems);
     // VIEW MODE
     if (!this.isEditing) {
       return html`
