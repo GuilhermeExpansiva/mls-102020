@@ -22,7 +22,6 @@ export function createAgent(): IAgentAsync {
     };
 }
 
-
 async function beforePromptAtomic(
     agent: IAgentMeta,
     context: mls.msg.ExecutionContext,
@@ -31,7 +30,7 @@ async function beforePromptAtomic(
 ): Promise<mls.msg.AgentIntent[]> {
 
     if (userPrompt) throw new Error(`[beforePromptAtomic] invalid args: '${userPrompt}'`);
-    
+
     return [];
 
 };
@@ -110,27 +109,32 @@ async function getSystemUser(context: mls.msg.ExecutionContext, fileReference: s
 
     const path = mls.stor.getPathToFile(fileReference);
     const files = await mls.stor.getFiles({ ...path, loadContent: false });
-    if (!files.ts) throw new Error(`[getSystemUser] invalid file: ${fileReference}`)
+    if (!files.ts) throw new Error(`[getSystemUser] invalid file: ${fileReference}`);
+
     const data = await getMoleculeSkill(files.ts);
     const skillByGroup = await getGroupSkill(data.group);
     const tagName = convertFileNameToTag(path);
-
-    console.info(skillByGroup)
-
     await appendLongTermMemory(context, { 'group': data.group });
 
     const system2 = `
 
     ## TagName : ${tagName}
-
     ## File Reference : ${data.fileReference}
-    
+
     ## Skill Group: ${data.group}
     \`\`\`
         ${skillByGroup}
     \`\`\`
 
+
+    ## Molecule ${tagName} specification:
+    \`\`\`
+        ${data.skill}
+    \`\`\`
+
     `
+
+    console.info(system2)
 
     return system2;
 }
@@ -230,6 +234,7 @@ async function updateStorFile(params: { project: number, shortName: string, leve
 
 
 async function getGroupSkill(group: string) {
+
     const path = skillList.find((item) => item.name === group)?.skillReference;
     if (!path) throw new Error(`[getGroupSkill] skill for group not found: ${path}`);
     const module = await import(path);
@@ -266,7 +271,7 @@ async function getMoleculeSkill(file: mls.stor.IFileInfo): Promise<{ skill: stri
 
 
 const system1 = `
-<!-- modelType: code-->
+<!-- modelType: code -->
 <!-- modelTypeList: geminiChat (2.5 pro), code (grok), deepseekchat, codeflash (gemini), deepseekreasoner, mini (4.1) ou nano (openai), codeinstruct (4.1), codereasoning(gpt5), code2 (kimi 2.5) -->
 
 You are a senior Frontend Architect and Staff Software Engineer with 20+ years of experience building large-scale web applications using TypeScript, Lit, and state-driven architectures.
