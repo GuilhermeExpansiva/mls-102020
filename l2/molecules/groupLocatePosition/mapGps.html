@@ -1,0 +1,285 @@
+<div class="mx-auto p-8 font-sans">
+<header class="text-center mb-12">
+<h1 class="text-3xl font-semibold text-slate-800 mb-2">Locate on Map (GPS)</h1>
+<span class="inline-block px-3 py-1 bg-sky-100 text-sky-700 rounded-full text-sm font-medium">locate + position</span>
+</header>
+<widget-playground-state-102020 state='{"playground":{"basic":{"value":null,"error":"","name":"","suggestions":"[]","placeholder":"","showMap":false,"allowGeolocation":false,"isEditing":true,"disabled":false,"readonly":false,"required":false,"loading":false},"disabled":{"value":null,"error":"","name":"","suggestions":"[]","placeholder":"","showMap":false,"allowGeolocation":false,"isEditing":true,"disabled":true,"readonly":false,"required":false,"loading":false},"withMap":{"value":null,"error":"","name":"","suggestions":"[]","placeholder":"","showMap":true,"allowGeolocation":false,"isEditing":true,"disabled":false,"readonly":false,"required":false,"loading":false},"withGeolocation":{"value":null,"error":"","name":"","suggestions":"[]","placeholder":"","showMap":false,"allowGeolocation":true,"isEditing":true,"disabled":false,"readonly":false,"required":false,"loading":false},"readonly":{"value":null,"error":"","name":"","suggestions":"[]","placeholder":"","showMap":false,"allowGeolocation":false,"isEditing":true,"disabled":false,"readonly":true,"required":false,"loading":false},"error":{"value":null,"error":"Invalid location selected.","name":"","suggestions":"[]","placeholder":"","showMap":false,"allowGeolocation":false,"isEditing":true,"disabled":false,"readonly":false,"required":false,"loading":false},"viewMode":{"value":"{\"lat\":-23.55052,\"lng\":-46.633308,\"address\":\"Praça da Sé, São Paulo, SP\"}","error":"","name":"","suggestions":"[]","placeholder":"","showMap":true,"allowGeolocation":false,"isEditing":false,"disabled":false,"readonly":false,"required":false,"loading":false}}}'>
+</widget-playground-state-102020>
+<section class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+
+<!-- 1. Basic -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Basic usage</h3>
+<demo id="demo-basic">
+<molecules--group-locate-position--map-gps-102020
+  value="{{playground.basic.value}}"
+  error="{{playground.basic.error}}"
+  name="{{playground.basic.name}}"
+  suggestions="{{playground.basic.suggestions}}"
+  placeholder="{{playground.basic.placeholder}}"
+  show-map="{{playground.basic.showMap}}"
+  allow-geolocation="{{playground.basic.allowGeolocation}}"
+  is-editing="{{playground.basic.isEditing}}"
+  disabled="{{playground.basic.disabled}}"
+  readonly="{{playground.basic.readonly}}"
+  required="{{playground.basic.required}}"
+  loading="{{playground.basic.loading}}"
+>
+  <Label>Location</Label>
+</molecules--group-locate-position--map-gps-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-text-102020 label="value" value="{{playground.basic.value}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="error" value="{{playground.basic.error}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="name" value="{{playground.basic.name}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="suggestions" value="{{playground.basic.suggestions}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="placeholder" value="{{playground.basic.placeholder}}"></widget-playground-state-text-102020>
+<widget-playground-state-boolean-102020 label="showMap" value="{{playground.basic.showMap}}"></widget-playground-state-boolean-102020>
+<widget-playground-state-boolean-102020 label="allowGeolocation" value="{{playground.basic.allowGeolocation}}"></widget-playground-state-boolean-102020>
+<widget-playground-state-boolean-102020 label="isEditing" value="{{playground.basic.isEditing}}"></widget-playground-state-boolean-102020>
+<widget-playground-state-boolean-102020 label="disabled" value="{{playground.basic.disabled}}"></widget-playground-state-boolean-102020>
+<widget-playground-state-boolean-102020 label="readonly" value="{{playground.basic.readonly}}"></widget-playground-state-boolean-102020>
+<widget-playground-state-boolean-102020 label="required" value="{{playground.basic.required}}"></widget-playground-state-boolean-102020>
+<widget-playground-state-boolean-102020 label="loading" value="{{playground.basic.loading}}"></widget-playground-state-boolean-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-basic">
+<template>
+<molecules--group-locate-position--map-gps-102020
+  value="{{playground.basic.value}}"
+  error="{{playground.basic.error}}"
+  name="{{playground.basic.name}}"
+  suggestions="{{playground.basic.suggestions}}"
+  placeholder="{{playground.basic.placeholder}}"
+  show-map="{{playground.basic.showMap}}"
+  allow-geolocation="{{playground.basic.allowGeolocation}}"
+  is-editing="{{playground.basic.isEditing}}"
+  disabled="{{playground.basic.disabled}}"
+  readonly="{{playground.basic.readonly}}"
+  required="{{playground.basic.required}}"
+  loading="{{playground.basic.loading}}"
+>
+  <Label>Location</Label>
+</molecules--group-locate-position--map-gps-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 2. Disabled -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Disabled</h3>
+<demo id="demo-disabled">
+<molecules--group-locate-position--map-gps-102020
+  disabled="true"
+>
+  <Label>Disabled Location</Label>
+</molecules--group-locate-position--map-gps-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-boolean-102020 label="disabled" value="{{playground.disabled.disabled}}"></widget-playground-state-boolean-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-disabled">
+<template>
+<molecules--group-locate-position--map-gps-102020
+  disabled="true"
+>
+  <Label>Disabled Location</Label>
+</molecules--group-locate-position--map-gps-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 3. With Map Preview -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">With Map Preview</h3>
+<demo id="demo-with-map">
+<molecules--group-locate-position--map-gps-102020
+  show-map="true"
+>
+  <Label>Location with Map</Label>
+  <Helper>Search for an address or select on the map.</Helper>
+</molecules--group-locate-position--map-gps-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-boolean-102020 label="showMap" value="{{playground.withMap.showMap}}"></widget-playground-state-boolean-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-with-map">
+<template>
+<molecules--group-locate-position--map-gps-102020
+  show-map="true"
+>
+  <Label>Location with Map</Label>
+  <Helper>Search for an address or select on the map.</Helper>
+</molecules--group-locate-position--map-gps-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 4. With Geolocation Button -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">With Geolocation Button</h3>
+<demo id="demo-with-geolocation">
+<molecules--group-locate-position--map-gps-102020
+  allow-geolocation="true"
+>
+  <Label>Occurrence Location</Label>
+  <Trigger>Use my current location</Trigger>
+  <Helper>Search or use GPS to mark the exact location</Helper>
+</molecules--group-locate-position--map-gps-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-boolean-102020 label="allowGeolocation" value="{{playground.withGeolocation.allowGeolocation}}"></widget-playground-state-boolean-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-with-geolocation">
+<template>
+<molecules--group-locate-position--map-gps-102020
+  allow-geolocation="true"
+>
+  <Label>Occurrence Location</Label>
+  <Trigger>Use my current location</Trigger>
+  <Helper>Search or use GPS to mark the exact location</Helper>
+</molecules--group-locate-position--map-gps-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 5. Readonly -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Readonly</h3>
+<demo id="demo-readonly">
+<molecules--group-locate-position--map-gps-102020
+  readonly="true"
+  value="{\"lat\":-22.9068,\"lng\":-43.1729,\"address\":\"Rio de Janeiro, RJ\"}"
+>
+  <Label>Readonly Location</Label>
+</molecules--group-locate-position--map-gps-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-boolean-102020 label="readonly" value="{{playground.readonly.readonly}}"></widget-playground-state-boolean-102020>
+<widget-playground-state-text-102020 label="value" value="{{playground.readonly.value}}"></widget-playground-state-text-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-readonly">
+<template>
+<molecules--group-locate-position--map-gps-102020
+  readonly="true"
+  value="{\"lat\":-22.9068,\"lng\":-43.1729,\"address\":\"Rio de Janeiro, RJ\"}"
+>
+  <Label>Readonly Location</Label>
+</molecules--group-locate-position--map-gps-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 6. Error State -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Error State</h3>
+<demo id="demo-error">
+<molecules--group-locate-position--map-gps-102020
+  error="Invalid location selected."
+>
+  <Label>Location</Label>
+  <Helper>Try searching for a different address.</Helper>
+</molecules--group-locate-position--map-gps-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-text-102020 label="error" value="{{playground.error.error}}"></widget-playground-state-text-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-error">
+<template>
+<molecules--group-locate-position--map-gps-102020
+  error="Invalid location selected."
+>
+  <Label>Location</Label>
+  <Helper>Try searching for a different address.</Helper>
+</molecules--group-locate-position--map-gps-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 7. View Mode (isEditing=false) -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">View Mode (Read-only)</h3>
+<demo id="demo-view-mode">
+<molecules--group-locate-position--map-gps-102020
+  value="{\"lat\":-23.55052,\"lng\":-46.633308,\"address\":\"Praça da Sé, São Paulo, SP\"}"
+  is-editing="false"
+  show-map="true"
+>
+  <Label>Delivery Address</Label>
+</molecules--group-locate-position--map-gps-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-text-102020 label="value" value="{{playground.viewMode.value}}"></widget-playground-state-text-102020>
+<widget-playground-state-boolean-102020 label="isEditing" value="{{playground.viewMode.isEditing}}"></widget-playground-state-boolean-102020>
+<widget-playground-state-boolean-102020 label="showMap" value="{{playground.viewMode.showMap}}"></widget-playground-state-boolean-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-view-mode">
+<template>
+<molecules--group-locate-position--map-gps-102020
+  value="{\"lat\":-23.55052,\"lng\":-46.633308,\"address\":\"Praça da Sé, São Paulo, SP\"}"
+  is-editing="false"
+  show-map="true"
+>
+  <Label>Delivery Address</Label>
+</molecules--group-locate-position--map-gps-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+</section>
+</div>
