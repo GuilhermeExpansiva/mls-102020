@@ -1,0 +1,306 @@
+<div class="mx-auto p-8 font-sans">
+<header class="text-center mb-12">
+<h1 class="text-3xl font-semibold text-slate-800 mb-2">molecules--group-select-file-for-upload--drag-drop-preview-102020</h1>
+<span class="inline-block px-3 py-1 bg-sky-100 text-sky-700 rounded-full text-sm font-medium">select + fileForUpload</span>
+</header>
+<widget-playground-state-102020 state='{"playground":{"basic":{"value":[],"error":"","multiple":false,"accept":"","max-size-kb":0,"max-files":0,"disabled":false,"loading":false},"disabled":{"value":[],"error":"","multiple":false,"accept":"","max-size-kb":0,"max-files":0,"disabled":true,"loading":false},"loading":{"value":[],"error":"","multiple":false,"accept":"","max-size-kb":0,"max-files":0,"disabled":false,"loading":true},"error":{"value":[],"error":"File type not supported","multiple":false,"accept":".pdf,.docx","max-size-kb":0,"max-files":0,"disabled":false,"loading":false},"multiple":{"value":[],"error":"","multiple":true,"accept":"image/*","max-size-kb":2048,"max-files":5,"disabled":false,"loading":false},"customTrigger":{"value":[],"error":"","multiple":true,"accept":"image/*","max-size-kb":1024,"max-files":3,"disabled":false,"loading":false}}}'>
+</widget-playground-state-102020>
+<section class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+
+<!-- 1. Basic usage -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Basic</h3>
+<demo id="demo-basic">
+<molecules--group-select-file-for-upload--drag-drop-preview-102020
+  value="{{playground.basic.value}}"
+  error="{{playground.basic.error}}"
+  multiple="{{playground.basic.multiple}}"
+  accept="{{playground.basic.accept}}"
+  max-size-kb="{{playground.basic['max-size-kb']}}"
+  max-files="{{playground.basic['max-files']}}"
+  disabled="{{playground.basic.disabled}}"
+  loading="{{playground.basic.loading}}">
+  <Label>Upload your image</Label>
+  <Helper>PNG or JPG, up to 2MB</Helper>
+</molecules--group-select-file-for-upload--drag-drop-preview-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-boolean-102020 label="multiple" value="{{playground.basic.multiple}}"></widget-playground-state-boolean-102020>
+<widget-playground-state-text-102020 label="accept" value="{{playground.basic.accept}}"></widget-playground-state-text-102020>
+<widget-playground-state-number-102020 label="max-size-kb" value="{{playground.basic['max-size-kb']}}"></widget-playground-state-number-102020>
+<widget-playground-state-number-102020 label="max-files" value="{{playground.basic['max-files']}}"></widget-playground-state-number-102020>
+<widget-playground-state-boolean-102020 label="disabled" value="{{playground.basic.disabled}}"></widget-playground-state-boolean-102020>
+<widget-playground-state-boolean-102020 label="loading" value="{{playground.basic.loading}}"></widget-playground-state-boolean-102020>
+<widget-playground-state-text-102020 label="error" value="{{playground.basic.error}}"></widget-playground-state-text-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-basic">
+<template>
+<molecules--group-select-file-for-upload--drag-drop-preview-102020
+  value="{{playground.basic.value}}"
+  error="{{playground.basic.error}}"
+  multiple="{{playground.basic.multiple}}"
+  accept="{{playground.basic.accept}}"
+  max-size-kb="{{playground.basic['max-size-kb']}}"
+  max-files="{{playground.basic['max-files']}}"
+  disabled="{{playground.basic.disabled}}"
+  loading="{{playground.basic.loading}}">
+  <Label>Upload your image</Label>
+  <Helper>PNG or JPG, up to 2MB</Helper>
+</molecules--group-select-file-for-upload--drag-drop-preview-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 2. Disabled -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Disabled</h3>
+<demo id="demo-disabled">
+<molecules--group-select-file-for-upload--drag-drop-preview-102020
+  value="{{playground.disabled.value}}"
+  error="{{playground.disabled.error}}"
+  multiple="{{playground.disabled.multiple}}"
+  accept="{{playground.disabled.accept}}"
+  max-size-kb="{{playground.disabled['max-size-kb']}}"
+  max-files="{{playground.disabled['max-files']}}"
+  disabled="{{playground.disabled.disabled}}"
+  loading="{{playground.disabled.loading}}">
+  <Label>Disabled field</Label>
+  <Helper>Cannot interact</Helper>
+</molecules--group-select-file-for-upload--drag-drop-preview-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-boolean-102020 label="disabled" value="{{playground.disabled.disabled}}"></widget-playground-state-boolean-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-disabled">
+<template>
+<molecules--group-select-file-for-upload--drag-drop-preview-102020
+  value="{{playground.disabled.value}}"
+  error="{{playground.disabled.error}}"
+  multiple="{{playground.disabled.multiple}}"
+  accept="{{playground.disabled.accept}}"
+  max-size-kb="{{playground.disabled['max-size-kb']}}"
+  max-files="{{playground.disabled['max-files']}}"
+  disabled="{{playground.disabled.disabled}}"
+  loading="{{playground.disabled.loading}}">
+  <Label>Disabled field</Label>
+  <Helper>Cannot interact</Helper>
+</molecules--group-select-file-for-upload--drag-drop-preview-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 3. Loading -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Loading State</h3>
+<demo id="demo-loading">
+<molecules--group-select-file-for-upload--drag-drop-preview-102020
+  value="{{playground.loading.value}}"
+  error="{{playground.loading.error}}"
+  multiple="{{playground.loading.multiple}}"
+  accept="{{playground.loading.accept}}"
+  max-size-kb="{{playground.loading['max-size-kb']}}"
+  max-files="{{playground.loading['max-files']}}"
+  disabled="{{playground.loading.disabled}}"
+  loading="{{playground.loading.loading}}">
+  <Label>Uploading...</Label>
+  <Helper>Please wait while files are uploading</Helper>
+</molecules--group-select-file-for-upload--drag-drop-preview-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-boolean-102020 label="loading" value="{{playground.loading.loading}}"></widget-playground-state-boolean-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-loading">
+<template>
+<molecules--group-select-file-for-upload--drag-drop-preview-102020
+  value="{{playground.loading.value}}"
+  error="{{playground.loading.error}}"
+  multiple="{{playground.loading.multiple}}"
+  accept="{{playground.loading.accept}}"
+  max-size-kb="{{playground.loading['max-size-kb']}}"
+  max-files="{{playground.loading['max-files']}}"
+  disabled="{{playground.loading.disabled}}"
+  loading="{{playground.loading.loading}}">
+  <Label>Uploading...</Label>
+  <Helper>Please wait while files are uploading</Helper>
+</molecules--group-select-file-for-upload--drag-drop-preview-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 4. Error state -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Error State</h3>
+<demo id="demo-error">
+<molecules--group-select-file-for-upload--drag-drop-preview-102020
+  value="{{playground.error.value}}"
+  error="{{playground.error.error}}"
+  multiple="{{playground.error.multiple}}"
+  accept="{{playground.error.accept}}"
+  max-size-kb="{{playground.error['max-size-kb']}}"
+  max-files="{{playground.error['max-files']}}"
+  disabled="{{playground.error.disabled}}"
+  loading="{{playground.error.loading}}">
+  <Label>Attachment</Label>
+  <Helper>PDF or DOCX only</Helper>
+</molecules--group-select-file-for-upload--drag-drop-preview-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-text-102020 label="error" value="{{playground.error.error}}"></widget-playground-state-text-102020>
+<widget-playground-state-text-102020 label="accept" value="{{playground.error.accept}}"></widget-playground-state-text-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-error">
+<template>
+<molecules--group-select-file-for-upload--drag-drop-preview-102020
+  value="{{playground.error.value}}"
+  error="{{playground.error.error}}"
+  multiple="{{playground.error.multiple}}"
+  accept="{{playground.error.accept}}"
+  max-size-kb="{{playground.error['max-size-kb']}}"
+  max-files="{{playground.error['max-files']}}"
+  disabled="{{playground.error.disabled}}"
+  loading="{{playground.error.loading}}">
+  <Label>Attachment</Label>
+  <Helper>PDF or DOCX only</Helper>
+</molecules--group-select-file-for-upload--drag-drop-preview-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 5. Multiple files with restrictions -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Multiple Images (max 5, 2MB each)</h3>
+<demo id="demo-multiple">
+<molecules--group-select-file-for-upload--drag-drop-preview-102020
+  value="{{playground.multiple.value}}"
+  error="{{playground.multiple.error}}"
+  multiple="{{playground.multiple.multiple}}"
+  accept="{{playground.multiple.accept}}"
+  max-size-kb="{{playground.multiple['max-size-kb']}}"
+  max-files="{{playground.multiple['max-files']}}"
+  disabled="{{playground.multiple.disabled}}"
+  loading="{{playground.multiple.loading}}">
+  <Label>Product Images</Label>
+  <Helper>Up to 5 images, max 2MB each</Helper>
+</molecules--group-select-file-for-upload--drag-drop-preview-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-boolean-102020 label="multiple" value="{{playground.multiple.multiple}}"></widget-playground-state-boolean-102020>
+<widget-playground-state-text-102020 label="accept" value="{{playground.multiple.accept}}"></widget-playground-state-text-102020>
+<widget-playground-state-number-102020 label="max-size-kb" value="{{playground.multiple['max-size-kb']}}"></widget-playground-state-number-102020>
+<widget-playground-state-number-102020 label="max-files" value="{{playground.multiple['max-files']}}"></widget-playground-state-number-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-multiple">
+<template>
+<molecules--group-select-file-for-upload--drag-drop-preview-102020
+  value="{{playground.multiple.value}}"
+  error="{{playground.multiple.error}}"
+  multiple="{{playground.multiple.multiple}}"
+  accept="{{playground.multiple.accept}}"
+  max-size-kb="{{playground.multiple['max-size-kb']}}"
+  max-files="{{playground.multiple['max-files']}}"
+  disabled="{{playground.multiple.disabled}}"
+  loading="{{playground.multiple.loading}}">
+  <Label>Product Images</Label>
+  <Helper>Up to 5 images, max 2MB each</Helper>
+</molecules--group-select-file-for-upload--drag-drop-preview-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+<!-- 6. Custom Trigger Slot -->
+<article class="bg-white border border-slate-200 rounded-xl p-6">
+<h3 class="text-lg font-semibold text-slate-800 mb-4">Custom Trigger (Button)</h3>
+<demo id="demo-custom-trigger">
+<molecules--group-select-file-for-upload--drag-drop-preview-102020
+  value="{{playground.customTrigger.value}}"
+  error="{{playground.customTrigger.error}}"
+  multiple="{{playground.customTrigger.multiple}}"
+  accept="{{playground.customTrigger.accept}}"
+  max-size-kb="{{playground.customTrigger['max-size-kb']}}"
+  max-files="{{playground.customTrigger['max-files']}}"
+  disabled="{{playground.customTrigger.disabled}}"
+  loading="{{playground.customTrigger.loading}}">
+  <Label>Gallery</Label>
+  <Trigger>
+    <button class="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-700 transition">Select Images</button>
+  </Trigger>
+  <Helper>Up to 3 images, max 1MB each</Helper>
+</molecules--group-select-file-for-upload--drag-drop-preview-102020>
+</demo>
+<details class="mt-4">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
+<div class="mt-2 p-4 border border-slate-200 rounded-lg">
+<widget-playground-state-boolean-102020 label="multiple" value="{{playground.customTrigger.multiple}}"></widget-playground-state-boolean-102020>
+<widget-playground-state-text-102020 label="accept" value="{{playground.customTrigger.accept}}"></widget-playground-state-text-102020>
+<widget-playground-state-number-102020 label="max-size-kb" value="{{playground.customTrigger['max-size-kb']}}"></widget-playground-state-number-102020>
+<widget-playground-state-number-102020 label="max-files" value="{{playground.customTrigger['max-files']}}"></widget-playground-state-number-102020>
+</div>
+</details>
+<details class="mt-2">
+<summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+<div class="mt-2">
+<widget-playground-state-preview-code-102020 target="demo-custom-trigger">
+<template>
+<molecules--group-select-file-for-upload--drag-drop-preview-102020
+  value="{{playground.customTrigger.value}}"
+  error="{{playground.customTrigger.error}}"
+  multiple="{{playground.customTrigger.multiple}}"
+  accept="{{playground.customTrigger.accept}}"
+  max-size-kb="{{playground.customTrigger['max-size-kb']}}"
+  max-files="{{playground.customTrigger['max-files']}}"
+  disabled="{{playground.customTrigger.disabled}}"
+  loading="{{playground.customTrigger.loading}}">
+  <Label>Gallery</Label>
+  <Trigger>
+    <button class="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-700 transition">Select Images</button>
+  </Trigger>
+  <Helper>Up to 3 images, max 1MB each</Helper>
+</molecules--group-select-file-for-upload--drag-drop-preview-102020>
+</template>
+</widget-playground-state-preview-code-102020>
+</div>
+</details>
+</article>
+
+</section>
+</div>
