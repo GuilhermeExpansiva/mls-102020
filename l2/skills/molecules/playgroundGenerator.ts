@@ -10,7 +10,7 @@ export const skill = `
 | Field       | Value                              |
 |-------------|------------------------------------|
 | **Name**    | \`moleculePlaygroundGenerator\`    |
-| **Version** | \`2.4.0\`                          |
+| **Version** | \`2.6.0\`                          |
 
 ---
 
@@ -107,9 +107,9 @@ O \`widget-playground-state-102020\` DEVE vir ANTES de qualquer demo no HTML.
 | Tipo da Propriedade | Widget |
 |---------------------|--------|
 | string | \`widget-playground-state-text-102020\` |
-| string \\| null | \`widget-playground-state-text-102020\` |
+| string \| null | \`widget-playground-state-text-102020\` |
 | number | \`widget-playground-state-number-102020\` |
-| number \\| null | \`widget-playground-state-number-102020\` |
+| number \| null | \`widget-playground-state-number-102020\` |
 | boolean | \`widget-playground-state-boolean-102020\` |
 
 ### 4.2 Exemplos
@@ -131,22 +131,23 @@ O \`widget-playground-state-102020\` DEVE vir ANTES de qualquer demo no HTML.
 
 ---
 
-
-
 ## 6. Styling (Tailwind)
+
+All elements MUST include \`dark:\` variants so the playground renders correctly in both light and dark themes.
 
 | Elemento | Classes |
 |----------|---------|
+| Page root | \`bg-white dark:bg-slate-900 min-h-screen\` |
 | Container | \`mx-auto p-8 font-sans\` |
 | Header | \`text-center mb-12\` |
-| Title | \`text-3xl font-semibold text-slate-800 mb-2\` |
-| Badge | \`inline-block px-3 py-1 bg-sky-100 text-sky-700 rounded-full text-sm font-medium\` |
+| Title | \`text-3xl font-semibold text-slate-800 dark:text-slate-100 mb-2\` |
+| Badge | \`inline-block px-3 py-1 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300 rounded-full text-sm font-medium\` |
 | Grid | \`grid grid-cols-1 md:grid-cols-2 gap-6 mb-12\` |
-| Card | \`bg-white border border-slate-200 rounded-xl p-6\` |
-| Card Title | \`text-lg font-semibold text-slate-800 mb-4\` |
+| Card | \`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6\` |
+| Card Title | \`text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4\` |
 | Details | \`mt-4\` |
-| Summary | \`cursor-pointer text-sm font-medium text-slate-500\` |
-| Details Content | \`mt-2 p-4 border border-slate-200 rounded-lg\` |
+| Summary | \`cursor-pointer text-sm font-medium text-slate-500 dark:text-slate-400\` |
+| Details Content | \`mt-2 p-4 border border-slate-200 dark:border-slate-700 rounded-lg dark:bg-slate-900\` |
 
 ---
 
@@ -162,19 +163,20 @@ O \`widget-playground-state-102020\` DEVE vir ANTES de qualquer demo no HTML.
 ### 6.2 Demo Card
 
 \`\`\`html
+<div class="bg-white dark:bg-slate-900 min-h-screen">
 <div class="mx-auto p-8 font-sans">
 
   <header class="text-center mb-12">
-    <h1 class="text-3xl font-semibold text-slate-800 mb-2">Component Name</h1>
-    <span class="inline-block px-3 py-1 bg-sky-100 text-sky-700 rounded-full text-sm font-medium">skill group</span>
+    <h1 class="text-3xl font-semibold text-slate-800 dark:text-slate-100 mb-2">Component Name</h1>
+    <span class="inline-block px-3 py-1 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300 rounded-full text-sm font-medium">skill group</span>
   </header>
 
   <widget-playground-state-102020 state='{"playground":{"basic":{"value":0,"error":""}}}'>
   </widget-playground-state-102020>
 
   <section class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-    <article class="bg-white border border-slate-200 rounded-xl p-6">
-      <h3 class="text-lg font-semibold text-slate-800 mb-4">Basic</h3>
+    <article class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6">
+      <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Basic</h3>
       <demo id="demo-basic">
         <molecules--component-102020 
           value="{{playground.basic.value}}"
@@ -185,14 +187,14 @@ O \`widget-playground-state-102020\` DEVE vir ANTES de qualquer demo no HTML.
         </molecules--component-102020>
       </demo>
       <details class="mt-4">
-        <summary class="cursor-pointer text-sm font-medium text-slate-500">Properties</summary>
-        <div class="mt-2 p-4 border border-slate-200 rounded-lg">
+        <summary class="cursor-pointer text-sm font-medium text-slate-500 dark:text-slate-400">Properties</summary>
+        <div class="mt-2 p-4 border border-slate-200 dark:border-slate-700 rounded-lg dark:bg-slate-900">
           <widget-playground-state-number-102020 label="value" value="{{playground.basic.value}}"></widget-playground-state-number-102020>
           <widget-playground-state-text-102020 label="error" value="{{playground.basic.error}}"></widget-playground-state-text-102020>
         </div>
       </details>
       <details class="mt-2">
-        <summary class="cursor-pointer text-sm font-medium text-slate-500">HTML</summary>
+        <summary class="cursor-pointer text-sm font-medium text-slate-500 dark:text-slate-400">HTML</summary>
         <div class="mt-2">
           <widget-playground-state-preview-code-102020 target="demo-basic">
             <template>
@@ -210,6 +212,7 @@ O \`widget-playground-state-102020\` DEVE vir ANTES de qualquer demo no HTML.
     </article>
   </section>
 
+</div>
 </div>
 \`\`\`
 
@@ -284,6 +287,8 @@ O widget:
 - [ ] boolean → widget-playground-state-boolean-102020
 - [ ] HTML duplicado: no \`<demo>\` E no \`<template>\` do editor
 - [ ] \`<demo>\` sem class/style
+- [ ] Page root tem \`dark:bg-slate-900\`
+- [ ] Todos os elementos de cor têm variante \`dark:\`
 
 ---
 
@@ -296,5 +301,6 @@ O widget:
 | 2.3.0   | 2026-04-16 | HTML editor uses template element for source code |
 | 2.4.0   | 2026-04-16 | HTML duplicated in demo AND template - demo works independently |
 | 2.5.0   | 2026-04-17 | Added §2 explicit rule: tag name must be copied from @customElement, never derived |
+| 2.6.0   | 2026-04-22 | Added dark mode: dark: variants on all styling elements, page root wrapper, updated Demo Card example and checklist |
 
 `

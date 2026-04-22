@@ -12,7 +12,7 @@ export const skill = `# Molecule Generation Skill
 | Field       | Value                                                           |
 |-------------|-----------------------------------------------------------------|
 | **Name**    | moleculeGeneration                                              |
-| **Version** | 2.5.0                                                           |
+| **Version** | 2.6.0                                                           |
 | **Category**| ui-generation                                                   |
 
 ---
@@ -367,7 +367,7 @@ private renderItem(item: ParsedItem): TemplateResult {
 private renderEmpty(): TemplateResult {
   const content = this.getSlotContent('Empty') || this.msg.noResults;
   return html\\\`
-    <div class="text-slate-500">
+    <div class="text-slate-500 dark:text-slate-400">
       \\\${unsafeHTML(content)}
     </div>
   \\\`;
@@ -567,7 +567,91 @@ handleIcaStateChange(key: string, value: any) {
 
 ---
 
-## 12. Component Template
+## 12. Dark Mode
+
+Molecules MUST support dark mode using Tailwind's \`dark:\` variant classes. The platform toggles dark mode via the \`dark\` class on a parent element (class-based strategy).
+
+### Rules
+
+- **Never use hardcoded light-only colors.** Every color class (\`bg-*\`, \`text-*\`, \`border-*\`, \`ring-*\`, \`shadow-*\`) MUST have a \`dark:\` counterpart.
+- **Do not use inline styles** for colors — only Tailwind classes so dark mode variants work.
+- Follow the **semantic color pairing** table below consistently across all molecules.
+
+### Semantic Color Pairing
+
+| Role | Light | Dark |
+|------|-------|------|
+| Surface (default) | \`bg-white\` | \`dark:bg-slate-800\` |
+| Surface (sunken/input bg) | \`bg-slate-50\` | \`dark:bg-slate-900\` |
+| Surface (overlay/dropdown) | \`bg-white\` | \`dark:bg-slate-800\` |
+| Border (default) | \`border-slate-200\` | \`dark:border-slate-700\` |
+| Border (focus) | \`border-sky-500\` | \`dark:border-sky-400\` |
+| Border (error) | \`border-red-500\` | \`dark:border-red-400\` |
+| Text (primary) | \`text-slate-900\` | \`dark:text-slate-100\` |
+| Text (secondary/label) | \`text-slate-600\` | \`dark:text-slate-400\` |
+| Text (placeholder) | \`text-slate-400\` | \`dark:text-slate-500\` |
+| Text (disabled) | \`text-slate-400\` | \`dark:text-slate-600\` |
+| Text (error) | \`text-red-600\` | \`dark:text-red-400\` |
+| Text (helper) | \`text-slate-500\` | \`dark:text-slate-400\` |
+| Accent (selected bg) | \`bg-sky-50\` | \`dark:bg-sky-900/40\` |
+| Accent (selected text) | \`text-sky-700\` | \`dark:text-sky-300\` |
+| Accent (selected border) | \`border-sky-500\` | \`dark:border-sky-400\` |
+| Hover (item) | \`hover:bg-slate-50\` | \`dark:hover:bg-slate-700\` |
+| Focus ring | \`focus:ring-sky-500\` | \`dark:focus:ring-sky-400\` |
+| Disabled overlay | \`opacity-50\` | \`opacity-50\` (same) |
+
+### Example — input field with dark mode
+
+\`\`\`typescript
+private getInputClasses(): string {
+  return [
+    'w-full rounded-lg px-3 py-2 text-sm border transition',
+    'bg-white dark:bg-slate-900',
+    'text-slate-900 dark:text-slate-100',
+    'placeholder:text-slate-400 dark:placeholder:text-slate-500',
+    this.error
+      ? 'border-red-500 dark:border-red-400'
+      : 'border-slate-200 dark:border-slate-700',
+    'focus:outline-none focus:ring-2 focus:ring-sky-500 dark:focus:ring-sky-400',
+    this.disabled ? 'opacity-50 cursor-not-allowed' : '',
+  ].filter(Boolean).join(' ');
+}
+\`\`\`
+
+### Example — dropdown item list with dark mode
+
+\`\`\`typescript
+private getItemClasses(item: ParsedItem, isSelected: boolean): string {
+  return [
+    'w-full rounded-md px-3 py-2 text-sm transition cursor-pointer',
+    isSelected
+      ? 'bg-sky-50 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 border border-sky-500 dark:border-sky-400'
+      : 'text-slate-900 dark:text-slate-100 border border-transparent',
+    !item.disabled && !isSelected
+      ? 'hover:bg-slate-50 dark:hover:bg-slate-700'
+      : '',
+    item.disabled ? 'opacity-50 cursor-not-allowed' : '',
+  ].filter(Boolean).join(' ');
+}
+\`\`\`
+
+### Example — error and helper text
+
+\`\`\`typescript
+private renderFeedback(): TemplateResult {
+  if (this.error) {
+    return html\\\`<p class="mt-1 text-xs text-red-600 dark:text-red-400">\\\${unsafeHTML(String(this.error))}</p>\\\`;
+  }
+  if (this.hasSlot('Helper')) {
+    return html\\\`<p class="mt-1 text-xs text-slate-500 dark:text-slate-400">\\\${unsafeHTML(this.getSlotContent('Helper'))}</p>\\\`;
+  }
+  return html\\\`\\\`;
+}
+\`\`\`
+
+---
+
+## 13. Component Template
 
 \`\`\`typescript
 /// <mls fileReference="[file-reference]" enhancement="_102020_/l2/enhancementAura"/>
@@ -698,7 +782,7 @@ export class [ComponentName]Molecule extends MoleculeAuraElement {
 
 ---
 
-## 13. Skill Groups
+## 14. Skill Groups
 
 Each molecule belongs to a **Skill Group** that defines its contract:
 
@@ -711,7 +795,7 @@ The contract defines:
 ---
 
 
-## 14. Changelog
+## 15. Changelog
 
 | Version | Date | Description |
 |---------|------|-------------|
@@ -722,4 +806,5 @@ The contract defines:
 | 2.3.0 | 04/02/2026 | Added naming rules: no protected/override, reserved method names |
 | 2.4.0 | 04/13/2026 | Added section 9: correct usage of \`nothing\` with proper return types |
 | 2.5.0 | 04/16/2026 | Added section 11: handleIcaStateChange for derived values |
+| 2.6.0 | 04/22/2026 | Added section 12: dark mode — semantic color pairs and required dark: variants |
 `

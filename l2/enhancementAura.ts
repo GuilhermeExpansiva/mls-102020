@@ -1,8 +1,7 @@
 /// <mls fileReference="_102020_/l2/enhancementAura.ts" enhancement="_blank" />
 
-import { convertFileNameToTag } from '/_102027_/l2/utils.js'
+import { convertFileToTag, validateTagName } from '/_102020_/l2/utils.js'
 import { getPropierties } from '/_102027_/l2/propiertiesLit.js'
-import { validateTagName, validateRender } from '/_102027_/l2/validateLit.js';
 import { setCodeLens } from '/_102027_/l2/codeLensLit.js';
 import { injectStyle } from '/_102027_/l2/processCssLit.js'
 
@@ -37,8 +36,8 @@ export const requires: mls.l2.enhancement.IRequire[] = [
 
 export const getDefaultHtmlExamplePreview = (modelTS: mls.editor.IModelTS): string => {
     const { project, shortName, folder } = modelTS.storFile;
-    const tag = convertFileNameToTag({ project, shortName, folder });
-    return `<${tag}></${tag}>`;
+    const tag = convertFileToTag({ project, shortName, folder });
+    return tag;
 }
 
 export const getDesignDetails = (modelTS: mls.editor.IModelTS): Promise<mls.l2.enhancement.IDesignDetailsReturn> => {
@@ -62,12 +61,6 @@ export const onAfterChange = async (modelTS: mls.editor.IModelTS): Promise<void>
     try {
         setCodeLens(modelTS);
         if (validateTagName(modelTS)) {
-            mls.events.fireFileAction('statusOrErrorChanged', modelTS.storFile, 'left');
-            mls.events.fireFileAction('statusOrErrorChanged', modelTS.storFile, 'right');
-            return;
-        }
-
-        if (validateRender(modelTS)) {
             mls.events.fireFileAction('statusOrErrorChanged', modelTS.storFile, 'left');
             mls.events.fireFileAction('statusOrErrorChanged', modelTS.storFile, 'right');
             return;
