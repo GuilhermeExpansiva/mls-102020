@@ -3,7 +3,7 @@
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import { skill } from '/_102020_/l2/skills/molecules/playgroundGenerator.js';
 import { skills as skillList } from '/_102020_/l2/skills/molecules/index';
-import { convertFileNameToTag } from '/_102027_/l2/utils'
+import { convertFileToTag } from '/_102020_/l2/utils'
 
 export function createAgent(): IAgentAsync {
     return {
@@ -34,7 +34,7 @@ async function beforePromptImplicit(
     if (!files.ts) throw new Error(`(${agent.agentName})[beforePromptStep] invalid file`);
     const source = await getSource(files.ts);
     const usageSkill = await getUsageByGroupSkill(data.group);
-    const tagName = convertFileNameToTag(path);
+    const tagName = convertFileToTag(path);
 
     const addMessageAI: mls.msg.AgentIntentAddMessageAI = {
         type: "add-message-ai",
@@ -75,7 +75,7 @@ async function beforePromptStep(
     console.info({ data });
 
     const path = mls.stor.getPathToFile(data.fileReference);
-    const tagName = convertFileNameToTag(path);
+    const tagName = convertFileToTag(path);
 
     const files = await mls.stor.getFiles({ ...path, loadContent: false });
     if (!files.ts) throw new Error(`(${agent.agentName})[beforePromptStep] invalid file`);

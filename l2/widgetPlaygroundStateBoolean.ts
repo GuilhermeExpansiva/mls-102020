@@ -22,13 +22,13 @@ export class WcInputBoolean102020 extends CollabLitElement {
 
           <div class="flex flex-col">
             ${this.label ? html`
-              <span class="text-sm font-medium text-gray-700">
+              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
                 ${this.label}
               </span>
             ` : null}
 
             ${this.hint ? html`
-              <span class="text-xs text-gray-500">
+              <span class="text-xs text-gray-500 dark:text-gray-400">
                 ${this.hint}
               </span>
             ` : null}
@@ -45,15 +45,16 @@ export class WcInputBoolean102020 extends CollabLitElement {
 
             <div class="
               w-11 h-6 rounded-full transition
-              bg-gray-300
+              bg-gray-300 dark:bg-slate-600
 
-              peer-checked:bg-blue-500
-              peer-disabled:bg-gray-200
+              peer-checked:bg-blue-500 dark:peer-checked:bg-blue-400
+              peer-disabled:bg-gray-200 dark:peer-disabled:bg-slate-700
 
               after:content-['']
               after:absolute after:top-[2px] after:left-[2px]
               after:w-5 after:h-5
-              after:bg-white after:rounded-full
+              after:bg-white dark:after:bg-slate-200
+              after:rounded-full
               after:transition
 
               peer-checked:after:translate-x-5

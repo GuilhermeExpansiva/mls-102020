@@ -2,7 +2,7 @@
 
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import { appendLongTermMemory } from '/_102027_/l2/aiAgentHelper.js';
-import { convertFileNameToTag } from '/_102027_/l2/utils';
+import { convertFileToTag } from '/_102020_/l2/utils';
 // import { skill as skillDesing } from '/_102020_/l2/skills/aura/design.js';
 import { skill as skillAura } from '/_102020_/l2/skills/aura/overview.js';
 import { skill as skillMolecule } from '/_102020_/l2/skills/aura/moleculeGeneration2.js';
@@ -18,7 +18,7 @@ export function createAgent(): IAgentAsync {
         beforePromptAtomic,
         beforePromptImplicit,
         beforePromptStep,
-        afterPromptStep
+        afterPromptStep,
     };
 }
 
@@ -113,7 +113,7 @@ async function getSystemUser(context: mls.msg.ExecutionContext, fileReference: s
 
     const data = await getMoleculeSkill(files.ts);
     const skillByGroup = await getGroupSkill(data.group);
-    const tagName = convertFileNameToTag(path);
+    const tagName = convertFileToTag(path);
     await appendLongTermMemory(context, { 'group': data.group });
 
     const system2 = `
@@ -268,10 +268,14 @@ async function getMoleculeSkill(file: mls.stor.IFileInfo): Promise<{ skill: stri
     }
 
 }
+/*
+<!-- modelType: codeinstruct -->
+<!-- useProxy: true -->
 
-
+*/
 const system1 = `
-<!-- modelType: code -->
+<!-- modelType: codepro -->
+
 <!-- modelTypeList: geminiChat (2.5 pro), code (grok), deepseekchat, codeflash (gemini), deepseekreasoner, mini (4.1) ou nano (openai), codeinstruct (4.1), codereasoning(gpt5), code2 (kimi 2.5) -->
 
 You are a senior Frontend Architect and Staff Software Engineer with 20+ years of experience building large-scale web applications using TypeScript, Lit, and state-driven architectures.

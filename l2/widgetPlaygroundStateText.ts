@@ -53,7 +53,7 @@ export class WcInputText100554 extends CollabLitElement {
     <div class="flex flex-col gap-1">
       
       ${this.label ? html`
-        <label class="text-sm font-medium text-gray-700">
+        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
           ${this.label}
         </label>
       ` : null}
@@ -61,17 +61,21 @@ export class WcInputText100554 extends CollabLitElement {
       <input
         class="
           w-full px-3 py-2 rounded-lg border
-          text-sm text-gray-900
-          bg-white
-          border-gray-300
+          text-sm text-gray-900 dark:text-gray-100
+          bg-white dark:bg-slate-800
+          border-gray-300 dark:border-slate-600
           transition
           outline-none
           
           focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+          dark:focus:ring-blue-400 dark:focus:border-blue-400
           
           disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed
+          dark:disabled:bg-slate-700 dark:disabled:text-slate-500
           
-          ${this.error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''}
+          placeholder:text-gray-400 dark:placeholder:text-slate-500
+          
+          ${this.error ? 'border-red-500 focus:ring-red-500 focus:border-red-500 dark:border-red-400 dark:focus:ring-red-400 dark:focus:border-red-400' : ''}
         "
         type="text"
         name=${ifDefined(this.name)}
@@ -89,13 +93,13 @@ export class WcInputText100554 extends CollabLitElement {
       />
 
       ${this.hint ? html`
-        <small class="text-xs text-gray-500">
+        <small class="text-xs text-gray-500 dark:text-gray-400">
           ${this.hint}
         </small>
       ` : null}
 
       ${this.error ? html`
-        <div class="text-xs text-red-500 font-medium">
+        <div class="text-xs text-red-500 dark:text-red-400 font-medium">
           ${this.error}
         </div>
       ` : null}
