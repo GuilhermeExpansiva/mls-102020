@@ -168,7 +168,6 @@ export function validateTagName(modelTS: mls.editor.IModelTS): boolean {
     clearErrorsOnModel(model)
 
     if (!modelTS.compilerResults) return false;
-    if (shortName === 'enhancementLit' && project === 100554) return false;
     const decorators: IDecoratorDictionary = JSON.parse(modelTS.compilerResults.decorators);
     if (!decorators) return false;
     const decoratorToCheck = 'customElement';

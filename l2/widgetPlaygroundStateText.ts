@@ -6,7 +6,7 @@ import { propertyDataSource } from '/_102027_/l2/collabDecorators.js';
 import { CollabLitElement } from '/_102027_/l2/collabLitElement.js'
 
 @customElement('widget-playground-state-text-102020')
-export class WcInputText100554 extends CollabLitElement {
+export class WidgetPlaygroundStateText extends CollabLitElement {
   
     autocapitalize: any = "off";
     validationmessage: string | undefined;

@@ -1,13 +1,13 @@
-/// <mls fileReference="_102020_/l2/widgetGenoma.ts" enhancement="_100554_/l2/enhancementLit.ts"/>
+/// <mls fileReference="_102020_/l2/widgetGenoma.ts" enhancement="_102027_/l2/enhancementLit.ts"/>
 
 import { html, TemplateResult, nothing, unsafeHTML } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { StateLitElement } from '/_100554_/l2/stateLitElement.js';
+import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
 import { mutationGroups, renderIcon, getEnrichedGroups } from '/_102020_/l2/molecules/index.js';
 import { MutationGroupEntry, SkillCategory } from '/_102020_/l2/molecules/index.js';
 import { convertTagToFileName } from '/_102027_/l2/utils.js';
-import '/_100554_/l2/widgets/selectOneKnob.js';
 
+import '/_102027_/l2/collabSelectKnob.js';
 
 // =============================================================================
 // WIDGET GENOMA — Mutation Testing Service
@@ -269,13 +269,14 @@ export class WidgetGenoma102020 extends StateLitElement {
                     <div class="genoma-knob-layout">
 
                         <div class="genoma-knob-control">
-                            <widgets--select-one-knob-100554
+                            <collab-select-knob-102027
                                 .min=${0}
                                 .max=${total - 1}
                                 .value=${this.knobIndex}
                                 .step=${1}
+                                selected
                                 @knob-change=${this.handleKnobChange}>
-                            </widgets--select-one-knob-100554>
+                            </collab-select-knob-102027>
                         </div>
 
                         ${widget ? html`
