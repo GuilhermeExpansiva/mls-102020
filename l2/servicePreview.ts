@@ -4,14 +4,14 @@ import { html, css } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { globalState, setState, initState, getState } from '/_102027_/l2/collabState.js';
 import { getPath } from '/_102027_/l2/utils.js';
-import { getConfigProject } from '/_100554_/l2/libProjectConfig.js';
+import { getConfigProject } from '/_102027_/l2/libProjectConfig.js';
 import { getLastOpenedFiles, } from '/_102027_/l2/libCommom.js';
 import { getDependenciesByHtml } from '/_102020_/l2/buildFile.js';
 
 import '/_102025_/l2/collabMessagesPrompt.js';
 
-import '/_100554_/l2/collabSpliterVerticalVarFixed.js';
-import '/_100554_/l2/collabSpliterHorizontalVarFixed.js';
+import '/_102027_/l2/collabSpliterVerticalVarFixed.js';
+import '/_102027_/l2/collabSpliterHorizontalVarFixed.js';
 
 import { PreviewModeAura } from '/_102020_/l2/previewModeAura.js';
 import { IJSONDependence } from '/_102027_/l2/libCompile.js';
@@ -512,9 +512,9 @@ export class ServicePreview extends ServiceBase {
     const lang = this.getMessageKey(messages);
     this.msg = messages[lang];
 
-    return html`<collab-spliter-vertical-var-fixed-100554 msize=${this.msize} withresize="false" fixedheight="100" complementcolor="var(--bg-primary-color)">
+    return html`<collab-spliter-vertical-var-fixed-102027 msize=${this.msize} withresize="false" fixedheight="100" complementcolor="var(--bg-primary-color)">
 
-                <collab-spliter-horizontal-var-fixed-100554
+                <collab-spliter-horizontal-var-fixed-102027
                     slot="top"
                     complementcolor="var(--bg-primary-color);"
                     fixedwidth="30%"
@@ -522,7 +522,7 @@ export class ServicePreview extends ServiceBase {
                 >
                     <div slot="left" style="height:100%;" id="preview-container"></div>
                     <div slot="right" style="height:100%;" id="preview-details"></div>
-                </collab-spliter-horizontal-var-fixed-100554>
+                </collab-spliter-horizontal-var-fixed-102027>
                 <div slot="bottom">
                     <collab-messages-prompt-102025
                         acceptAutoCompleteAgents="true"
@@ -531,7 +531,7 @@ export class ServicePreview extends ServiceBase {
                         .onSend=${this.handleSend.bind(this)}
                     ></collab-messages-prompt-102025>
                 </div>
-            </collab-spliter-vertical-var-fixed-100554>`;
+            </collab-spliter-vertical-var-fixed-102027>`;
   }
 
 
