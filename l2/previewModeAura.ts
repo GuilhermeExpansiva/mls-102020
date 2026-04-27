@@ -25,7 +25,6 @@ export class PreviewModeAura {
     }
 
     public async init() {
-        console.info(this.json)
         if (!this.json || !this.ifr) return;
         await this.loadEsbuild();
         if (this.needAwait) setTimeout(async () => await this.configIframe(), 200);

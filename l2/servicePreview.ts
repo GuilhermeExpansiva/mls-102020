@@ -574,8 +574,8 @@ export class ServicePreview extends ServiceBase {
     });
 
     (this.monacoEditor as any)['mlsEditor'] = this._ed1;
-    console.info(this._ed1)
     window.preview.editor = this._ed1;
+    
   }
 
   private async setModel(storFile: mls.stor.IFileInfo) {
