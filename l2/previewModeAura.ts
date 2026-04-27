@@ -72,13 +72,6 @@ export class PreviewModeAura {
 
                 build.onResolve({ filter: /.*/ }, (args: any) => {
 
-                    if (args.path.startsWith('./_100554_')) {
-                        return {
-                            path: args.path.replace('./_100554_', '/_100554_'),
-                            namespace: 'virtual',
-                        };
-                    }
-
                     if (valids.includes(args.path)) {
                         return {
                             path: args.path,
@@ -386,6 +379,8 @@ export class PreviewModeAura {
         const s = document.createElement('script') as HTMLScriptElement;
         s.textContent = `
 				window['mls'] = window['mls']  ? window['mls']  : parent.mls ? parent.mls : top['mls'];
+				window['monaco'] = window['monaco']  ? window['monaco']  : parent.monaco ? parent.monaco : top['monaco'];
+                window['fetch'] = parent.fetch.bind(parent);
 				window['globalVariation'] = window['globalVariation']  ? window['globalVariation']  : parent.globalVariation ? parent.globalVariation : top['globalVariation'];
 				window['latest'] = window['latest']  ? window['latest']  : parent.latest ? parent.latest : top['latest'];
 				window['EasyMDE'] = window['EasyMDE']  ? window['EasyMDE']  : parent.EasyMDE ? parent.EasyMDE : top['EasyMDE'];

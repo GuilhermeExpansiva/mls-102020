@@ -4,8 +4,18 @@ import { html, css } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { globalState, setState, initState, getState } from '/_102027_/l2/collabState.js';
 import { getPath } from '/_102027_/l2/utils.js';
+import { convertFileToTag } from '/_102020_/l2/utils.js';
+import { getTokensCss, getTokensLess, removeTokensFromSource } from '/_102027_/l2/designSystemBase.js';
 import { getConfigProject } from '/_102027_/l2/libProjectConfig.js';
 import { getLastOpenedFiles, } from '/_102027_/l2/libCommom.js';
+import { compileStyleUsingStorFile } from '/_102027_/l2/libCompileStyle.js';
+import { createModel } from '/_102027_/l2/libModel.js';
+
+import { createThread, getUserId } from '/_102025_/l2/collabMessagesHelper.js';
+import { getThreadByName } from '/_102025_/l2/collabMessagesIndexedDB.js';
+import { loadAgent, executeBeforePrompt } from '/_102027_/l2/aiAgentOrchestration.js';
+import { getTemporaryContext } from '/_102027_/l2/aiAgentHelper.js';
+
 import { getDependenciesByHtml } from '/_102020_/l2/buildFile.js';
 
 import '/_102025_/l2/collabMessagesPrompt.js';
@@ -50,6 +60,10 @@ export class ServicePreview extends ServiceBase {
 
   private msg: MessageType = messages['en'];
   private languages: ILanguage = {};
+  private tasksInProgress: Map<string, Set<mls.msg.ExecutionContext>> = new Map();
+  private monacoEditor: HTMLElement | undefined;
+  private _ed1: monaco.editor.IStandaloneCodeEditor | undefined;
+  private threadCache = new Map<string, Promise<mls.msg.ThreadPerformanceCache | undefined>>();
 
   @query('iframe') elPreview: HTMLIFrameElement | undefined;
 
@@ -67,6 +81,13 @@ export class ServicePreview extends ServiceBase {
   @state() shortName: string = '';
   @state() folder: string = '';
 
+  @state() hasErrorLess: boolean = false;
+
+  get page(): string {
+    return `_${this.project}_${this.folder ? this.folder + '/' : ''}${this.shortName}`;
+  }
+
+  get confE() { return `l${this.level}_${this.position}`; }
 
   constructor() {
     super();
@@ -78,13 +99,13 @@ export class ServicePreview extends ServiceBase {
   }
 
   public details: IService = {
-    icon: '&#xf15b',
+    icon: '&#xf06e',
     state: 'foreground',
     position: 'right',
-    tooltip: 'Preview Aura',
+    tooltip: 'Aura Preview',
     visible: true,
     widget: '_102020_servicePreview',
-    level: [5]
+    level: [2]
   }
 
   public onClickMain(op: string): void {
@@ -163,8 +184,8 @@ export class ServicePreview extends ServiceBase {
   }
 
   private setEvents() {
-    mls.events.addEventListener([2, 3, 4, 7], ['FileAction'], this.onFileAction.bind(this));
-    mls.events.addEventListener([2, 3], ['styleChanged' as any], this.onStyleChanged.bind(this));
+    mls.events.addEventListener([2], ['FileAction'], this.onFileAction.bind(this));
+    mls.events.addEventListener([2], ['styleChanged' as any], this.onStyleChanged.bind(this));
   }
 
   // Implementations
@@ -222,7 +243,18 @@ export class ServicePreview extends ServiceBase {
   }
 
   private onStyleChanged() {
-    // TODO: change style
+
+    if (!this.actualFiles || !this.actualFiles.ts || !this.actualFiles.less || !this.watch) return;
+
+    if (!this.actualFiles.less.hasError && this.hasErrorLess) {
+      this.updateLoadingToFalseIfNoTasksRunning();
+      this.createPreview();
+      this.hasErrorLess = false;
+    }
+    else if (this.actualFiles.less.hasError) this.hasErrorLess = true;
+
+    this.addStyles();
+
   }
 
   private onFileAction(ev: mls.events.IEvent) {
@@ -254,7 +286,6 @@ export class ServicePreview extends ServiceBase {
     } catch (e) {
       console.info(e);
     }
-
 
   }
 
@@ -317,17 +348,26 @@ export class ServicePreview extends ServiceBase {
   private async setActualModels() {
     if (!this.actualFiles) return;
 
-    if (!this.actualModels?.ts && this.actualFiles.ts) {
+    if (!this.actualModels.ts && this.actualFiles.ts) {
       this.actualModels.ts = await this.actualFiles.ts.getOrCreateModel();
     }
+
     if (!this.actualModels?.html && this.actualFiles.html) {
       this.actualModels.html = await this.actualFiles.html.getOrCreateModel();
     }
+
     if (!this.actualModels?.style && this.actualFiles.less) {
       this.actualModels.style = await this.actualFiles.less.getOrCreateModel();
+      let src = this.actualModels.style.model.getValue();
+      const lessTokens = await getTokensLess(this.actualFiles.less.project, 'Default');
+      const lineTokens = `\n\n//Start Less Tokens\n${lessTokens}\n//End Less Tokens\n`;
+      src = removeTokensFromSource(src);
+      src = src.trim().concat(lineTokens);
+      this.actualModels.style.model.setValue(src);
     }
 
   }
+
 
   private createPreview() {
 
@@ -344,7 +384,7 @@ export class ServicePreview extends ServiceBase {
     iframe.classList.add('preview-iframe');
     iframe.src = '/_102020_servicePreview';
 
-    // iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
 
     wrapper.appendChild(iframe);
     container.appendChild(wrapper);
@@ -366,22 +406,9 @@ export class ServicePreview extends ServiceBase {
 
     });
 
-    // Trigger load for about:blank
-    this.writePreviewContentBlank(iframe);
     this.configureTools(true);
-  }
+    if (this.actualFiles && this.actualFiles.html) this.setModel(this.actualFiles.html);
 
-  private writePreviewContentBlank(iframe: HTMLIFrameElement) {
-    try {
-      const doc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (!doc) return;
-      doc.open();
-      doc.write(`<div>${this.msg.loading}</div>`);
-      doc.close();
-
-    } catch (e) {
-      console.error('Error writing preview content:', e);
-    }
   }
 
   private async writePreviewContent(iframe: HTMLIFrameElement) {
@@ -399,7 +426,6 @@ export class ServicePreview extends ServiceBase {
       domVirtual.innerHTML = this.actualFiles.htmlContent;
       doc.body.innerHTML = domVirtual.innerHTML;
       let ret = await getDependenciesByHtml(this.actualFiles.html, this.actualFiles.htmlContent, this.actualTheme, true);
-      console.info(ret);
       await this.modeSinglePage(ret, iframe);
 
     } catch (e) {
@@ -480,12 +506,222 @@ export class ServicePreview extends ServiceBase {
     tools.style.pointerEvents = enabled ? 'all' : 'none';
   }
 
+  // Styles
+
+  private async addStyles() {
+
+    const iframeHtml = window.preview.iframe?.contentDocument
+    if (!iframeHtml || !iframeHtml) return;
+    const id = convertFileToTag({ project: this.project, shortName: this.shortName, folder: this.folder });
+
+    const oldStyle = iframeHtml.head.querySelector(`style[id=${id}]`);
+    const newStyle = document.createElement('style');
+    const newLess = await compileStyleUsingStorFile(this.shortName, this.project, this.folder, this.actualTheme);
+
+    if (newLess) {
+      newStyle.id = id;
+      newStyle.textContent = newLess;
+      iframeHtml.head.appendChild(newStyle);
+      if (oldStyle) oldStyle.remove();
+    }
+
+    const tokens = await getTokensCss(this.project, this.actualTheme);
+    this.mountTokens(tokens || '');
+
+  }
+
+  private mountTokens(tokens: string): void {
+    try {
+      const iframe = window.preview.iframe;
+      if (!iframe || !iframe.contentDocument) return;
+      this.removeOlderTokens(iframe);
+      const css = tokens || '';
+      if (!css) return;
+      const style = document.createElement('style');
+      style.textContent = css;
+      style.id = this.getIdTokens();
+      iframe.contentDocument.head.appendChild(style);
+
+    } catch (e: any) {
+      console.info('Error mountTokens: ' + e.message);
+    }
+  }
+
+  private removeOlderTokens(ifr: HTMLIFrameElement) {
+    const id = this.getIdTokens();
+    if (!ifr.contentDocument || !id) return;
+    const st = ifr.contentDocument.head.querySelectorAll(`#${id}`);
+    st.forEach((s) => s.remove());
+  }
+
+  private getIdTokens() {
+    return '_' + this.project + '_ds_tokens';
+  }
+
+  // Editor 
+
+  private createEditor() {
+    if (!this.monacoEditor) {
+      this.monacoEditor = document.createElement('mls-editor-100529');
+      this.monacoEditor.setAttribute('ismls2', 'true');
+
+    }
+    if (this._ed1) return;
+
+    this._ed1 = monaco.editor.create(this.monacoEditor, mls.editor.conf[this.confE] as monaco.editor.IEditorOptions);
+    monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
+      noImplicitAny: true
+    });
+
+    (this.monacoEditor as any)['mlsEditor'] = this._ed1;
+    console.info(this._ed1)
+    window.preview.editor = this._ed1;
+  }
+
+  private async setModel(storFile: mls.stor.IFileInfo) {
+    try {
+      const model = await this.createModelIfNeeded(storFile);
+      if (!this._ed1 || !model) return;
+      this._ed1.setModel(model);
+    } catch (e: any) {
+      this.setError(`[setModel] Error:' + (e.message ? e.message : 'Not found model`);
+    }
+
+  }
+
+  private async createModelIfNeeded(storFile: mls.stor.IFileInfo): Promise<monaco.editor.ITextModel | undefined> {
+    const keyModel = mls.editor.getKeyModel(storFile.project, storFile.shortName, storFile.folder, storFile.level);
+    const models = mls.editor.models[keyModel];
+    if (!models?.html) {
+      const model = await createModel(storFile, true, true);
+      return model?.model;
+    }
+    return models.html.model;
+  }
+
+  // Tasks 
+
+  async handleSend(value: string, opt: { isSpecialMention: boolean, agentName: string }) {
+
+    if (!this.actualFiles || !this.actualFiles.ts) {
+      this.setError('Erro page not selected');
+      return;
+    }
+
+    if (!opt.isSpecialMention || !opt.agentName) {
+      this.setError('Please select a agent first ex: @@Improve');
+      return;
+    }
+
+    if (!value) {
+      this.setError('Error: Invalid prompt');
+      return;
+    }
+
+    this.loading = true;
+    const fullName = `_${this.project}_/l2/${this.folder ? this.folder + '/' : ''} ${this.shortName}`;
+
+    try {
+      await this.fireCollab(opt.agentName, JSON.stringify({ fullName, page: this.page, prompt: value, position: 'left' }), fullName);
+      this.loading = false;
+    } catch (err: any) {
+      this.setError('Error on send message:' + err.message);
+      this.loading = false;
+    }
+
+  }
+
+  private onTaskChange = async (e: Event) => {
+
+    if (this.tasksInProgress.size === 0) return;
+    const customEvent = e as CustomEvent;
+    const message: mls.msg.Message = customEvent.detail.context.message;
+    const task: mls.msg.TaskData = customEvent.detail.context.task;
+    const { content, createAt, senderId, threadId } = message;
+    const createAt2 = customEvent.detail.oldContextCreateAt ? customEvent.detail.oldContextCreateAt : createAt;
+
+    let contextChangedByPage = Array.from(this.tasksInProgress).find((item) => {
+      const [key, value] = item;
+      return key === this.page
+    });
+
+    if (!contextChangedByPage) return;
+
+    const tasks = this.tasksInProgress.get(this.page);
+    if (!tasks) return;
+    let contextChanged = Array.from(tasks).find((item) =>
+      item.message.content === content &&
+      item.message.senderId === senderId &&
+      item.message.createAt === createAt2 &&
+      item.message.threadId === threadId
+    );
+
+    if (!task && contextChanged || (contextChanged && task && (task.status === 'failed' || task.status === 'done'))) {
+      tasks.delete(contextChanged);
+      if (tasks.size === 0) this.tasksInProgress.delete(this.page);
+    }
+
+    if (!this.tasksInProgress.get(this.page) || this.tasksInProgress.get(this.page)?.size === 0) {
+      this.updateLoadingToFalseIfNoTasksRunning();
+      this.createPreview();
+    }
+
+  };
+
+  private updateLoadingToFalseIfNoTasksRunning() {
+    if (this.tasksInProgress.size === 0) this.loading = false;
+    const actual = this.tasksInProgress.get(this.page);
+    if (!actual) this.loading = false;
+    else if (actual.size === 0) this.loading = false;
+  }
+
+  private async fireCollab(agentName: string, prompt: string, fullName: string) {
+
+    fullName = fullName ? fullName : this.page;
+
+    let threadPromise = this.threadCache.get(fullName);
+
+    if (!threadPromise) {
+      threadPromise = (async () => {
+        let thread = await getThreadByName(fullName);
+        if (!thread) {
+          thread = await createThread(fullName, [], 'company');
+        }
+        return thread;
+      })();
+      this.threadCache.set(fullName, threadPromise);
+    }
+
+    const thread = await threadPromise;
+    const userId = getUserId();
+    if (!userId) return;
+
+    const threadId = thread?.threadId;
+    if (!threadId) {
+      this.setError('Cannot find thread');
+      return;
+    }
+
+    const moduleAgent = await loadAgent(agentName);
+    if (!moduleAgent) throw new Error('Invalid agent');
+    const context = getTemporaryContext(threadId, userId, prompt);
+
+    if (!this.tasksInProgress.get(fullName)) {
+      this.tasksInProgress.set(fullName, new Set());
+    }
+    this.tasksInProgress.get(fullName)?.add(context);
+    await executeBeforePrompt(moduleAgent, context);
+  }
+
   // Life cycle
 
   async firstUpdated(changedProperties: Map<PropertyKey, unknown>) {
     super.firstUpdated(changedProperties);
+    this.createEditor();
     this.setLanguages();
     this.configureTools(false);
+    window.addEventListener('task-change', this.onTaskChange);
+
   }
 
   connectedCallback() {
@@ -496,6 +732,8 @@ export class ServicePreview extends ServiceBase {
   disconnectedCallback() {
     super.disconnectedCallback();
     this.clearPreview();
+    window.removeEventListener('task-change', this.onTaskChange);
+
   }
 
   updated(changedProperties: Map<string | number | symbol, unknown>): void {
@@ -533,13 +771,6 @@ export class ServicePreview extends ServiceBase {
                 </div>
             </collab-spliter-vertical-var-fixed-102027>`;
   }
-
-
-
-  async handleSend(value: string, opt: { isSpecialMention: boolean, agentName: string }) {
-    console.info('In development')
-  }
-
 
 }
 
