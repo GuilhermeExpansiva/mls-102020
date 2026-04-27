@@ -1,4 +1,4 @@
-/// <mls fileReference="_102020_/l2/agents/agentNewMoleculePlanner.ts" enhancement="_100554_/l2/enhancementAgent.ts"/>
+/// <mls fileReference="_102020_/l2/agents/agentNewMoleculePlanner.ts" enhancement="_102027_/l2/enhancementAgent.ts"/>
 
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import { skills as skillList } from '/_102020_/l2/skills/molecules/index';
@@ -119,18 +119,7 @@ If the original prompt is not about creating a web component, return an error as
 
 ## Output format
 You must return the object strictly as JSON
-export type Output =
-    {
-        type: "flexible";
-        result: {
-            group: string,
-            prompt: string // user prompt fixed if needed
-        };
-    } |
-    {
-        type: "result";
-        result: string
-    }
+[[OutputSection]]
 `;
 
 //#region OutputSection
