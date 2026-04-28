@@ -35,23 +35,12 @@ Molecules are **UI-first** components that follow these rules:
 
 ## 3. Naming Conventions
 
-### Tag Name (Custom Element)
-\`\`\`
-kebab-case(folder)--kebab-case(component)-(projectId)
-\`\`\`
-**Example:** folder/subfolder/molecule1 => 'folder--subfolder--molecule1-102020'
 
 ### Class Name
 \`\`\`
 PascalCase + Molecule
 \`\`\`
 **Example:** \`SelectMolecule\`
-
-### File Name
-\`\`\`
-camelCase.ts
-\`\`\`
-**Example:** \`selectMolecule.ts\`
 
 ---
 
@@ -166,11 +155,11 @@ private isOpen = false;
 Slot Tags are **unknown HTML elements** that define the molecule's internal structure. The user writes them declaratively, and the molecule reads and interprets them.
 
 \`\`\`html
-<molecules--example-102020 attr1="a">
+<molecules--ml-example attr1="a">
   <SlotTagExampe></SlotTagExampe>
   <SlotTagExampe2></SlotTagExampe2>
   
-</molecules--example-102020>
+</molecules--ml-example>
 \`\`\`
 
 ### Defining Slot Tags
@@ -476,7 +465,7 @@ Do NOT use \`handleIcaStateChange\` for:
 ### Complete Example
 
 \`\`\`typescript
-@customElement('molecules--enter-money-102020')
+@customElement('groupxxxyyy--enter-money')
 export class EnterMoneyMolecule extends MoleculeAuraElement {
 
   // Property bound to state
@@ -680,7 +669,7 @@ const messages: Record<string, MessageType> = {
 };
 /// **collab_i18n_end**
 
-@customElement('molecules--[component-name]-102020')
+@customElement('groupname--[component-name]')
 export class [ComponentName]Molecule extends MoleculeAuraElement {
 
   private msg: MessageType = messages.en;

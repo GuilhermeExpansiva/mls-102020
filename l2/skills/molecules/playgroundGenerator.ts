@@ -60,10 +60,10 @@ maxLength: number | null = null;
 
 \`\`\`html
 <!-- ❌ WRONG — TypeScript property name used as HTML attribute -->
-<molecules--my-component-102020 isEditing="true" maxLength="100">
+<molecules--my-component isEditing="true" maxLength="100">
 
 <!-- ✅ CORRECT — kebab-case attribute name from the decorator -->
-<molecules--my-component-102020 is-editing="true" max-length="100">
+<molecules--my-component is-editing="true" max-length="100">
 \`\`\`
 
 This applies to all HTML in the playground: \`<demo>\` element and \`<template>\` block.
@@ -75,22 +75,14 @@ This applies to all HTML in the playground: \`<demo>\` element and \`<template>\
 ### 3.1 Formato
 
 \`\`\`html
-<widget-playground-state-102020 state='{"playground":{"basic":{"value":0,"error":""}}}'>
-</widget-playground-state-102020>
+<widget-playground-state-102020 state='playgroundDinamicState'></widget-playground-state-102020> // playgroundDinamicState will be replaced after, dont change
 \`\`\`
 
 ### 3.2 Posição no HTML
 
 O \`widget-playground-state-102020\` DEVE vir ANTES de qualquer demo no HTML.
 
-### 3.3 Regras
-
-- JSON válido
-- Uma linha
-- Apenas propriedades @propertyDataSource
-- Sempre usar valores default (nunca null ou undefined)
-
-### 3.4 Valores Default por Tipo
+### 3.3 Valores Default por Tipo
 
 | Tipo | Default |
 |------|---------|
@@ -171,20 +163,20 @@ All elements MUST include \`dark:\` variants so the playground renders correctly
     <span class="inline-block px-3 py-1 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300 rounded-full text-sm font-medium">skill group</span>
   </header>
 
-  <widget-playground-state-102020 state='{"playground":{"basic":{"value":0,"error":""}}}'>
+  <widget-playground-state-102020 state='playgroundDinamicState'>
   </widget-playground-state-102020>
 
   <section class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
     <article class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6">
       <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Basic</h3>
       <demo id="demo-basic">
-        <molecules--component-102020 
+        <molecules--ml-component 
           value="{{playground.basic.value}}"
           error="{{playground.basic.error}}"
           disabled="false"
           is-editing="true">
           <Label>Field</Label>
-        </molecules--component-102020>
+        </molecules--ml-component>
       </demo>
       <details class="mt-4">
         <summary class="cursor-pointer text-sm font-medium text-slate-500 dark:text-slate-400">Properties</summary>
@@ -198,13 +190,13 @@ All elements MUST include \`dark:\` variants so the playground renders correctly
         <div class="mt-2">
           <widget-playground-state-preview-code-102020 target="demo-basic">
             <template>
-<molecules--component-102020 
+<molecules--ml-component 
   value="{{playground.basic.value}}"
   error="{{playground.basic.error}}"
   disabled="false"
   is-editing="true">
   <Label>Field</Label>
-</molecules--component-102020>
+</molecules--ml-component>
             </template>
           </widget-playground-state-preview-code-102020>
         </div>
@@ -224,11 +216,11 @@ O elemento \`<demo>\` DEVE:
 
 \`\`\`html
 <demo id="demo-basic">
-  <molecules--component-102020 
+  <molecules--ml-component 
     value="{{playground.basic.value}}"
     error="{{playground.basic.error}}">
     <Label>Field</Label>
-  </molecules--component-102020>
+  </molecules--ml-component>
 </demo>
 \`\`\`
 
@@ -243,11 +235,11 @@ O \`widget-playground-state-preview-code-102020\` recebe:
 \`\`\`html
 <widget-playground-state-preview-code-102020 target="demo-basic">
   <template>
-<molecules--component-102020 
+<molecules--ml-component 
   value="{{playground.basic.value}}"
   error="{{playground.basic.error}}">
   <Label>Field</Label>
-</molecules--component-102020>
+</molecules--ml-component>
   </template>
 </widget-playground-state-preview-code-102020>
 \`\`\`
@@ -259,26 +251,10 @@ O widget:
 
 ---
 
-## 8. Demos
-
-| Demo | Namespace | @property |
-|------|-----------|-----------|
-| Basic | playground.basic | defaults |
-| Disabled | playground.disabled | disabled="true" |
-| Loading | playground.loading | loading="true" |
-| Error | playground.error | defaults |
-| View Mode | playground.viewMode | isEditing="false" |
-
----
-
-## 9. Checklist
+## 8. Checklist
 
 - [ ] Tag name copied verbatim from \`@customElement(...)\` in the \`.ts\` file
 - [ ] Opening tag and closing tag are identical strings
-- [ ] State contém APENAS @propertyDataSource
-- [ ] State é JSON válido
-- [ ] State usa valores default (string="", number=0, boolean=false)
-- [ ] State NUNCA usa null ou undefined
 - [ ] widget-playground-state-102020 vem ANTES das demos
 - [ ] Cada demo tem namespace próprio
 - [ ] Cada \`<demo>\` tem id único e contém o HTML do componente
@@ -292,7 +268,7 @@ O widget:
 
 ---
 
-## 10. Changelog
+## 9. Changelog
 
 | Version | Date       | Description |
 |---------|------------|-------------|

@@ -69,11 +69,12 @@ async function beforePromptStep(
 ): Promise<mls.msg.AgentIntent[]> {
 
     if (!args) throw new Error(`(${agent.agentName})[beforePromptStep] args invalid`);
-
+    if(!mls.actualProject) throw new Error(`(${agent.agentName})[beforePromptStep] project invalid: ${mls.actualProject}`);
     const data: { group: string, prompt: string } = JSON.parse(args)
 
     const baseMolecule = await getBaseMolecule();
     const groupDetails = skillList.find((item) => item.name === data.group);
+    const skillByGroup = await getGroupSkill(data.group);
 
     const continueIntent: mls.msg.AgentIntentPromptReady = {
         type: "prompt_ready",
@@ -86,8 +87,9 @@ async function beforePromptStep(
         humanPrompt: data.prompt || '',
         systemPrompt: system1
             .replace("{{ group }}", data.group)
+            .replace("{{project}}", mls.actualProject?.toString())
             .replace("{{ skillMolecule }}", skillMolecule)
-            .replace("{{ groupDesc }}", groupDetails?.description || '')
+            .replace("{{ groupSkill }}", skillByGroup)
             .replace("{{systemBaseMolecule}}", baseMolecule)
     }
 
@@ -106,7 +108,8 @@ async function afterPromptStep(
     if (!agent || !context || !step) throw new Error(`[afterPromptStep] invalid params, agent:${!!agent}, context:${!!context}, step:${!!step}`);
 
     const payload = (step.interaction?.payload?.[0]);
-    if (payload?.type !== 'clarification' || !payload.json) throw new Error(`[afterPromptStep] invalid payload: ${payload}`)
+    if (payload?.type !== 'clarification' || !payload.json) throw new Error(`[afterPromptStep] invalid payload: ${payload}`);
+    if (context.isTest) { console.info(payload.json) }
 
     return [];
 
@@ -208,6 +211,14 @@ function processOutput(
 
 
 }
+async function getGroupSkill(group: string) {
+    const path = skillList.find((item) => item.name === group)?.skillReference;
+    if (!path) throw new Error(`[getGroupSkill] skill for group not found: ${path}`);
+    const module = await import(path);
+    if (!module || !module.skill) throw new Error(`[getGroupSkill] skill for group not found: ${path}`);
+    if (typeof module.skill !== 'string') throw new Error(`[getGroupSkill] invalid type of skill: ${path}, must be string`);
+    return module.skill;
+}
 
 async function getBaseMolecule() {
     const key = mls.stor.getKeyToFile({ project: 102020, shortName: 'moleculeBase', folder: '', extension: '.ts', level: 2 })
@@ -217,7 +228,7 @@ async function getBaseMolecule() {
 }
 
 const system1 = `
-<!-- modelType: code-->
+<!-- modelType: codeinstruct -->
 <!-- modelTypeList: geminiChat (2.5 pro), code (grok), deepseekchat, codeflash (gemini), deepseekreasoner, mini (4.1) ou nano (openai), codeinstruct (4.1), codereasoning(gpt5), code2 (kimi 2.5) -->
 
 You are a planner responsible for defining the creation details of a new web component (widget) that will be included in an HTML page.
@@ -239,17 +250,28 @@ Understand the purpose of the widget by analyzing the original user prompt and d
 
 - The implementation (how it will be built) is the responsibility of the group skill.
 
-Identify the most appropriate group for this molecule.
-Suggest the name of molecule and put in 'fileReference'. Format: _[project]_/l2/[folder]/[moleculeName].ts
+Identify the most appropriate name for this molecule. Always suggest with prefix 'ml', ex: ml-select-dropdown
+Suggest the name of molecule and put in 'fileReference'. Format: _{{project}}_/l2/[groupName]/[moleculeName].ts
 
+## CRITICAL — GROUP CONTRACT COMPLIANCE
+
+- The molecule MUST follow the contract defined in the group skill (creation.md).
+- Properties, slot tags, and events MUST come ONLY from the group contract.
+- DO NOT create new properties that are not in the group contract.
+- DO NOT add domain-specific properties.
+- Domain-specific content is handled by slot tags — not by custom properties.
+- If the user prompt mentions specific content map that content to the existing slot tags of the group, not to new properties.
 
 ## How molecules works in collab.codes
 \`\`\`md
 {{ skillMolecule }}
 \`\`\`
 
-## Group: {{ group }}
-{{ groupDesc }}
+## GroupName: {{ group }}
+
+\`\`\`md
+{{ groupSkill }}
+\`\`\`
 
 ## Molecule Class Base
 \`\`\`typescript
@@ -258,20 +280,7 @@ Suggest the name of molecule and put in 'fileReference'. Format: _[project]_/l2/
 
 ## Output format
 You must return the object strictly as JSON
-export type Output =
-    {
-        type: "clarification";
-        json: TClarification;
-    }
-
-export interface TClarification {
-    fileReference: string,
-    description: string,
-    prompt: string, // same user prompt
-    group: string,
-    functionalRequirements: string[],
-    visualRequirements: string[],
-}
+[[OutputSection]]
 `
 
 //#region OutputSection

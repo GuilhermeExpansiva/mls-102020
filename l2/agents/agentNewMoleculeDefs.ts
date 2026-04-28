@@ -1,7 +1,7 @@
 /// <mls fileReference="_102020_/l2/agents/agentNewMoleculeDefs.ts" enhancement="_102027_/l2/enhancementAgent.ts"/>
 
-import { IAgentAsync, IAgentMeta } from '/_100554_/l2/aiAgentBase.js';
-import { createAllFiles } from '/_102027_/l2/libStor.js';
+import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
+import { createStorFile } from '/_102027_/l2/libStor.js';
 
 
 export function createAgent(): IAgentAsync {
@@ -79,6 +79,7 @@ async function afterPromptStep(
     step: mls.msg.AIAgentStep,
     hookSequential: number,
 ): Promise<mls.msg.AgentIntent[]> {
+    
 
 
     if (!agent || !context || !step) throw new Error(`[afterPromptStep] invalid params, agent:${!!agent}, context:${!!context}, step:${!!step}`);
@@ -127,7 +128,7 @@ async function afterPromptStep(
 export async function updateDefs(skill: string, fileReference: string, group: string): Promise<void> {
 
     let fileInfo = mls.stor.convertFileReferenceToFile(fileReference);
-    if (!fileReference || fileInfo.project < 1) throw new Error(`Invalid step in update defs, incorrect meta fileRecerence: ${fileReference}`);
+    if (!fileReference || fileInfo.project < 1) throw new Error(`Invalid step in update defs, incorrect meta fileReference: ${fileReference}`);
 
     const template = `/// <mls fileReference="${fileReference.replace('.ts', '.defs.ts')}" enhancement="_blank" />
 
@@ -138,30 +139,23 @@ export const skill = \`${skill}\`;
 
 `;
 
-    const rc = await createAllFiles({
-        ...fileInfo,
-        enhancement: '',
-        defsSource: template,
-        tsSource: '// In develpoment',
-        
-    }, true, true);
+    const storFile = await createStorFile({
+        extension: '.defs.ts',
+        folder: fileInfo.folder,
+        level: fileInfo.level,
+        project: fileInfo.project,
+        shortName: fileInfo.shortName,
+        source: template,
+        status: 'new'
+    }, true, true, true);
 
-    if (rc.ts) {
-        const modelTs = await (rc.ts as mls.stor.IFileInfo).getOrCreateModel();
-        mls.editor.forceModelUpdate(modelTs.model);
-    }
-
+    const modelDefs = await storFile.getOrCreateModel();
+    if (modelDefs) mls.editor.forceModelUpdate(modelDefs.model);
     
-    if (rc.def) {
-        const modelDef = await (rc.def as mls.stor.IFileInfo).getOrCreateModel();
-        mls.editor.forceModelUpdate(modelDef.model);
-    }
-
 }
 
-
 const system1 = `
-<!-- modelType: code-->
+<!-- modelType: codeinstruct -->
 <!-- modelTypeList: geminiChat (2.5 pro), code (grok), deepseekchat, codeflash (gemini), deepseekreasoner, mini (4.1) ou nano (openai), codeinstruct (4.1), codereasoning(gpt5), code2 (kimi 2.5) -->
 
 You are a planner responsible for defining a \`skill.md\`.
@@ -199,17 +193,7 @@ If any implementation detail is included, remove it and rewrite.
 
 ## Output format
 You must return the object strictly as JSON
-export type Output =
-    {
-        type: "flexible";
-        result: IResult
-    }
-
-interface IResult {
-    fileReference: string,
-    group: string,
-    skillMd: string,
-}
+[[OutputSection]]
 `
 
 //#region OutputSection
@@ -221,7 +205,7 @@ export type Output =
 
 interface IResult {
     fileReference: string,
-    group: string,
+    group: string, // same received in prompt
     skillMd: string,
 }
 

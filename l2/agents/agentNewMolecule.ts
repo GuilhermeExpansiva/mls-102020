@@ -3,6 +3,9 @@
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import { appendLongTermMemory } from '/_102027_/l2/aiAgentHelper.js';
 import { convertFileToTag } from '/_102020_/l2/utils';
+import { createStorFile } from '/_102027_/l2/libStor.js';
+
+
 // import { skill as skillDesing } from '/_102020_/l2/skills/aura/design.js';
 import { skill as skillAura } from '/_102020_/l2/skills/aura/overview.js';
 import { skill as skillMolecule } from '/_102020_/l2/skills/aura/moleculeGeneration2.js';
@@ -109,9 +112,9 @@ async function getSystemUser(context: mls.msg.ExecutionContext, fileReference: s
 
     const path = mls.stor.getPathToFile(fileReference);
     const files = await mls.stor.getFiles({ ...path, loadContent: false });
-    if (!files.ts) throw new Error(`[getSystemUser] invalid file: ${fileReference}`);
+    if (!files.defs) throw new Error(`[getSystemUser] invalid file: ${fileReference}`);
 
-    const data = await getMoleculeSkill(files.ts);
+    const data = await getMoleculeSkill(files.defs);
     const skillByGroup = await getGroupSkill(data.group);
     const tagName = convertFileToTag(path);
     await appendLongTermMemory(context, { 'group': data.group });
@@ -119,6 +122,7 @@ async function getSystemUser(context: mls.msg.ExecutionContext, fileReference: s
     const system2 = `
 
     ## TagName : ${tagName}
+    
     ## File Reference : ${data.fileReference}
 
     ## Skill Group: ${data.group}
@@ -133,8 +137,6 @@ async function getSystemUser(context: mls.msg.ExecutionContext, fileReference: s
     \`\`\`
 
     `
-
-    console.info(system2)
 
     return system2;
 }
@@ -173,13 +175,48 @@ async function afterPromptStep(
 
 }
 
+const MaxFixEffort = 2;
+
 async function processOutput(context: mls.msg.ExecutionContext, output: Result): Promise<mls.msg.AgentIntent[]> {
 
-    console.info(output);
-    const fileRef = await updateFiles(context, output);
+    const data = await updateFiles(context, output);
     const group = context.task?.iaCompressed?.longMemory['group'];
+    const fixCountRaw = context.task?.iaCompressed?.longMemory['fixCount'];
+    const parsed = Number(fixCountRaw);
+    const fixCount = Number.isNaN(parsed) ? 0 : parsed;
 
-    console.info({ fileRef, group: group });
+    if (data.hasErrors && fixCount < MaxFixEffort) {
+
+        console.info('Chamando agent fix');
+
+        const newCount = fixCount + 1;
+        await appendLongTermMemory(context, { 'fixCount': newCount.toString() });
+
+        const newStep: mls.msg.AgentIntentAddStep = {
+            type: "add-step",
+            messageId: context.message.orderAt,
+            threadId: context.message.threadId,
+            taskId: context.task?.PK || '',
+            parentStepId: 1,
+            stepTitle: `Fix errors: ${data.fileReference}`,
+            step:
+            {
+                type: 'agent',
+                stepId: 0,
+                interaction: null,
+                status: 'waiting_human_input',
+                nextSteps: [],
+                stepTitle: `Fix(${newCount})`,
+                agentName: "agentNewMoleculeFix",
+                prompt: data.fileReference,
+                rags: null,
+            }
+        };
+
+        return [newStep];
+    }
+
+    console.info({ ref: data.fileReference, group: group });
 
     const newStep: mls.msg.AgentIntentAddStep = {
         type: "add-step",
@@ -196,7 +233,7 @@ async function processOutput(context: mls.msg.ExecutionContext, output: Result):
             status: 'waiting_human_input',
             nextSteps: [],
             agentName: "agentNewMoleculePlayground",
-            prompt: JSON.stringify({ group: group, fileReference: fileRef }),
+            prompt: JSON.stringify({ group: group, fileReference: data.fileReference }),
             rags: null,
         }
     };
@@ -204,22 +241,47 @@ async function processOutput(context: mls.msg.ExecutionContext, output: Result):
     return [newStep];
 }
 
-async function updateFiles(context: mls.msg.ExecutionContext, result: Result): Promise<string> {
+async function updateFiles(context: mls.msg.ExecutionContext, result: Result) {
 
     const molecule = result.ts;
     const fileReference = molecule.trim().split('\n')[0];
     const tripleSlash = mls.common.tripleslash.parseXMLTripleSlash(fileReference);
     let fileInfo = mls.stor.convertFileReferenceToFile(tripleSlash.variables['fileReference']);
     if (!fileReference || fileInfo.project < 1) throw new Error(`Invalid step in create file, incorrect meta fileRecerence: ${fileReference}`);
-
     const paramsTs = { ...fileInfo, content: molecule, versionRef: new Date().toISOString(), extension: ".ts" };
-    await updateStorFile(paramsTs);
 
-    return tripleSlash.variables['fileReference'];
+    const files = await mls.stor.getFiles({ ...fileInfo, loadContent: false });
+    let modelTs: mls.editor.IModelTS;
+
+    if (!files.ts) {
+        const storFile = await createStorFile({
+            extension: '.ts',
+            folder: fileInfo.folder,
+            level: fileInfo.level,
+            project: fileInfo.project,
+            shortName: fileInfo.shortName,
+            source: molecule,
+            status: 'new'
+        }, true, true, true);
+
+        modelTs = await storFile.getOrCreateModel();
+
+    } else {
+        modelTs = await updateStorFile(paramsTs);
+    }
+
+    const compileResultOk = await mls.l2.typescript.compileAndPostProcess(modelTs, true, false);
+    console.info({ compileResultOk })
+
+    return {
+        fileReference: tripleSlash.variables['fileReference'],
+        hasErrors: compileResultOk === false
+    }
 
 }
 
-async function updateStorFile(params: { project: number, shortName: string, level: number, folder: string, content: string, extension: string, versionRef: string }): Promise<void> {
+async function updateStorFile(params: { project: number, shortName: string, level: number, folder: string, content: string, extension: string, versionRef: string }): Promise<mls.editor.IModelBase> {
+
     const file = await mls.stor.addOrUpdateFile(params);
     if (!file) throw new Error('[agentNewMolecule] Invalid storFile');
     const path = mls.stor.getKeyToFile(params);
@@ -228,7 +290,7 @@ async function updateStorFile(params: { project: number, shortName: string, leve
 
     const models = await file.getOrCreateModel();
     models.model.setValue(params.content);
-    mls.editor.forceModelUpdate(models.model);
+    return models;
 
 }
 
@@ -264,17 +326,13 @@ async function getMoleculeSkill(file: mls.stor.IFileInfo): Promise<{ skill: stri
     return {
         skill: defs.skill,
         group: defs.group,
-        fileReference
+        fileReference: fileReference.replace('.defs.ts', '.ts')
     }
 
 }
-/*
-<!-- modelType: codeinstruct -->
-<!-- useProxy: true -->
 
-*/
 const system1 = `
-<!-- modelType: codepro -->
+<!-- modelType: codeinstruct -->
 
 <!-- modelTypeList: geminiChat (2.5 pro), code (grok), deepseekchat, codeflash (gemini), deepseekreasoner, mini (4.1) ou nano (openai), codeinstruct (4.1), codereasoning(gpt5), code2 (kimi 2.5) -->
 
@@ -306,15 +364,7 @@ Task: Generate a molecule according the user request.
 
 ## Output format
 You must return the object strictly as JSON
-export type Output =
-    {
-        type: "flexible";
-        result: Result;
-    }
-
-export type Result = {
-    ts: string,
-}
+[[OutputSection]]
 
 `
 
