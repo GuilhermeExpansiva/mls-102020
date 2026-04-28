@@ -125,17 +125,20 @@ async function afterPromptStep(
 
 }
 
+
 export async function updateDefs(skill: string, fileReference: string, group: string): Promise<void> {
 
     let fileInfo = mls.stor.convertFileReferenceToFile(fileReference);
     if (!fileReference || fileInfo.project < 1) throw new Error(`Invalid step in update defs, incorrect meta fileReference: ${fileReference}`);
+
+    const skillNormalized = skill.replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
 
     const template = `/// <mls fileReference="${fileReference.replace('.ts', '.defs.ts')}" enhancement="_blank" />
 
 // Do not change – automatically generated code. 
 
 export const group = '${group}';
-export const skill = \`${skill}\`;
+export const skill = \`${skillNormalized}\`;
 
 `;
 
