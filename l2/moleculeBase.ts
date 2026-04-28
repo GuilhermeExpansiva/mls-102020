@@ -21,8 +21,31 @@ export class MoleculeAuraElement extends StateLitElement {
   // ===========================================================================
 
   connectedCallback() {
+    this.wrapSlotTagsInTemplate();
     super.connectedCallback();
     this.hideSlotTags();
+  }
+
+  // ===========================================================================
+  // SLOT TAG TEMPLATE WRAPPING
+  // ===========================================================================
+
+  /**
+   * Wraps slot tag content in <template> to prevent child components
+   * from rendering before the parent reads the content.
+   * Must run BEFORE super.connectedCallback().
+   */
+  private wrapSlotTagsInTemplate(): void {
+    this.slotTags.forEach(tag => {
+      this.querySelectorAll(tag).forEach(el => {
+        if (!el.querySelector(':scope > template')) {
+          const template = document.createElement('template');
+          template.innerHTML = el.innerHTML;
+          el.innerHTML = '';
+          el.appendChild(template);
+        }
+      });
+    });
   }
 
   // ===========================================================================
@@ -66,10 +89,13 @@ export class MoleculeAuraElement extends StateLitElement {
   }
 
   /**
-   * Returns the innerHTML of a slot tag
+   * Returns the innerHTML of a slot tag, reading from <template> if present
    */
   protected getSlotContent(tag: string): string {
-    return this.querySelector(tag)?.innerHTML || '';
+    const el = this.querySelector(tag);
+    if (!el) return '';
+    const template = el.querySelector(':scope > template');
+    return template ? template.innerHTML : el.innerHTML;
   }
 
   /**
