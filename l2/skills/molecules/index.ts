@@ -11,9 +11,9 @@ export const skills = [
     },
     {
         name: 'groupSelectMany',
-        description: 'Allows the user to select one or more options from a list. Ideal for building collections, applying multiple filters, or choosing several items simultaneously. Implementations include checkbox group, tags/chips, dual list, and multi-select dropdown.',
-        skillReference: '/_102020_/l2/skills/molecules/groupSelectMany',
-        skillUsageReference: ''
+        description: 'Allows the user to select one or more options from a list. Value is a comma-separated string of selected item values. Supports searchable filtering, min/max selection limits, grouped items, and disabled options. Implementations include checkbox group, chips/tags, multi-select dropdown, dual list (transfer list), card grid with selection, and toggle group.',
+        skillReference: '/_102020_/l2/skills/molecules/groupSelectMany/creation',
+        skillUsageReference: '/_102020_/l2/skills/molecules/groupSelectMany/usage',
     },
     {
         name: 'groupEnterText',
@@ -86,6 +86,13 @@ export const skills = [
     },
 
     {
+        name: 'groupTriggerAction',
+        description: 'Allows the user to execute an action or command. Supports Label and Icon slot tags with flexible composition (text only, icon only, or both). Configurable variant (primary, secondary, danger, ghost, link), size, loading state, and icon position. Implementations include button, icon button, FAB, split button, and button group.',
+        skillReference: '/_102020_/l2/skills/molecules/groupTriggerAction/creation',
+        skillUsageReference: '/_102020_/l2/skills/molecules/groupTriggerAction/usage'
+    },
+
+    {
         name: 'groupShowProgress',
         description: 'Indicates the progress of an operation or process. Visual primitive designed for composition inside other components. Supports determinate mode (0-100%) and indeterminate mode (unknown duration). Implementations include progress bar, progress ring/circle, spinner, and percentage indicator.',
         skillReference: '/_102020_/l2/skills/molecules/groupShowProgress/creation',
@@ -98,21 +105,42 @@ export const skills = [
         skillUsageReference: '/_102020_/l2/skills/molecules/groupRateItem/usage'
     },
     {
+        name: 'groupPlayMedia',
+        description: 'Plays audio or video content. Media sources provided via Source slot tags with fallback format support. Shared contract for both audio and video — swap the component tag to change the player style. Supports autoplay, loop, mute, poster thumbnail, and subtitle tracks. Implementations include video player, audio player, mini player, and media controls.',
+        skillReference: '/_102020_/l2/skills/molecules/groupPlayMedia/creation',
+        skillUsageReference: '/_102020_/l2/skills/molecules/groupPlayMedia/usage'
+    },
+    {
+        name: 'groupExpandContent',
+        description: 'Allows the user to expand or collapse content sections to see more or less details. Manages multiple sections via Section slot tags with title, disabled, and expanded attributes. Supports accordion mode (single open) or multiple open simultaneously. Implementations include accordion, collapsible, show more/show less, expandable row, and details/summary.',
+        skillReference: '/_102020_/l2/skills/molecules/groupExpandContent/creation',
+        skillUsageReference: '/_102020_/l2/skills/molecules/groupExpandContent/usage'
+    },
+    {
         name: 'groupViewChart',
         description: 'Displays data through graphical representation. Data provided via Series and Point slot tags. All chart implementations share the same data contract — swap the component tag to change visualization. Supports multi-series (Line, Bar, Area, Radar, Scatter) and single-series (Pie, Donut, Funnel). Implementations include bar chart, line chart, area chart, pie chart, donut chart, scatter chart, radar chart, and funnel chart.',
         skillReference: '/_102020_/l2/skills/molecules/groupViewChart/creation',
         skillUsageReference: '/_102020_/l2/skills/molecules/groupViewChart/usage'
     },
+    {
+        name: 'groupViewCard',
+        description: 'Displays an item as an independent visual unit. Composition primitive with flexible slot structure: header (title, description), content, footer, and action areas. All slots are optional. Supports variants (default, outlined, elevated, ghost), clickable, selectable, and loading states. Implementations include standard card, media card, compact card, horizontal card, and interactive card.',
+        skillReference: '/_102020_/l2/skills/molecules/groupViewCard/creation',
+        skillUsageReference: '/_102020_/l2/skills/molecules/groupViewCard/usage'
+    },
 
-
-
-
-
-
-
-
-
-
+    {
+        name: 'groupScanCode',
+        description: 'Captures information via camera (QR code, barcode, document). Component captures image frames and emits them; the page is responsible for decoding via BFF. Supports rear/front camera, auto-capture with configurable interval, and custom result display. Implementations include QR code scanner, barcode reader, document scanner (OCR), and camera viewfinder.',
+        skillReference: '/_102020_/l2/skills/molecules/groupScanCode/creation',
+        skillUsageReference: '/_102020_/l2/skills/molecules/groupScanCode/usage'
+    },
+    {
+        name: 'groupSearchContent',
+        description: 'Allows the user to find content using text search. Emits search events with debounce; page provides suggestions via Suggestion slot tags. Value holds the confirmed result — either a suggestion value or the raw typed text. Supports clear, loading state, and empty state. Implementations include search field, command palette (cmd+k), search with suggestions, and combobox.',
+        skillReference: '/_102020_/l2/skills/molecules/groupSearchContent/creation',
+        skillUsageReference: '/_102020_/l2/skills/molecules/groupSearchContent/usage'
+    },
     {
         name: 'groupViewData',
         description: 'Display a collection of data with adaptive layout. The component decides the best presentation based on context (viewport, configuration). Use when displaying multiple records with defined fields and rich content.',
@@ -121,16 +149,42 @@ export const skills = [
     },
     {
         name: 'groupViewTable',
-        description: 'Displays and allows interaction with structured tabular data. Supports sorting, filtering, pagination, selection, and inline editing. Ideal for lists of records, data comparison, bulk operations, and CRUD interfaces. Implementations include table, editable grid, virtualized table, tree table, and pivot table.',
-        skillReference: '/_102020_/l2/skills/molecules/groupViewTable',
-        skillUsageReference: ''
+        description: 'Displays structured data in tabular format. Data provided via TableHeader, TableBody, TableRow, TableHead, and TableCell slot tags. Supports column sorting, row selection with checkboxes, pagination, and isEditing propagation to web components inside cells. Implementations include data table, simple table, editable grid, virtualized table, and tree table.',
+        skillReference: '/_102020_/l2/skills/molecules/groupViewTable/creation',
+        skillUsageReference: '/_102020_/l2/skills/molecules/groupViewTable/usage'
+    },
+    {
+        name: 'groupViewHierarchy',
+        description: 'Displays hierarchical data structures with parent-child relationships. Uses recursive Node slot tags with free content that can nest indefinitely. Supports expand/collapse of nodes with children, accordion mode (one per level), and expand-all. Implementations include tree view, org chart, cascader, nested list, and mind map.',
+        skillReference: '/_102020_/l2/skills/molecules/groupViewHierarchy/creation',
+        skillUsageReference: '/_102020_/l2/skills/molecules/groupViewHierarchy/usage'
     },
 
     {
+        name: 'groupViewMetric',
+        description: 'Displays a highlighted indicator or metric. Purely visual — all data via slot tags (Label, Value, Icon, Trend with direction attribute, Helper). No value property, no events. Supports loading state. Implementations include big number, KPI card, sparkline, gauge/speedometer, and trend indicator.',
+        skillReference: '/_102020_/l2/skills/molecules/groupViewMetric/creation',
+        skillUsageReference: '/_102020_/l2/skills/molecules/groupViewMetric/usage'
+    },
+
+    {
+        name: 'groupNavigateSteps',
+        description: 'Allows the user to advance through a sequential multi-step process. Steps defined via Step slot tags with title, description, completed, and disabled attributes. Value is the active step index. Supports linear mode (must complete in order) and free navigation. Implementations include horizontal stepper, vertical stepper, wizard, progress steps.',
+        skillReference: '/_102020_/l2/skills/molecules/groupNavigateSteps/creation',
+        skillUsageReference: '/_102020_/l2/skills/molecules/groupNavigateSteps/usage'
+    },
+
+    {
+        name: 'groupNavigateSection',
+        description: 'Allows the user to switch between sections within the same context. Sections defined via Tab slot tags with value, title, icon, and disabled attributes. Value is the active tab identifier. Page is responsible for displaying each section content. Implementations include tabs, pills/segmented control, navigation menu, bottom navigation, and pagination.',
+        skillReference: '/_102020_/l2/skills/molecules/groupNavigateSection/creation',
+        skillUsageReference: '/_102020_/l2/skills/molecules/groupNavigateSection/usage'
+    },
+    {
         name: 'groupNotifyUser',
-        description: 'Informs the user about events, status changes, or action results. Ideal for success/error feedback, system alerts, and important announcements. Implementations include toast, snackbar, banner, alert, and notification card.',
-        skillReference: '/_102020_/l2/skills/molecules/groupNotifyUser',
-        skillUsageReference: ''
-    }
+        description: 'Informs the user about events, status changes, or action results. Controlled via visible property. Supports notification types (info, success, warning, error), auto-dismiss with configurable duration, position hints, dismissible toggle, and optional action slot. Implementations include toast, snackbar, banner, alert, and inline alert.',
+        skillReference: '/_102020_/l2/skills/molecules/groupNotifyUser/creation',
+        skillUsageReference: '/_102020_/l2/skills/molecules/groupNotifyUser/usage'
+    },
 
 ]
