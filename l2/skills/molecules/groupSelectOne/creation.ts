@@ -1,8 +1,8 @@
 /// <mls fileReference="_102020_/l2/skills/molecules/groupSelectOne/creation.ts" enhancement="_blank"/>
 
-export const skill = `# select + one — Creation
+export const skill = `# groupSelectOne — Creation
 
-> Implementation reference for creating molecules in the **select + one** group.
+> Implementation reference for creating molecules in the **groupSelectOne** group.
 > Follow the general Lit/Aura rules defined in \`molecule-generation2.md\`.
 
 ---
@@ -11,7 +11,7 @@ export const skill = `# select + one — Creation
 
 | Field | Value |
 |-------|-------|
-| **Group** | \`select + one\` |
+| **Group** | \`groupSelectOne\` |
 | **Category** | Data Entry |
 | **Version** | \`1.0.0\` |
 

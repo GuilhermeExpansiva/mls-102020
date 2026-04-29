@@ -640,7 +640,49 @@ private renderFeedback(): TemplateResult {
 
 ---
 
-## 13. Component Template
+13. ## SVG Rendering
+
+When rendering SVG elements inside a Lit template, use the \`svg\` tagged template for all elements **inside** the \`<svg>\` tag. The outer \`<svg>\` element stays inside \`html\`.
+
+### Import
+
+\`\`\`typescript
+import { html, svg, TemplateResult, unsafeHTML } from 'lit';
+\`\`\`
+
+### Usage
+
+\`\`\`typescript
+// ❌ WRONG — SVG children inside html\`\` are created in HTML namespace
+render() {
+  return html\`
+    <svg viewBox="0 0 100 100">
+      \${items.map(item => html\`
+        <circle cx="\${item.x}" cy="\${item.y}" r="5" fill="\${item.color}"></circle>
+      \`)}
+    </svg>
+  \`;
+}
+
+// ✅ CORRECT — SVG children use svg\`\` for proper SVG namespace
+render() {
+  return html\`
+    <svg viewBox="0 0 100 100">
+      \${items.map(item => svg\`
+        <circle cx="\${item.x}" cy="\${item.y}" r="5" fill="\${item.color}"></circle>
+      \`)}
+    </svg>
+  \`;
+}
+\`\`\`
+
+### Rule
+
+- \`html\`\`\` → for the outer \`<svg>\` and all non-SVG elements
+- \`svg\`\`\` → for everything **inside** the \`<svg>\` (path, g, circle, text, rect, line, etc.)
+- Without this, the browser creates HTMLUnknownElement instead of SVGElement and nothing renders visually
+
+## 14. Component Template
 
 \`\`\`typescript
 /// <mls fileReference="[file-reference]" enhancement="_102020_/l2/enhancementAura"/>
@@ -771,7 +813,7 @@ export class [ComponentName]Molecule extends MoleculeAuraElement {
 
 ---
 
-## 14. Skill Groups
+## 15. Skill Groups
 
 Each molecule belongs to a **Skill Group** that defines its contract:
 
@@ -784,7 +826,7 @@ The contract defines:
 ---
 
 
-## 15. Changelog
+## 16. Changelog
 
 | Version | Date | Description |
 |---------|------|-------------|
