@@ -1,5 +1,4 @@
-/// <mls fileReference="_102020_/l2/widgetPlaygroundState.ts" enhancement="_102027_/l2/enhancementLit"/>
-
+/// <mls fileReference="_102020_/l2/widgetPlaygroundState.ts" enhancement="_102020_/l2/enhancementAura.ts"/>
 
 import { LitElement, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';

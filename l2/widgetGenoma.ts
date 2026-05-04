@@ -1,13 +1,13 @@
-/// <mls fileReference="_102020_/l2/widgetGenoma.ts" enhancement="_102027_/l2/enhancementLit.ts"/>
+/// <mls fileReference="_102020_/l2/widgetGenoma.ts" enhancement="_102020_/l2/enhancementAura.ts"/>
 
 import { html, TemplateResult, nothing, unsafeHTML } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, state } from 'lit/decorators.js';
 import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
-import { mutationGroups, renderIcon, getEnrichedGroups } from '/_102020_/l2/molecules/index.js';
+import { mutationGroups, renderIcon } from '/_102020_/l2/molecules/index.js';
 import { MutationGroupEntry, SkillCategory } from '/_102020_/l2/molecules/index.js';
-import { convertTagToFileName } from '/_102027_/l2/utils.js';
-
+import { convertFileToTag, resolveTagToFile } from '/_102020_/l2/utils.js';
 import '/_102027_/l2/collabSelectKnob.js';
+
 
 // =============================================================================
 // WIDGET GENOMA — Mutation Testing Service
@@ -25,10 +25,11 @@ export class WidgetGenoma102020 extends StateLitElement {
 
     @state() private currentView: 'grid' | 'knob' = 'grid';
     @state() private selectedGroup: MutationGroupEntry | null = null;
-    @state() private mutations: any = null;
     @state() private knobIndex: number = 0;
     @state() private filterCategory: SkillCategory | '' = '';
-    @state() private isLoadingMutations: boolean = false;
+
+    // Map: group name → tag strings[]
+    private groupWidgetTags: Map<string, string[]> = new Map();
 
     // Track which widget tags have already been imported
     private importedTags: Set<string> = new Set();
@@ -48,27 +49,56 @@ export class WidgetGenoma102020 extends StateLitElement {
     };
 
     // =========================================================================
+    // LIFECYCLE
+    // =========================================================================
+
+    connectedCallback() {
+        super.connectedCallback();
+        this.buildGroupWidgetTags();
+    }
+
+    // =========================================================================
+    // BUILD GROUP → TAGS MAP
+    // =========================================================================
+
+    private buildGroupWidgetTags() {
+        const files = Object.values(mls.stor.files) as mls.stor.IFileInfo[];
+
+        const htmlFiles = files.filter(
+            (file) => file.extension === '.html' && file.folder.startsWith('molecules') && file.shortName !== 'index'
+        );
+
+        // Group files by folder (without 'molecules/' prefix, lowercased)
+        const folderMap = new Map<string, mls.stor.IFileInfo[]>();
+        for (const file of htmlFiles) {
+            const folderKey = file.folder.replace(/^molecules\//, '').toLowerCase();
+            if (!folderMap.has(folderKey)) {
+                folderMap.set(folderKey, []);
+            }
+            folderMap.get(folderKey)!.push(file);
+        }
+
+        // Match each mutation group to its files
+        for (const group of mutationGroups) {
+            const groupKey = group.name.toLowerCase();
+            const matchedFiles = folderMap.get(groupKey) || [];
+            const tags = matchedFiles.map((file) => convertFileToTag(file));
+            this.groupWidgetTags.set(group.name, tags);
+        }
+    }
+
+    // =========================================================================
     // NAVIGATION
     // =========================================================================
 
     private async handleGroupSelect(group: MutationGroupEntry) {
+        const tags = this.groupWidgetTags.get(group.name) || [];
         this.selectedGroup = group;
         this.knobIndex = 0;
-        this.isLoadingMutations = true;
         this.currentView = 'knob';
 
-        try {
-            const module = await import(group.mutationIndex + '.js');
-            this.mutations = module.mutations;
-        } catch (e) {
-            console.error('Failed to load mutations for', group.name, e);
-            this.mutations = null;
-        }
-
-        this.isLoadingMutations = false;
-
         // Import and render first widget
-        if (this.mutations?.widgets?.length > 0) {
+        if (tags.length > 0) {
             await this.importAndRenderWidget(0);
         }
     }
@@ -76,7 +106,6 @@ export class WidgetGenoma102020 extends StateLitElement {
     private handleBackToGrid() {
         this.currentView = 'grid';
         this.selectedGroup = null;
-        this.mutations = null;
         this.knobIndex = 0;
         this.importedTags.clear();
     }
@@ -86,16 +115,17 @@ export class WidgetGenoma102020 extends StateLitElement {
     // =========================================================================
 
     private async importAndRenderWidget(index: number) {
-        if (!this.mutations) return;
-        const widget = this.mutations.widgets[index];
-        const tag = widget.tag;
+        if (!this.selectedGroup) return;
+        const tags = this.groupWidgetTags.get(this.selectedGroup.name) || [];
+        const tag = tags[index];
+        if (!tag) return;
 
         // Import molecule if not already registered
         if (!this.importedTags.has(tag)) {
             try {
-                const info = convertTagToFileName(tag);
+                const info = resolveTagToFile(tag);
                 if (!info) throw new Error('Invalid import');
-                await import(`/_${info.project}_/l2/${info.folder ? info.folder + '/' : ''}${info.shortName}`);
+                await import(`/_${info.project}_/l2/${info.folder ? info.folder + '/' : ''}${info.shortName}.js`);
                 this.importedTags.add(tag);
             } catch (e) {
                 console.error('Failed to import molecule:', tag, e);
@@ -107,10 +137,13 @@ export class WidgetGenoma102020 extends StateLitElement {
     }
 
     private updateDemoContainer() {
-        if (!this.mutations) return;
-        const widget = this.mutations.widgets[this.knobIndex];
-        const demoHtml = `${this.mutations.demo.replace(/molecule-for-replace/g, widget.tag)}`;
-        console.info(demoHtml)
+        if (!this.selectedGroup) return;
+        const tags = this.groupWidgetTags.get(this.selectedGroup.name) || [];
+        const tag = tags[this.knobIndex];
+        if (!tag) return;
+
+        const demo = this.selectedGroup.demo;
+        const demoHtml = demo.replace(/molecule-for-replace/g, tag);
         const container = this.querySelector('#mutation-demo-container');
         if (container) {
             container.innerHTML = demoHtml;
@@ -122,9 +155,10 @@ export class WidgetGenoma102020 extends StateLitElement {
     // =========================================================================
 
     private async handleKnobChange(e: CustomEvent) {
-        if (!this.mutations) return;
+        if (!this.selectedGroup) return;
+        const tags = this.groupWidgetTags.get(this.selectedGroup.name) || [];
         const newIndex = e.detail.value;
-        if (newIndex === null || newIndex < 0 || newIndex >= this.mutations.widgets.length) return;
+        if (newIndex === null || newIndex < 0 || newIndex >= tags.length) return;
         this.knobIndex = newIndex;
         await this.importAndRenderWidget(this.knobIndex);
     }
@@ -208,6 +242,7 @@ export class WidgetGenoma102020 extends StateLitElement {
     private renderGroupCard(group: MutationGroupEntry): TemplateResult {
         const meta = this.categoryMeta[group.category];
         const iconSvg = renderIcon(group.icon, 28);
+        const tags = this.groupWidgetTags.get(group.name) || [];
 
         return html`
             <div class="genoma-card" @click=${() => this.handleGroupSelect(group)}>
@@ -218,7 +253,12 @@ export class WidgetGenoma102020 extends StateLitElement {
                     <div class="genoma-card-label">${group.label}</div>
                     <div class="genoma-card-desc">${group.shortDescription}</div>
                 </div>
-                <div class="genoma-card-badge">${meta.label}</div>
+                <div class="genoma-card-footer">
+                    <span class="genoma-card-badge">${meta.label}</span>
+                    ${tags.length > 0 ? html`
+                        <span class="genoma-card-count">${tags.length}</span>
+                    ` : nothing}
+                </div>
             </div>
         `;
     }
@@ -230,8 +270,9 @@ export class WidgetGenoma102020 extends StateLitElement {
     private renderKnobView(): TemplateResult {
         if (!this.selectedGroup) return html`${nothing}`;
 
-        const widget = this.mutations?.widgets?.[this.knobIndex];
-        const total = this.mutations?.widgets?.length ?? 0;
+        const tags = this.groupWidgetTags.get(this.selectedGroup.name) || [];
+        const total = tags.length;
+        const currentTag = tags[this.knobIndex];
 
         return html`
             <div class="genoma-knob-view">
@@ -243,24 +284,19 @@ export class WidgetGenoma102020 extends StateLitElement {
                     </button>
                     <div class="genoma-topbar-title">
                         <span class="genoma-topbar-group">${this.selectedGroup.label}</span>
-                        ${widget ? html`
+                        ${currentTag ? html`
                             <span class="genoma-topbar-sep">→</span>
-                            <span class="genoma-topbar-widget">${widget.label}</span>
+                            <span class="genoma-topbar-widget">${currentTag}</span>
                         ` : nothing}
                     </div>
                     <div class="genoma-topbar-counter">
-                        ${widget ? html`${this.knobIndex + 1} / ${total}` : nothing}
+                        ${total > 0 ? html`${this.knobIndex + 1} / ${total}` : nothing}
                     </div>
                 </div>
 
-                ${this.isLoadingMutations ? html`
-                    <div class="genoma-loading">
-                        <div class="genoma-spinner"></div>
-                        <span>Loading mutations...</span>
-                    </div>
-                ` : !this.mutations ? html`
+                ${total === 0 ? html`
                     <div class="genoma-empty">
-                        <p>No mutations found for this group.</p>
+                        <p>No widgets found for this group.</p>
                         <button class="genoma-back-link" @click=${this.handleBackToGrid}>
                             ← Back to groups
                         </button>
@@ -279,10 +315,9 @@ export class WidgetGenoma102020 extends StateLitElement {
                             </collab-select-knob-102027>
                         </div>
 
-                        ${widget ? html`
+                        ${currentTag ? html`
                             <div class="genoma-widget-info">
-                                <div class="genoma-widget-tag">&lt;${widget.tag}&gt;</div>
-                                <div class="genoma-widget-desc">${widget.description}</div>
+                                <div class="genoma-widget-tag">&lt;${currentTag}&gt;</div>
                             </div>
                         ` : nothing}
 
@@ -293,11 +328,11 @@ export class WidgetGenoma102020 extends StateLitElement {
                         </div>
 
                         <div class="genoma-widget-list">
-                            ${this.mutations.widgets.map((w: any, i: number) => html`
+                            ${tags.map((tag, i) => html`
                                 <button
                                     class="genoma-widget-pill ${i === this.knobIndex ? 'active' : ''}"
                                     @click=${() => this.handlePillClick(i)}>
-                                    ${w.label}
+                                    ${tag}
                                 </button>
                             `)}
                         </div>

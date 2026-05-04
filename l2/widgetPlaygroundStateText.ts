@@ -1,6 +1,9 @@
-/// <mls fileReference="_102020_/l2/widgetPlaygroundStateText.ts" enhancement="_102027_/l2/enhancementLit.ts"/>
+/// <mls fileReference="_102020_/l2/widgetPlaygroundStateText.ts" enhancement="_102020_/l2/enhancementAura.ts"/>
 
-import { html, ifDefined, LitElement } from 'lit';
+import { html } from 'lit';
+import {  } from 'lit/directives/class-map.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
+
 import { customElement, property, query } from 'lit/decorators.js';
 import { propertyDataSource } from '/_102027_/l2/collabDecorators.js';
 import { CollabLitElement } from '/_102027_/l2/collabLitElement.js'

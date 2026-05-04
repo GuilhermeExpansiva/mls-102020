@@ -1,7 +1,7 @@
 /// <mls fileReference="_102020_/l2/widgetPlaygroundStateBoolean.ts" enhancement="_102020_/l2/enhancementAura.ts"/>
 
-import { html, ifDefined, LitElement } from 'lit';
-import { customElement, property, query } from 'lit/decorators.js';
+import { html } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
 import { propertyDataSource } from '/_102027_/l2/collabDecorators.js';
 import { CollabLitElement } from '/_102027_/l2/collabLitElement.js'
 
