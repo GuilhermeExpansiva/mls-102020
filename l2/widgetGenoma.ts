@@ -1,6 +1,7 @@
 /// <mls fileReference="_102020_/l2/widgetGenoma.ts" enhancement="_102020_/l2/enhancementAura.ts"/>
 
-import { html, TemplateResult, nothing, unsafeHTML } from 'lit';
+import { html, TemplateResult, nothing } from 'lit';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { customElement, state } from 'lit/decorators.js';
 import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
 import { mutationGroups, renderIcon } from '/_102020_/l2/molecules/index.js';
