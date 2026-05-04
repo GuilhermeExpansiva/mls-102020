@@ -47,38 +47,17 @@ PascalCase + Molecule
 ## 4. Import Structure
 
 \`\`\`typescript
-// Lit and directives — ALWAYS from 'lit'
-import {
-    html,
-    TemplateResult,
-    ifDefined,
-    nothing,
-    unsafeHTML,
-    ...
-} from 'lit';
 
-// Lit decorators
-import { customElement, property, state } from 'lit/decorators.js';
+import { html, ...} from 'lit';
+import { customElement, ... } from 'lit/decorators.js';
 
 // Data Binding decorators
-import { propertyDataSource, propertyCompositeDataSource } from '/_102027_/l2/collabDecorators';
+import { propertyDataSource, propertyCompositeDataSource } from '/_102029_/l2/collabDecorators';
 
 // Base Class
-import { MoleculeAuraElement } from '/_102020_/l2/moleculeBase.js';
+import { MoleculeAuraElement } from '/_102033_/l2/moleculeBase.js';
 \`\`\`
 
-### Import Rules — CRITICAL
-
-\`\`\`typescript
-// ❌ WRONG — Do NOT import directives from separate paths
-import { unsafeHTML } from 'lit/directives/unsafe-html.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
-import { classMap } from 'lit/directives/class-map.js';
-import { repeat } from 'lit/directives/repeat.js';
-
-// ✅ CORRECT — Import ALL directives from 'lit'
-import { html, nothing, unsafeHTML, ifDefined, repeat } from 'lit';
-\`\`\`
 
 > **Note:** Do NOT import \`classMap\`. Use template strings for CSS classes instead (see Section 7).
 
@@ -693,10 +672,10 @@ render() {
 // Skill Group: [group-name] (e.g., select + one)
 // This molecule does NOT contain business logic.
 
-import { html, TemplateResult, classMap, nothing, unsafeHTML, ...(anothers if need) } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
-import { propertyDataSource } from '/_102027_/l2/collabDecorators';
-import { MoleculeAuraElement } from '/_102020_/l2/moleculeBase.js';
+import { html, ...(anothers if need) } from 'lit';
+import { customElement ...(anothers if need) } from 'lit/decorators.js';
+import { propertyDataSource } from '/_102029_/l2/collabDecorators';
+import { MoleculeAuraElement } from '/_102033_/l2/moleculeBase.js';
 
 /// **collab_i18n_start**
 const message_en = {

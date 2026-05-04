@@ -42,7 +42,7 @@ export const requires: mls.l2.enhancement.IRequire[] = [
     {
         type: 'tspath',
         name: 'lit/directives/class-map.js',
-        ref: "file://server/_102027_/l2/directives/classMap.ts"
+        ref: "file://server/_102027_/l2/classMap.ts"
     },
     {
         type: "cdn",
@@ -53,7 +53,7 @@ export const requires: mls.l2.enhancement.IRequire[] = [
     {
         type: 'tspath',
         name: 'lit/directives/style-map.js',
-        ref: "file://server/_102027_/l2/directives/styleMap.ts"
+        ref: "file://server/_102027_/l2/styleMap.ts"
     },
     {
         type: "cdn",
@@ -64,18 +64,17 @@ export const requires: mls.l2.enhancement.IRequire[] = [
     {
         type: 'tspath',
         name: 'lit/directives/repeat.js',
-        ref: "file://server/_102027_/l2/directives/repeat.ts"
+        ref: "file://server/_102027_/l2/repeat.ts"
     },
     {
         type: "cdn",
         name: 'lit/directives/repeat.js',
         ref: "https://cdn.jsdelivr.net/npm/lit@3/directives/repeat.js/+esm",
     },
-
     {
         type: 'tspath',
         name: 'lit/directives/if-defined.js',
-        ref: "file://server/_102027_/l2/directives/ifDefined.ts"
+        ref: "file://server/_102027_/l2/ifDefined.ts"
     },
     {
         type: "cdn",
@@ -86,7 +85,7 @@ export const requires: mls.l2.enhancement.IRequire[] = [
     {
         type: 'tspath',
         name: 'lit/directives/when.js',
-        ref: "file://server/_102027_/l2/directives/when.ts"
+        ref: "file://server/_102027_/l2/when.ts"
     },
     {
         type: "cdn",
@@ -97,7 +96,7 @@ export const requires: mls.l2.enhancement.IRequire[] = [
     {
         type: 'tspath',
         name: 'lit/directives/choose.js',
-        ref: "file://server/_102027_/l2/directives/choose.ts"
+        ref: "file://server/_102027_/l2/choose.ts"
     },
     {
         type: "cdn",
@@ -108,7 +107,7 @@ export const requires: mls.l2.enhancement.IRequire[] = [
     {
         type: 'tspath',
         name: 'lit/directives/map.js',
-        ref: "file://server/_102027_/l2/directives/map.ts"
+        ref: "file://server/_102027_/l2/map.ts"
     },
     {
         type: "cdn",
@@ -119,7 +118,7 @@ export const requires: mls.l2.enhancement.IRequire[] = [
     {
         type: 'tspath',
         name: 'lit/directives/range.js',
-        ref: "file://server/_102027_/l2/directives/range.ts"
+        ref: "file://server/_102027_/l2/range.ts"
     },
     {
         type: "cdn",
@@ -130,7 +129,7 @@ export const requires: mls.l2.enhancement.IRequire[] = [
     {
         type: 'tspath',
         name: 'lit/directives/join.js',
-        ref: "file://server/_102027_/l2/directives/join.ts"
+        ref: "file://server/_102027_/l2/join.ts"
     },
     {
         type: "cdn",
@@ -141,7 +140,7 @@ export const requires: mls.l2.enhancement.IRequire[] = [
     {
         type: 'tspath',
         name: 'lit/directives/cache.js',
-        ref: "file://server/_102027_/l2/directives/cache.ts"
+        ref: "file://server/_102027_/l2/cache.ts"
     },
     {
         type: "cdn",
@@ -152,7 +151,7 @@ export const requires: mls.l2.enhancement.IRequire[] = [
     {
         type: 'tspath',
         name: 'lit/directives/keyed.js',
-        ref: "file://server/_102027_/l2/directives/keyed.ts"
+        ref: "file://server/_102027_/l2/keyed.ts"
     },
     {
         type: "cdn",
@@ -163,7 +162,7 @@ export const requires: mls.l2.enhancement.IRequire[] = [
     {
         type: 'tspath',
         name: 'lit/directives/ref.js',
-        ref: "file://server/_102027_/l2/directives/ref.ts"
+        ref: "file://server/_102027_/l2/ref.ts"
     },
     {
         type: "cdn",
@@ -174,7 +173,7 @@ export const requires: mls.l2.enhancement.IRequire[] = [
     {
         type: 'tspath',
         name: 'lit/directives/live.js',
-        ref: "file://server/_102027_/l2/directives/live.ts"
+        ref: "file://server/_102027_/l2/live.ts"
     },
     {
         type: "cdn",
@@ -185,7 +184,7 @@ export const requires: mls.l2.enhancement.IRequire[] = [
     {
         type: 'tspath',
         name: 'lit/directives/until.js',
-        ref: "file://server/_102027_/l2/directives/until.ts"
+        ref: "file://server/_102027_/l2/until.ts"
     },
     {
         type: "cdn",
@@ -196,7 +195,7 @@ export const requires: mls.l2.enhancement.IRequire[] = [
     {
         type: 'tspath',
         name: 'lit/directives/async-append.js',
-        ref: "file://server/_102027_/l2/directives/asyncAppend.ts"
+        ref: "file://server/_102027_/l2/asyncAppend.ts"
     },
     {
         type: "cdn",
@@ -207,7 +206,7 @@ export const requires: mls.l2.enhancement.IRequire[] = [
     {
         type: 'tspath',
         name: 'lit/directives/async-replace.js',
-        ref: "file://server/_102027_/l2/directives/asyncReplace.ts"
+        ref: "file://server/_102027_/l2/asyncReplace.ts"
     },
     {
         type: "cdn",
@@ -218,7 +217,7 @@ export const requires: mls.l2.enhancement.IRequire[] = [
     {
         type: 'tspath',
         name: 'lit/directives/guard.js',
-        ref: "file://server/_102027_/l2/directives/guard.ts"
+        ref: "file://server/_102027_/l2/guard.ts"
     },
     {
         type: "cdn",
@@ -229,7 +228,7 @@ export const requires: mls.l2.enhancement.IRequire[] = [
     {
         type: 'tspath',
         name: 'lit/directives/template-content.js',
-        ref: "file://server/_102027_/l2/directives/templateContent.ts"
+        ref: "file://server/_102027_/l2/templateContent.ts"
     },
     {
         type: "cdn",
@@ -240,7 +239,7 @@ export const requires: mls.l2.enhancement.IRequire[] = [
     {
         type: 'tspath',
         name: 'lit/directives/unsafe-svg.js',
-        ref: "file://server/_102027_/l2/directives/unsafeSvg.ts"
+        ref: "file://server/_102027_/l2/unsafeSvg.ts"
     },
     {
         type: "cdn",
