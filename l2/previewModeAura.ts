@@ -53,17 +53,25 @@ export class PreviewModeAura {
     }
 
     private async _buildJS(other: string[]) {
+            
         if (!this.json || !this.esbuild || !this.file) return;
 
         let myMap = this.parseImportsMap(this.json.importsMap);
         let valids = [...Object.keys(myMap), ...this.json.importsJs, ...other];
         valids = [...new Set(valids)];
 
-        if (Object.keys(myMap).length === 0) myMap = {
+        if (Object.keys(myMap).length === 0) {
+            const enhancementModules = await import('/_102020_/l2/enhancementAura.js');
+            const maps = enhancementModules.requires.filter((item) => item.type === 'cdn');
+            maps.forEach((item) => {
+                myMap[item.name] = item.ref;
+            })
+        }
+
+        /*if (Object.keys(myMap).length === 0) myMap = {
             lit: "https://cdn.jsdelivr.net/gh/lit/dist@3/all/lit-all.min.js",
             "lit/decorators.js": "https://cdn.jsdelivr.net/npm/lit@3.0.0/decorators/+esm"
-
-        }
+        }*/
 
         const virtualFsPlugin = {
             name: 'virtual-fs',
