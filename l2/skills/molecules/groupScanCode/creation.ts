@@ -1,9 +1,9 @@
 /// <mls fileReference="_102020_/l2/skills/molecules/groupScanCode/creation.ts" enhancement="_blank"/>
 
 export const skill = `
-# scan + code — Creation
+# groupScanCode — Creation
 
-> Implementation reference for creating molecules in the **scan + code** group.
+> Implementation reference for creating molecules in the **groupScanCode** group.
 > Follow the general Lit/Aura rules defined in \`molecule-generation2.md\`.
 
 ---
@@ -12,7 +12,7 @@ export const skill = `
 
 | Field | Value |
 |-------|-------|
-| **Group** | \`scan + code\` |
+| **Group** | \`groupScanCode\` |
 | **Category** | Data Entry |
 | **Version** | \`1.0.0\` |
 

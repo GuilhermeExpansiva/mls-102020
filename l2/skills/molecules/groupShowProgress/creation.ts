@@ -1,9 +1,9 @@
 /// <mls fileReference="_102020_/l2/skills/molecules/groupShowProgress/creation.ts" enhancement="_blank"/>
 
 export const skill = `
-# show + progress — Creation
+# groupShowProgress — Creation
 
-> Implementation reference for creating molecules in the **show + progress** group.
+> Implementation reference for creating molecules in the **groupShowProgress** group.
 > Follow the general Lit/Aura rules defined in \`molecule-generation2.md\`.
 
 ---
@@ -12,7 +12,7 @@ export const skill = `
 
 | Field | Value |
 |-------|-------|
-| **Group** | \`show + progress\` |
+| **Group** | \`groupShowProgress\` |
 | **Category** | Feedback |
 | **Version** | \`1.0.0\` |
 

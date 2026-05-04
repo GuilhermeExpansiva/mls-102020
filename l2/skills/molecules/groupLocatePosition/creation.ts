@@ -2,9 +2,9 @@
 
 export const skill = `
 
-# locate + position — Creation
+# groupLocatePosition — Creation
 
-> Implementation reference for creating molecules in the **locate + position** group.
+> Implementation reference for creating molecules in the **groupLocatePosition** group.
 > Follow the general Lit/Aura rules defined in \`molecule-generation2.md\`.
 
 ---
@@ -13,7 +13,7 @@ export const skill = `
 
 | Field | Value |
 |-------|-------|
-| **Group** | \`locate + position\` |
+| **Group** | \`groupLocatePosition\` |
 | **Category** | Data Entry |
 | **Version** | \`1.0.0\` |
 

@@ -1,9 +1,9 @@
 /// <mls fileReference="_102020_/l2/skills/molecules/groupEnterText/creation.ts" enhancement="_blank"/>
 
 export const skill = `
-# enter + text — Creation
+# groupEnterText — Creation
 
-> Implementation reference for creating molecules in the **enter + text** group.
+> Implementation reference for creating molecules in the **groupEnterText** group.
 > Follow the general Lit/Aura rules defined in \`molecule-generation2.md\`.
 
 ---
@@ -12,7 +12,7 @@ export const skill = `
 
 | Field | Value |
 |-------|-------|
-| **Group** | \`enter + text\` |
+| **Group** | \`groupEnterText\` |
 | **Category** | Data Entry |
 | **Version** | \`1.0.0\` |
 

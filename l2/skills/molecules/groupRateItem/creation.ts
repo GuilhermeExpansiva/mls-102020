@@ -1,9 +1,9 @@
 /// <mls fileReference="_102020_/l2/skills/molecules/groupRateItem/creation.ts" enhancement="_blank"/>
 
 export const skill = `
-# rate + item — Creation
+# groupRateItem — Creation
 
-> Implementation reference for creating molecules in the **rate + item** group.
+> Implementation reference for creating molecules in the **groupRateItem** group.
 > Follow the general Lit/Aura rules defined in \`molecule-generation2.md\`.
 
 ---
@@ -12,7 +12,7 @@ export const skill = `
 
 | Field | Value |
 |-------|-------|
-| **Group** | \`rate + item\` |
+| **Group** | \`groupRateItem\` |
 | **Category** | Data Entry |
 | **Version** | \`1.0.0\` |
 ---

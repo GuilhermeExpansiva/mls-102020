@@ -2,9 +2,9 @@
 
 export const skill = `
 
-# expand + content — Creation
+# groupExpandContent — Creation
 
-> Implementation reference for creating molecules in the **expand + content** group.
+> Implementation reference for creating molecules in the **groupExpandContent** group.
 > Follow the general Lit/Aura rules defined in \`molecule-generation2.md\`.
 
 ---
@@ -13,7 +13,7 @@ export const skill = `
 
 | Field | Value |
 |-------|-------|
-| **Group** | \`expand + content\` |
+| **Group** | \`groupExpandContent\` |
 | **Category** | Data Display |
 | **Version** | \`1.0.0\` |
 

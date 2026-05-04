@@ -1,9 +1,9 @@
 /// <mls fileReference="_102020_/l2/skills/molecules/groupTriggerAction/creation.ts" enhancement="_blank"/>
 
 export const skill = `
-# trigger + action — Creation
+# groupTriggerAction — Creation
 
-> Implementation reference for creating molecules in the **trigger + action** group.
+> Implementation reference for creating molecules in the **groupTriggerAction** group.
 > Follow the general Lit/Aura rules defined in \`molecule-generation2.md\`.
 
 ---
@@ -12,7 +12,7 @@ export const skill = `
 
 | Field | Value |
 |-------|-------|
-| **Group** | \`trigger + action\` |
+| **Group** | \`groupTriggerAction\` |
 | **Category** | Actions |
 | **Version** | \`1.0.0\` |
 
