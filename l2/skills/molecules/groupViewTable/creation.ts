@@ -1,9 +1,9 @@
 /// <mls fileReference="_102020_/l2/skills/molecules/groupViewTable/creation.ts" enhancement="_blank"/>
 
 export const skill = `
-# view + table — Creation
+# groupViewTable — Creation
 
-> Implementation reference for creating molecules in the **view + table** group.
+> Implementation reference for creating molecules in the **groupViewTable** group.
 > Follow the general Lit/Aura rules defined in \`molecule-generation2.md\`.
 
 ---
@@ -12,7 +12,7 @@ export const skill = `
 
 | Field | Value |
 |-------|-------|
-| **Group** | \`view + table\` |
+| **Group** | \`groupViewTable\` |
 | **Category** | Data Display |
 | **Version** | \`1.0.0\` |
 

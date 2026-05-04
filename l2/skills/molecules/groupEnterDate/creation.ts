@@ -2,9 +2,9 @@
 
 export const skill = `
 
-# enter + date — Creation
+# groupEnterDate — Creation
 
-> Implementation reference for creating molecules in the **enter + date** group.
+> Implementation reference for creating molecules in the **groupEnterDate** group.
 > Follow the general Lit/Aura rules defined in \`molecule-generation2.md\`.
 
 ---
@@ -13,7 +13,7 @@ export const skill = `
 
 | Field | Value |
 |-------|-------|
-| **Group** | \`enter + date\` |
+| **Group** | \`groupEnterDate\` |
 | **Category** | Data Entry |
 | **Version** | \`1.0.0\` |
 

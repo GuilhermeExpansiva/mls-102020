@@ -1,9 +1,9 @@
 /// <mls fileReference="_102020_/l2/skills/molecules/groupPlayMedia/creation.ts" enhancement="_blank"/>
 
 export const skill = `
-# play + media — Creation
+# groupPlayMedia — Creation
 
-> Implementation reference for creating molecules in the **play + media** group.
+> Implementation reference for creating molecules in the **groupPlayMedia** group.
 > Follow the general Lit/Aura rules defined in \`molecule-generation2.md\`.
 
 ---
@@ -12,7 +12,7 @@ export const skill = `
 
 | Field | Value |
 |-------|-------|
-| **Group** | \`play + media\` |
+| **Group** | \`groupPlayMedia\` |
 | **Category** | Data Display |
 | **Version** | \`1.0.0\` |
 

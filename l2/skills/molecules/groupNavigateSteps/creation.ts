@@ -1,9 +1,9 @@
 /// <mls fileReference="_102020_/l2/skills/molecules/groupNavigateSteps/creation.ts" enhancement="_blank"/>
 
 export const skill = `
-# navigate + steps — Creation
+# groupNavigateSteps — Creation
 
-> Implementation reference for creating molecules in the **navigate + steps** group.
+> Implementation reference for creating molecules in the **groupNavigateSteps** group.
 > Follow the general Lit/Aura rules defined in \`molecule-generation2.md\`.
 
 ---

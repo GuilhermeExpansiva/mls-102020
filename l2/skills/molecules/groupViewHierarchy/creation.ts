@@ -2,9 +2,9 @@
 
 export const skill = `
 
-# view + hierarchy — Creation
+# groupViewHierarchy — Creation
 
-> Implementation reference for creating molecules in the **view + hierarchy** group.
+> Implementation reference for creating molecules in the **groupViewHierarchy** group.
 > Follow the general Lit/Aura rules defined in \`molecule-generation2.md\`.
 
 ---
@@ -13,7 +13,7 @@ export const skill = `
 
 | Field | Value |
 |-------|-------|
-| **Group** | \`view + hierarchy\` |
+| **Group** | \`groupViewHierarchy\` |
 | **Category** | Data Display |
 | **Version** | \`1.0.0\` |
 

@@ -1,9 +1,9 @@
 /// <mls fileReference="_102020_/l2/skills/molecules/groupEnterDateTimeInterval/creation.ts" enhancement="_blank"/>
 
 export const skill = `
-# enter + datetime-interval — Creation
+# groupEnterDateTimeInterval — Creation
 
-> Implementation reference for creating molecules in the **enter + datetime-interval** group.
+> Implementation reference for creating molecules in the **groupEnterDateTimeInterval** group.
 > Follow the general Lit/Aura rules defined in \`molecule-generation2.md\`.
 
 ---
@@ -12,7 +12,7 @@ export const skill = `
 
 | Field | Value |
 |-------|-------|
-| **Group** | \`enter + datetime-interval\` |
+| **Group** | \`groupEnterDateTimeInterval\` |
 | **Category** | Data Entry |
 | **Version** | \`1.0.0\` |
 
