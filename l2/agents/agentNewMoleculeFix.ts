@@ -40,7 +40,7 @@ async function beforePromptImplicit(
                 type: "human",
                 content: 'Fix component errors',
             }],
-            taskTitle: `Creating molecule`,
+            taskTitle: `Fix molecule`,
             threadId: context.message.threadId,
             userMessage: context.message.content,
         }
@@ -70,7 +70,7 @@ async function beforePromptStep(
         taskId: context.task?.PK || '',
         hookSequential,
         parentStepId: parentStep.stepId,
-        humanPrompt: 'Fix component errors',
+        humanPrompt: 'Fix molecule errors',
         systemPrompt: system
     }
 
@@ -93,13 +93,6 @@ async function prepareSystem(fileReference: string) {
     const errors = modelTs.compilerResults?.errors || [];
     const errorsMonaco = markersTs.filter(marker => marker.severity === monaco.MarkerSeverity.Error);
     const warningsMonaco = markersTs.filter(marker => marker.severity === monaco.MarkerSeverity.Warning);
-
-
-    console.info({
-        errors,
-        errorsMonaco,
-        warningsMonaco
-    })
 
     system1 = system1.replace("{{typescriptSource}}", content)
         .replace("{{typescriptImportsDefinition}}", str.join('\n'))
@@ -185,11 +178,12 @@ async function processOutput(context: mls.msg.ExecutionContext, output: Result):
 
     let fileInfo = mls.stor.convertFileReferenceToFile(fileReference);
     if (!fileReferenceLine || fileInfo.project < 1) throw new Error(`Invalid step in create file, incorrect meta fileRecerence: ${fileReferenceLine}`);
-    
+
     const keyToFiles = await mls.stor.getKeyToFile({ ...fileInfo });
     const storFile = mls.stor.files[keyToFiles];
     if (!storFile) throw new Error('[agentNewMoleculeFix] Invalid storFile');
     const modelTs: mls.editor.IModelTS = await storFile.getOrCreateModel();
+    modelTs.model.setValue(output.ts);
     const compileResultOk = await mls.l2.typescript.compileAndPostProcess(modelTs, true, false);
 
     const fixCountRaw = context.task?.iaCompressed?.longMemory['fixCount'];
@@ -224,37 +218,33 @@ async function processOutput(context: mls.msg.ExecutionContext, output: Result):
     }
 
     if (!compileResultOk && fixCount >= MaxFixEffort) {
-
-        
         throw new Error('[agentNewMoleculeFix] Maximum fix effort achieved');
     }
-    else {
-        console.info('Fix failed, call fix agent again');
 
-        const newCount = fixCount + 1;
-        await appendLongTermMemory(context, { 'fixCount': newCount.toString() });
-        const newStep: mls.msg.AgentIntentAddStep = {
-            type: "add-step",
-            messageId: context.message.orderAt,
-            threadId: context.message.threadId,
-            taskId: context.task?.PK || '',
-            parentStepId: 1,
-            stepTitle: `Fix errors: ${fileReference}`,
-            step:
-            {
-                type: 'agent',
-                stepId: 0,
-                interaction: null,
-                status: 'waiting_human_input',
-                nextSteps: [],
-                stepTitle: `Fix(${newCount})`,
-                agentName: "agentNewMoleculeFix",
-                prompt: fileReference,
-                rags: null,
-            }
-        };
-        return [newStep];
-    }
+    const newCount = fixCount + 1;
+    await appendLongTermMemory(context, { 'fixCount': newCount.toString() });
+    const newStep: mls.msg.AgentIntentAddStep = {
+        type: "add-step",
+        messageId: context.message.orderAt,
+        threadId: context.message.threadId,
+        taskId: context.task?.PK || '',
+        parentStepId: 1,
+        stepTitle: `Fix errors: ${fileReference}`,
+        step:
+        {
+            type: 'agent',
+            stepId: 0,
+            interaction: null,
+            status: 'waiting_human_input',
+            nextSteps: [],
+            stepTitle: `Fix(${newCount})`,
+            agentName: "agentNewMoleculeFix",
+            prompt: fileReference,
+            rags: null,
+        }
+    };
+    return [newStep];
+
 
 }
 

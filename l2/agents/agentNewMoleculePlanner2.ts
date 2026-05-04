@@ -29,9 +29,16 @@ async function beforePromptImplicit(
 ): Promise<mls.msg.AgentIntent[]> {
 
     if (!userPrompt || userPrompt.length < 5) throw new Error('invalid prompt');
+    if (!mls.actualProject) throw new Error(`(${agent.agentName})[beforePromptStep] project invalid: ${mls.actualProject}`);
 
     const baseMolecule = await getBaseMolecule();
-    const groupDetails = skillList.find((item) => item.name === userPrompt);
+    const data: { group: string, prompt: string } = JSON.parse(userPrompt);
+    const skillByGroup = await getGroupSkill(data.group);
+
+    console.info({
+        data,
+        skillByGroup
+    })
 
     const addMessageAI: mls.msg.AgentIntentAddMessageAI = {
         type: "add-message-ai",
@@ -42,8 +49,9 @@ async function beforePromptImplicit(
                 type: "system",
                 content: system1
                     .replace("{{ group }}", userPrompt)
+                    .replace("{{project}}", mls.actualProject?.toString())
                     .replace("{{ skillMolecule }}", skillMolecule)
-                    .replace("{{ groupDesc }}", groupDetails?.description || '')
+                    .replace("{{ groupSkill }}", skillByGroup)
                     .replace("{{systemBaseMolecule}}", baseMolecule)
 
             }, {
@@ -69,8 +77,8 @@ async function beforePromptStep(
 ): Promise<mls.msg.AgentIntent[]> {
 
     if (!args) throw new Error(`(${agent.agentName})[beforePromptStep] args invalid`);
-    if(!mls.actualProject) throw new Error(`(${agent.agentName})[beforePromptStep] project invalid: ${mls.actualProject}`);
-    const data: { group: string, prompt: string } = JSON.parse(args)
+    if (!mls.actualProject) throw new Error(`(${agent.agentName})[beforePromptStep] project invalid: ${mls.actualProject}`);
+    const data: { group: string, prompt: string } = JSON.parse(args);
 
     const baseMolecule = await getBaseMolecule();
     const groupDetails = skillList.find((item) => item.name === data.group);
@@ -109,7 +117,7 @@ async function afterPromptStep(
 
     const payload = (step.interaction?.payload?.[0]);
     if (payload?.type !== 'clarification' || !payload.json) throw new Error(`[afterPromptStep] invalid payload: ${payload}`);
-    if (context.isTest) { console.info(payload.json) }
+    if (context.isTest) { console.info(JSON.stringify(payload.json, null, 2)) }
 
     return [];
 
@@ -228,39 +236,47 @@ async function getBaseMolecule() {
 }
 
 const system1 = `
-<!-- modelType: codeinstruct -->
+<!-- modelType: codeflash -->
 <!-- modelTypeList: geminiChat (2.5 pro), code (grok), deepseekchat, codeflash (gemini), deepseekreasoner, mini (4.1) ou nano (openai), codeinstruct (4.1), codereasoning(gpt5), code2 (kimi 2.5) -->
 
-You are a planner responsible for defining the creation details of a new web component (widget) that will be included in an HTML page.
-Tasks:
-Understand the purpose of the widget by analyzing the original user prompt and define technical/functional restrictions and requirements.
+You are a requirements analyst responsible for defining the functional and visual requirements of a new web component (molecule) that will be built following an existing group contract.
 
-## IMPORTANT RULES
+You receive the group skill contract which already defines ALL available properties, slot tags, events, visual states, and rendering logic. Read it carefully and use it as your source of truth.
 
-- You MUST NOT define implementation details.
-- DO NOT mention how the component should be built.
-- DO NOT suggest technologies, APIs, or patterns (e.g., shadow DOM, slots, hooks, state management, etc).
-- DO NOT describe HTML structure or CSS strategies.
+## YOUR TASK
 
-- Your responsibility is ONLY to define:
-  - Functional requirements
-  - Behavioral rules
-  - Data inputs/outputs
-  - User interactions
+1. Interpret the user prompt — understand what they want functionally and visually.
+2. Map the user's intent to the group contract (properties, slot tags, events, visual states).
+3. Define concrete functional requirements — specific behaviors the molecule must have.
+4. Define concrete visual requirements — specific visual/layout decisions derived from the user prompt.
 
-- The implementation (how it will be built) is the responsibility of the group skill.
+## CRITICAL RULES
+
+- You MUST NOT define implementation details (no HTML structure, no CSS strategy, no framework patterns).
+- You MUST NOT create new properties, events, or slot tags that are not in the group contract.
+- You MUST NOT ask questions, request information, or ask for confirmation. The group contract is your source of truth — use it directly.
+- Every requirement MUST be a concrete, actionable, declarative statement.
+- If the user prompt is ambiguous, make a reasonable decision and state it as a requirement.
+- Domain-specific content from the user prompt maps to slot tags, never to custom properties.
+
+## WHAT MAKES A GOOD REQUIREMENT
+
+BAD — asks questions or requests information:
+- "Confirm which slot tags should represent nodes"
+- "Inform if there are interaction requirements in the contract"  
+- "I need the contract to map the properties correctly"
+
+GOOD — concrete and actionable:
+- "Each Node slot tag represents one box in the org chart. Nested Node tags create parent-child relationships."
+- "Clicking a node with children toggles its expanded/collapsed state via the contract's expand event."
+- "Nodes are laid out horizontally from left to right, with the root node on the far left."
+- "Connection lines use right-angle paths from parent's right edge to child's left edge."
+
 
 Identify the most appropriate name for this molecule. Always suggest with prefix 'ml', ex: ml-select-dropdown
-Suggest the name of molecule and put in 'fileReference'. Format: _{{project}}_/l2/[groupName]/[moleculeName].ts
+Suggest the name of molecule and put in 'fileReference'. Format: _{{project}}_/l2/molecules/[groupName(LowerCase)]/[moleculeName].ts
 
-## CRITICAL — GROUP CONTRACT COMPLIANCE
-
-- The molecule MUST follow the contract defined in the group skill (creation.md).
-- Properties, slot tags, and events MUST come ONLY from the group contract.
-- DO NOT create new properties that are not in the group contract.
-- DO NOT add domain-specific properties.
-- Domain-specific content is handled by slot tags — not by custom properties.
-- If the user prompt mentions specific content map that content to the existing slot tags of the group, not to new properties.
+## CONTEXT
 
 ## How molecules works in collab.codes
 \`\`\`md
