@@ -1493,34 +1493,43 @@ export class ServiceGenome100554 extends ServiceBase {
             </div>
 
             <!-- Replace mode radio -->
-            <div class="flex items-center gap-4">
-                <label class="
-                    inline-flex items-center gap-1.5 cursor-pointer
-                    text-[11px] text-gray-500 dark:text-gray-400
-                ">
-                    <input
-                        type="radio"
-                        name="molReplaceMode"
-                        .checked=${this._moleculeReplaceMode === 'selected'}
-                        @change=${() => { this._moleculeReplaceMode = 'selected'; this.requestUpdate(); }}
-                        class="w-3 h-3 accent-indigo-600"
-                    />
-                    ${this.msg.molSelectedOnly}
-                </label>
-                <label class="
-                    inline-flex items-center gap-1.5 cursor-pointer
-                    text-[11px] text-gray-500 dark:text-gray-400
-                ">
-                    <input
-                        type="radio"
-                        name="molReplaceMode"
-                        .checked=${this._moleculeReplaceMode === 'all'}
-                        @change=${() => { this._moleculeReplaceMode = 'all'; this.requestUpdate(); }}
-                        class="w-3 h-3 accent-indigo-600"
-                    />
-                    ${this.msg.molAllOccurrences}
-                </label>
-            </div>
+            <fieldset class="
+                border border-gray-200 dark:border-gray-700
+                rounded-lg px-3 pt-1 pb-2
+            ">
+                <legend class="
+                    text-[10px] font-medium px-1
+                    text-gray-400 dark:text-gray-500
+                ">${this.msg.currentPage}</legend>
+                <div class="flex items-center gap-4">
+                    <label class="
+                        inline-flex items-center gap-1.5 cursor-pointer
+                        text-[11px] text-gray-500 dark:text-gray-400
+                    ">
+                        <input
+                            type="radio"
+                            name="molReplaceMode"
+                            .checked=${this._moleculeReplaceMode === 'selected'}
+                            @change=${() => { this._moleculeReplaceMode = 'selected'; this.requestUpdate(); }}
+                            class="w-3 h-3 accent-indigo-600"
+                        />
+                        ${this.msg.molSelectedOnly}
+                    </label>
+                    <label class="
+                        inline-flex items-center gap-1.5 cursor-pointer
+                        text-[11px] text-gray-500 dark:text-gray-400
+                    ">
+                        <input
+                            type="radio"
+                            name="molReplaceMode"
+                            .checked=${this._moleculeReplaceMode === 'all'}
+                            @change=${() => { this._moleculeReplaceMode = 'all'; this.requestUpdate(); }}
+                            class="w-3 h-3 accent-indigo-600"
+                        />
+                        ${this.msg.molAllOccurrences}
+                    </label>
+                </div>
+            </fieldset>
 
             <!-- Error message -->
             ${this._moleculeError
