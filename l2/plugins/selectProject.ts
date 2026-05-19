@@ -165,9 +165,13 @@ export class PluginSelectProject extends StateLitElement {
                     <div class="flex flex-col gap-1">
                         <div class="flex items-center gap-1.5 flex-wrap">
                             <button
-                                class="text-gray-400 dark:text-gray-600 hover:text-gray-600 dark:hover:text-gray-300 transition-colors text-xl leading-none"
+                                class="cursor-pointer p-1 -ml-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200"
                                 @click=${() => this._dispatchSelect(0)}
-                            >&#8249;</button>
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="15 18 9 12 15 6"></polyline>
+                                </svg>
+                            </button>
                             <span class="text-lg font-semibold text-gray-700 dark:text-gray-200">${this.msg.title}</span>
                         </div>
                         <span class="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">${this.msg.desc}</span>
