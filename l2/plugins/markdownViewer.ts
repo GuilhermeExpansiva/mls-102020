@@ -3,6 +3,7 @@
 import { html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
 
 // ─── Component ───────────────────────────────────────────────────────
 

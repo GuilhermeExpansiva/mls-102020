@@ -1,8 +1,10 @@
 /// <mls fileReference="_102020_/l2/plugins/selectProject.ts" enhancement="_102027_/l2/enhancementLit.ts"/>
 
 import { html, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
+import { createStorFile, IReqCreateStorFile } from '/_102027_/l2/libStor.js';
+import '/_102020_/l2/plugins/markdownViewer.js';
 
 // ─── i18n ─────────────────────────────────────────────────────────────
 /// **collab_i18n_start**
@@ -14,6 +16,10 @@ const message_en = {
     customTitle: 'New Project',
     customDesc: 'Create a new project within this organization.',
     needsOrg: 'Select an organization first to see the available projects.',
+    edit: 'Edit',
+    cancel: 'Cancel',
+    save: 'Save',
+    loading: 'Loading README…',
 };
 type MessageType = typeof message_en;
 const messages: Record<string, MessageType> = {
@@ -26,6 +32,10 @@ const messages: Record<string, MessageType> = {
         customTitle: 'Novo Projeto',
         customDesc: 'Crie um novo projeto dentro desta organização.',
         needsOrg: 'Selecione uma organização primeiro para ver os projetos disponíveis.',
+        edit: 'Editar',
+        cancel: 'Cancelar',
+        save: 'Salvar',
+        loading: 'Carregando README…',
     },
     es: {
         title: 'Seleccionar Proyecto',
@@ -35,6 +45,10 @@ const messages: Record<string, MessageType> = {
         customTitle: 'Nuevo Proyecto',
         customDesc: 'Cree un nuevo proyecto dentro de esta organización.',
         needsOrg: 'Seleccione una organización primero para ver los proyectos disponibles.',
+        edit: 'Editar',
+        cancel: 'Cancelar',
+        save: 'Guardar',
+        loading: 'Cargando README…',
     },
 };
 /// **collab_i18n_end**
@@ -64,6 +78,20 @@ export class PluginSelectProject extends StateLitElement {
     @property({ attribute: false }) selectedOrg: IOrg | null = null;
     @property({ attribute: false }) value: number | null = null;
 
+    @state() private _editing: boolean = false;
+    @state() private _editText: string = '';
+    @state() private _readme: string | null = null;
+    @state() private _readmeLoading: boolean = false;
+
+    willUpdate(changed: Map<string, unknown>) {
+        if (changed.has('value') || changed.has('selectedOrg')) {
+            this._editing = false;
+            this._readme = null;
+            const project = this._selectedProject;
+            if (project) this._loadReadme(project.project);
+        }
+    }
+
     private get msg(): MessageType {
         const lang = this.getMessageKey(messages);
         return messages[lang];
@@ -91,6 +119,39 @@ export class PluginSelectProject extends StateLitElement {
         return this._renderSelected();
     }
 
+    // ─── Async README load ────────────────────────────────────────────
+
+    private async _loadReadme(projectId: number) {
+        this._readmeLoading = true;
+        this.requestUpdate();
+
+        try {
+            const key = mls.stor.getKeyToFile({ project: projectId, level: 0, shortName: 'README', folder: '', extension: '.md' });
+            let storFile = mls.stor.files[key];
+
+            if (!storFile) {
+                const params: IReqCreateStorFile = {
+                    shortName: 'README',
+                    project: projectId,
+                    folder: '',
+                    level: 0,
+                    source: '# README\n\nProject description here.',
+                    extension: '.md',
+                };
+                storFile = await createStorFile(params, false, false, false);
+            }
+
+            this._readme = storFile ? await storFile.getContent() : '';
+        } catch {
+            this._readme = '';
+        }
+
+        this._readmeLoading = false;
+        this.requestUpdate();
+    }
+
+    // ─── Scenario renders ─────────────────────────────────────────────
+
     private _renderNeedsOrg() {
         return html`
             <div class="flex flex-col gap-3">
@@ -102,10 +163,102 @@ export class PluginSelectProject extends StateLitElement {
 
     private _renderSelected() {
         const project = this._selectedProject;
+        const org = this.selectedOrg!;
         return html`
             <div class="flex flex-col gap-3">
-                ${this._renderHeader(this.msg.title, project?.name ?? null, this.msg.desc)}
-                ${project ? this._renderProjectCard(project) : nothing}
+                ${this._renderHeader(this.msg.title, null, this.msg.desc)}
+                ${project ? this._renderSelectedProjectDetail(project, org) : nothing}
+            </div>
+        `;
+    }
+
+    private _renderSelectedProjectDetail(project: IProject, org: IOrg) {
+        return html`
+            <div class="
+                rounded-lg border border-gray-200 dark:border-gray-800
+                bg-gray-50 dark:bg-gray-900/50
+                px-3 py-2.5
+            ">
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-gray-400 dark:text-gray-600 font-mono">${org.name}</span>
+                    <span class="text-gray-300 dark:text-gray-700">/</span>
+                    <span class="text-xs font-semibold text-gray-700 dark:text-gray-300">${project.name}</span>
+                </div>
+            </div>
+
+            <div class="
+                rounded-lg border border-gray-200 dark:border-gray-800
+                bg-gray-50 dark:bg-gray-900/50
+                px-3 py-3 flex flex-col gap-2
+            ">
+                ${this._readmeLoading
+                    ? html`<span class="text-xs text-gray-400 dark:text-gray-600 italic">${this.msg.loading}</span>`
+                    : this._editing
+                        ? this._renderEditMode()
+                        : this._renderViewMode()}
+            </div>
+        `;
+    }
+
+    private _renderViewMode() {
+        const content = this._readme ?? '';
+        return html`
+            <div class="flex items-start gap-2">
+                <div class="flex-1 min-w-0">
+                    ${content
+                        ? html`<plugins--markdown-viewer-102020 .text=${content}></plugins--markdown-viewer-102020>`
+                        : html`<span class="text-xs text-gray-400 dark:text-gray-600 italic">—</span>`}
+                </div>
+                <button
+                    class="
+                        shrink-0 text-[10px] px-2 py-0.5 rounded
+                        border border-gray-200 dark:border-gray-700
+                        text-gray-400 dark:text-gray-600
+                        hover:text-gray-600 dark:hover:text-gray-400
+                        hover:border-gray-300 dark:hover:border-gray-600
+                        transition-colors
+                    "
+                    @click=${() => { this._editText = this._readme ?? ''; this._editing = true; }}
+                >${this.msg.edit}</button>
+            </div>
+        `;
+    }
+
+    private _renderEditMode() {
+        return html`
+            <textarea
+                class="
+                    w-full text-xs font-mono leading-relaxed resize-none
+                    bg-white dark:bg-gray-900
+                    border border-gray-300 dark:border-gray-700 rounded-md
+                    px-2.5 py-2
+                    text-gray-700 dark:text-gray-300
+                    focus:outline-none focus:ring-1 focus:ring-indigo-400 dark:focus:ring-indigo-600
+                "
+                rows="6"
+                .value=${this._editText}
+                @input=${(e: Event) => { this._editText = (e.target as HTMLTextAreaElement).value; }}
+            ></textarea>
+            <div class="flex justify-end gap-2">
+                <button
+                    class="
+                        text-xs px-3 py-1 rounded
+                        border border-gray-200 dark:border-gray-700
+                        text-gray-500 dark:text-gray-400
+                        hover:bg-gray-100 dark:hover:bg-gray-800
+                        transition-colors
+                    "
+                    @click=${() => { this._editing = false; }}
+                >${this.msg.cancel}</button>
+                <button
+                    class="
+                        text-xs px-3 py-1 rounded
+                        bg-indigo-500 dark:bg-indigo-600 text-white
+                        hover:bg-indigo-600 dark:hover:bg-indigo-500
+                        transition-colors
+                    "
+                    @click=${() => { this._readme = this._editText; this._editing = false; }}
+                >${this.msg.save}</button>
             </div>
         `;
     }
@@ -133,6 +286,8 @@ export class PluginSelectProject extends StateLitElement {
             </div>
         `;
     }
+
+    // ─── Shared helpers ───────────────────────────────────────────────
 
     private _renderHeader(title: string, badge: string | null, description: string) {
         return html`
