@@ -3,7 +3,6 @@
 import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
-import { createStorFile, IReqCreateStorFile } from '/_102027_/l2/libStor.js';
 import '/_102020_/l2/plugins/markdownViewer.js';
 
 // ─── i18n ─────────────────────────────────────────────────────────────
@@ -17,6 +16,10 @@ const message_en = {
     customDesc: 'Create a new project within this organization.',
     needsOrg: 'Select an organization first to see the available projects.',
     loading: 'Loading README…',
+    noReadme: 'No README found — click Edit and save to add one.',
+    noResults: 'No projects match your search.',
+    createNew: 'New Project',
+    searchPlaceholder: 'Search projects…',
 };
 type MessageType = typeof message_en;
 const messages: Record<string, MessageType> = {
@@ -30,6 +33,10 @@ const messages: Record<string, MessageType> = {
         customDesc: 'Crie um novo projeto dentro desta organização.',
         needsOrg: 'Selecione uma organização primeiro para ver os projetos disponíveis.',
         loading: 'Carregando README…',
+        noReadme: 'Nenhum README encontrado — clique em Editar e salve para adicionar.',
+        noResults: 'Nenhum projeto corresponde à sua busca.',
+        createNew: 'Novo Projeto',
+        searchPlaceholder: 'Buscar projetos…',
     },
     es: {
         title: 'Seleccionar Proyecto',
@@ -40,6 +47,10 @@ const messages: Record<string, MessageType> = {
         customDesc: 'Cree un nuevo proyecto dentro de esta organización.',
         needsOrg: 'Seleccione una organización primero para ver los proyectos disponibles.',
         loading: 'Cargando README…',
+        noReadme: 'No se encontró README — haga clic en Editar y guarde para añadir uno.',
+        noResults: 'Ningún proyecto coincide con su búsqueda.',
+        createNew: 'Nuevo Proyecto',
+        searchPlaceholder: 'Buscar proyectos…',
     },
 };
 /// **collab_i18n_end**
@@ -71,9 +82,11 @@ export class PluginSelectProject extends StateLitElement {
 
     @state() private _readme: string | null = null;
     @state() private _readmeLoading: boolean = false;
+    @state() private _search: string = '';
 
     willUpdate(changed: Map<string, unknown>) {
         if (changed.has('value') || changed.has('selectedOrg')) {
+            this._search = '';
             this._readme = null;
             const project = this._selectedProject;
             if (project) this._loadReadme(project.project);
@@ -115,23 +128,10 @@ export class PluginSelectProject extends StateLitElement {
 
         try {
             const key = mls.stor.getKeyToFile({ project: projectId, level: 0, shortName: 'README', folder: '', extension: '.md' });
-            let storFile = mls.stor.files[key];
-
-            if (!storFile) {
-                const params: IReqCreateStorFile = {
-                    shortName: 'README',
-                    project: projectId,
-                    folder: '',
-                    level: 0,
-                    source: '# README\n\nProject description here.',
-                    extension: '.md',
-                };
-                storFile = await createStorFile(params, false, false, false);
-            }
-
-            this._readme = storFile ? await storFile.getContent() : '';
+            const storFile = mls.stor.files[key];
+            this._readme = storFile ? await storFile.getContent() : null;
         } catch {
-            this._readme = '';
+            this._readme = null;
         }
 
         this._readmeLoading = false;
@@ -183,7 +183,7 @@ export class PluginSelectProject extends StateLitElement {
                     ? html`<span class="text-xs text-gray-400 dark:text-gray-600 italic">${this.msg.loading}</span>`
                     : html`
                         <plugins--markdown-viewer-102020
-                            .text=${this._readme ?? ''}
+                            .text=${this._readme ?? this.msg.noReadme}
                             @md-save=${(e: CustomEvent) => { this._readme = e.detail.value; }}
                         ></plugins--markdown-viewer-102020>
                     `}
@@ -193,16 +193,50 @@ export class PluginSelectProject extends StateLitElement {
 
     private _renderAll() {
         const org = this.selectedOrg!;
+        const q = this._search.toLowerCase();
+        const filtered = org.projects
+            .map((p, i) => ({ p, selectValue: i + 1 }))
+            .filter(({ p }) => !q || p.name.toLowerCase().includes(q));
+
         return html`
             <div class="flex flex-col gap-3">
-                ${this._renderHeader(this.msg.allTitle, null, this.msg.allDesc)}
+                <div class="flex items-start justify-between gap-2">
+                    ${this._renderHeader(this.msg.allTitle, null, this.msg.allDesc)}
+                    <button
+                        class="
+                            shrink-0 text-[10px] px-2.5 py-1 rounded
+                            bg-indigo-500 dark:bg-indigo-600 text-white
+                            hover:bg-indigo-600 dark:hover:bg-indigo-500
+                            transition-colors whitespace-nowrap
+                        "
+                        @click=${() => this._dispatchSelect(org.projects.length + 1)}
+                    >+ ${this.msg.createNew}</button>
+                </div>
+
+                <input
+                    type="text"
+                    .value=${this._search}
+                    placeholder=${this.msg.searchPlaceholder}
+                    class="
+                        w-full text-xs px-2.5 py-1.5 rounded-md
+                        border border-gray-200 dark:border-gray-700
+                        bg-white dark:bg-gray-900
+                        text-gray-700 dark:text-gray-300
+                        placeholder-gray-400 dark:placeholder-gray-600
+                        focus:outline-none focus:ring-1 focus:ring-indigo-400 dark:focus:ring-indigo-600
+                    "
+                    @input=${(e: Event) => { this._search = (e.target as HTMLInputElement).value; }}
+                />
+
                 ${org.projects.length === 0
                     ? nothing
-                    : html`
-                        <div class="flex flex-col gap-1.5">
-                            ${org.projects.map((p, i) => this._renderProjectCard(p, i + 1))}
-                        </div>
-                    `}
+                    : filtered.length === 0
+                        ? html`<span class="text-[11px] text-gray-400 dark:text-gray-600 italic">${this.msg.noResults}</span>`
+                        : html`
+                            <div class="flex flex-col gap-1.5">
+                                ${filtered.map(({ p, selectValue }) => this._renderProjectCard(p, selectValue))}
+                            </div>
+                        `}
             </div>
         `;
     }

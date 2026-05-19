@@ -1,7 +1,7 @@
 /// <mls fileReference="_102020_/l2/plugins/selectOrganization.ts" enhancement="_102027_/l2/enhancementLit.ts"/>
 
 import { html, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
 import '/_102020_/l2/plugins/markdownViewer.js';
 
@@ -16,7 +16,9 @@ const message_en = {
     customDesc: 'Create a new organization to group your projects.',
     projects: 'projects',
     noOrgs: 'No organizations found.',
-    createNew: 'Create new organization',
+    noResults: 'No organizations match your search.',
+    createNew: 'New Organization',
+    searchPlaceholder: 'Search organizations…',
     inDevelopment: 'In development',
 };
 type MessageType = typeof message_en;
@@ -31,7 +33,9 @@ const messages: Record<string, MessageType> = {
         customDesc: 'Crie uma nova organização para agrupar seus projetos.',
         projects: 'projetos',
         noOrgs: 'Nenhuma organização encontrada.',
-        createNew: 'Criar nova organização',
+        noResults: 'Nenhuma organização corresponde à sua busca.',
+        createNew: 'Nova Organização',
+        searchPlaceholder: 'Buscar organizações…',
         inDevelopment: 'Em desenvolvimento',
     },
     es: {
@@ -43,7 +47,9 @@ const messages: Record<string, MessageType> = {
         customDesc: 'Cree una nueva organización para agrupar sus proyectos.',
         projects: 'proyectos',
         noOrgs: 'No se encontraron organizaciones.',
-        createNew: 'Crear nueva organización',
+        noResults: 'Ninguna organización coincide con su búsqueda.',
+        createNew: 'Nueva Organización',
+        searchPlaceholder: 'Buscar organizaciones…',
         inDevelopment: 'En desarrollo',
     },
 };
@@ -74,7 +80,13 @@ export class PluginSelectOrganization extends StateLitElement {
     @property({ attribute: false }) orgs: IOrg[] = [];
     @property({ attribute: false }) value: number | null = null;
 
+    @state() private _search: string = '';
+
     private readonly _descriptions: Map<string, string> = new Map();
+
+    willUpdate(changed: Map<string, unknown>) {
+        if (changed.has('value')) this._search = '';
+    }
 
     private get msg(): MessageType {
         const lang = this.getMessageKey(messages);
@@ -152,20 +164,50 @@ export class PluginSelectOrganization extends StateLitElement {
     }
 
     private _renderAll() {
+        const q = this._search.toLowerCase();
+        const filtered = this.orgs
+            .map((org, i) => ({ org, selectValue: i + 1 }))
+            .filter(({ org }) => !q || org.name.toLowerCase().includes(q));
+
         return html`
             <div class="flex flex-col gap-3">
-                ${this._renderHeader(this.msg.allTitle, null, this.msg.allDesc)}
+                <div class="flex items-start justify-between gap-2">
+                    ${this._renderHeader(this.msg.allTitle, null, this.msg.allDesc)}
+                    <button
+                        class="
+                            shrink-0 text-[10px] px-2.5 py-1 rounded
+                            bg-indigo-500 dark:bg-indigo-600 text-white
+                            hover:bg-indigo-600 dark:hover:bg-indigo-500
+                            transition-colors whitespace-nowrap
+                        "
+                        @click=${() => this._dispatchSelect(this.orgs.length + 1)}
+                    >+ ${this.msg.createNew}</button>
+                </div>
+
+                <input
+                    type="text"
+                    .value=${this._search}
+                    placeholder=${this.msg.searchPlaceholder}
+                    class="
+                        w-full text-xs px-2.5 py-1.5 rounded-md
+                        border border-gray-200 dark:border-gray-700
+                        bg-white dark:bg-gray-900
+                        text-gray-700 dark:text-gray-300
+                        placeholder-gray-400 dark:placeholder-gray-600
+                        focus:outline-none focus:ring-1 focus:ring-indigo-400 dark:focus:ring-indigo-600
+                    "
+                    @input=${(e: Event) => { this._search = (e.target as HTMLInputElement).value; }}
+                />
+
                 ${this.orgs.length === 0
                     ? html`<span class="text-[11px] text-gray-400 dark:text-gray-600 italic">${this.msg.noOrgs}</span>`
-                    : html`
-                        <div class="flex flex-col gap-1.5">
-                            ${this.orgs.map((org, i) => this._renderOrgCard(org, i + 1))}
-                        </div>
-                    `}
-                <button
-                    class="self-start text-xs text-indigo-500 dark:text-indigo-400 hover:underline"
-                    @click=${() => this._dispatchSelect(this.orgs.length + 1)}
-                >+ ${this.msg.createNew}</button>
+                    : filtered.length === 0
+                        ? html`<span class="text-[11px] text-gray-400 dark:text-gray-600 italic">${this.msg.noResults}</span>`
+                        : html`
+                            <div class="flex flex-col gap-1.5">
+                                ${filtered.map(({ org, selectValue }) => this._renderOrgCard(org, selectValue))}
+                            </div>
+                        `}
             </div>
         `;
     }
