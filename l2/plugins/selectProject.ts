@@ -342,16 +342,24 @@ export class PluginSelectProject extends StateLitElement {
     private _renderProjectCard(project: IProject, selectValue?: number) {
         const org = this.selectedOrg!;
         const clickable = selectValue !== undefined;
+        const isActive = mls.actualProject === project.project;
         return html`
             <div
                 class="
-                    rounded-lg border border-gray-200 dark:border-gray-800
-                    bg-gray-50 dark:bg-gray-900/50
+                    rounded-lg border
+                    ${isActive
+                        ? 'border-emerald-200 dark:border-emerald-700/50 bg-emerald-50 dark:bg-emerald-900/10'
+                        : 'border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50'}
                     px-3 py-2.5 flex items-center gap-2
-                    ${clickable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/70 transition-colors' : ''}
+                    ${clickable
+                        ? isActive
+                            ? 'cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/20 transition-colors'
+                            : 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/70 transition-colors'
+                        : ''}
                 "
                 @click=${clickable ? () => this._dispatchSelect(selectValue!) : nothing}
             >
+                ${isActive ? html`<div class="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 shrink-0"></div>` : nothing}
                 <span class="text-sm text-gray-400 dark:text-gray-600 font-mono">${org.name}</span>
                 <span class="text-gray-300 dark:text-gray-700">/</span>
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300" style="max-width:150px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${project.name}</span>

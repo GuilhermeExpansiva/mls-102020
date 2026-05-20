@@ -18,6 +18,8 @@ const message_en = {
     createNew: 'New Module',
     searchPlaceholder: 'Search modules…',
     inDevelopment: 'In development',
+    selectBtn: 'Select Module',
+    actualModule: 'actual module',
 };
 type MessageType = typeof message_en;
 const messages: Record<string, MessageType> = {
@@ -34,6 +36,8 @@ const messages: Record<string, MessageType> = {
         createNew: 'Novo Módulo',
         searchPlaceholder: 'Buscar módulos…',
         inDevelopment: 'Em desenvolvimento',
+        selectBtn: 'Selecionar Módulo',
+        actualModule: 'módulo atual',
     },
     es: {
         title: 'Módulo',
@@ -47,6 +51,8 @@ const messages: Record<string, MessageType> = {
         createNew: 'Nuevo Módulo',
         searchPlaceholder: 'Buscar módulos…',
         inDevelopment: 'En desarrollo',
+        selectBtn: 'Seleccionar Módulo',
+        actualModule: 'módulo actual',
     },
 };
 /// **collab_i18n_end**
@@ -90,6 +96,13 @@ export class PluginSelectModule extends StateLitElement {
         return this.modules[this.value - 1];
     }
 
+    private _doSelectModule(name: string) {
+        // @ts-ignore
+        mls.setActualModule(name);
+        // @ts-ignore
+        this.requestUpdate();
+    }
+
     createRenderRoot() { return this; }
 
     render() {
@@ -103,9 +116,28 @@ export class PluginSelectModule extends StateLitElement {
     private _renderSelected() {
         const module = this._selectedModule;
         const max = this.modules.length + 1;
+        // @ts-ignore
+        const isActual = module !== null && mls.actualModule === module.name;
         return html`
             <div class="flex flex-col gap-3">
                 ${this._renderNavHeader(this.msg.title, this.msg.desc, this.value ?? 0, 0, max)}
+                ${module
+                    ? isActual
+                        ? html`<span class="
+                            self-end text-sm px-2 py-0.5 rounded-full font-medium
+                            bg-emerald-100 dark:bg-emerald-900/30
+                            text-emerald-600 dark:text-emerald-400
+                        ">${this.msg.actualModule}</span>`
+                        : html`<button
+                            class="
+                                self-end text-sm px-2.5 py-1 rounded
+                                bg-indigo-500 dark:bg-indigo-600 text-white
+                                hover:bg-indigo-600 dark:hover:bg-indigo-500
+                                transition-colors whitespace-nowrap cursor-pointer
+                            "
+                            @click=${() => this._doSelectModule(module.name)}
+                        >${this.msg.selectBtn}</button>`
+                    : nothing}
                 ${module ? this._renderModuleDetail(module) : nothing}
             </div>
         `;
@@ -227,16 +259,21 @@ export class PluginSelectModule extends StateLitElement {
     }
 
     private _renderModuleCard(module: IModule, selectValue: number) {
+        // @ts-ignore
+        const isActive = mls.actualModule === module.name;
         return html`
             <div
                 class="
-                    rounded-lg border border-gray-200 dark:border-gray-800
-                    bg-gray-50 dark:bg-gray-900/50
+                    rounded-lg border
+                    ${isActive
+                        ? 'border-emerald-200 dark:border-emerald-700/50 bg-emerald-50 dark:bg-emerald-900/10 hover:bg-emerald-100 dark:hover:bg-emerald-900/20'
+                        : 'border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 hover:bg-gray-100 dark:hover:bg-gray-800/70'}
                     px-3 py-2.5 flex items-center gap-2
-                    cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/70 transition-colors
+                    cursor-pointer transition-colors
                 "
                 @click=${() => this._dispatchSelect(selectValue)}
             >
+                ${isActive ? html`<div class="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 shrink-0"></div>` : nothing}
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">${module.name}</span>
                 <span
                     class="ml-auto text-sm font-mono text-gray-400 dark:text-gray-600"

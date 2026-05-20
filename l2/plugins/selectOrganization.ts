@@ -261,17 +261,28 @@ export class PluginSelectOrganization extends StateLitElement {
 
     private _renderOrgCard(org: IOrg, selectValue?: number) {
         const clickable = selectValue !== undefined;
+        // @ts-ignore
+        const isActive = org.index === (mls?.l5?.actualOrg ?? -1);
         return html`
             <div
                 class="
-                    rounded-lg border border-gray-200 dark:border-gray-800
-                    bg-gray-50 dark:bg-gray-900/50
-                    px-3 py-2.5 flex items-center justify-between
-                    ${clickable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/70 transition-colors' : ''}
+                    rounded-lg border
+                    ${isActive
+                        ? 'border-emerald-200 dark:border-emerald-700/50 bg-emerald-50 dark:bg-emerald-900/10'
+                        : 'border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50'}
+                    px-3 py-2.5 flex items-center justify-between gap-2
+                    ${clickable
+                        ? isActive
+                            ? 'cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/20 transition-colors'
+                            : 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/70 transition-colors'
+                        : ''}
                 "
                 @click=${clickable ? () => this._dispatchSelect(selectValue!) : nothing}
             >
-                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">${org.name}</span>
+                <div class="flex items-center gap-2">
+                    ${isActive ? html`<div class="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 shrink-0"></div>` : nothing}
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">${org.name}</span>
+                </div>
                 <span class="
                     text-sm px-2 py-0.5 rounded-full font-medium
                     bg-indigo-100 dark:bg-indigo-900/30
