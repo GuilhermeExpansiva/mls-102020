@@ -10,7 +10,7 @@ import { languages as allLanguages, ICollabLanguage } from '/_102027_/l2/collabL
 // ─── i18n ─────────────────────────────────────────────────────────────
 /// **collab_i18n_start**
 const message_en = {
-    title: 'Select Language',
+    title: 'Language',
     desc: 'The language defines the locale used for i18n content generation. Each language produces translated variations of the project pages.',
     needsProject: 'Select a project first to see the available languages.',
     allTitle: 'All Languages',
@@ -23,12 +23,15 @@ const message_en = {
     add: 'Add',
     loading: 'Loading languages…',
     createNew: 'Add Language',
+    removeTitle: 'Remove Language',
+    removeDesc: 'This language will be permanently removed from the selected project.',
+    removeBtn: 'Remove',
 };
 type MessageType = typeof message_en;
 const messages: Record<string, MessageType> = {
     en: message_en,
     pt: {
-        title: 'Selecionar Idioma',
+        title: 'Idioma',
         desc: 'O idioma define o locale usado para geração de conteúdo i18n. Cada idioma produz variações traduzidas das páginas do projeto.',
         needsProject: 'Selecione um projeto primeiro para ver os idiomas disponíveis.',
         allTitle: 'Todos os Idiomas',
@@ -41,9 +44,12 @@ const messages: Record<string, MessageType> = {
         add: 'Adicionar',
         loading: 'Carregando idiomas…',
         createNew: 'Adicionar Idioma',
+        removeTitle: 'Remover Idioma',
+        removeDesc: 'Este idioma será removido permanentemente do projeto selecionado.',
+        removeBtn: 'Remover',
     },
     es: {
-        title: 'Seleccionar Idioma',
+        title: 'Idioma',
         desc: 'El idioma define el locale para la generación de contenido i18n. Cada idioma produce variaciones traducidas de las páginas del proyecto.',
         needsProject: 'Seleccione un proyecto primero para ver los idiomas disponibles.',
         allTitle: 'Todos los Idiomas',
@@ -56,6 +62,9 @@ const messages: Record<string, MessageType> = {
         add: 'Agregar',
         loading: 'Cargando idiomas…',
         createNew: 'Agregar Idioma',
+        removeTitle: 'Eliminar Idioma',
+        removeDesc: 'Este idioma será eliminado permanentemente del proyecto seleccionado.',
+        removeBtn: 'Eliminar',
     },
 };
 /// **collab_i18n_end**
@@ -83,6 +92,7 @@ export class PluginSelectLanguage extends StateLitElement {
     @state() private _addSelected: string = '';
     @state() private _adding: boolean = false;
     @state() private _dropdownOpen: boolean = false;
+    @state() private _removing: boolean = false;
     @state() config: mls.l5_common.ProjectConfig | undefined;
 
     willUpdate(changed: Map<string, unknown>) {
@@ -160,6 +170,24 @@ export class PluginSelectLanguage extends StateLitElement {
         this.requestUpdate();
     }
 
+    private async _removeLanguage() {
+        const lang = this._selectedLang;
+        if (!lang || !this.selectedProject || !this.config) return;
+        this._removing = true;
+        this.requestUpdate();
+        try {
+            const existing: any[] = (this.config as any).languages ?? [];
+            const updated = { ...(this.config as any), languages: existing.filter((i: any) => i.language !== lang) };
+            await updateConfigProject(this.selectedProject.project, updated);
+            this.config = updated as any;
+            this._languages = updated.languages.map((i: any) => i.language);
+            this._dispatchConfig();
+            this._dispatchSelect(0);
+        } catch {}
+        this._removing = false;
+        this.requestUpdate();
+    }
+
     // ─── Scenario renders ─────────────────────────────────────────────
 
     private _renderNeedsProject() {
@@ -185,12 +213,10 @@ export class PluginSelectLanguage extends StateLitElement {
         const langObj = (allLanguages as any[]).find(l => l.code === lang);
         const fullName = langObj?.name ?? lang;
         const svg = langObj?.svg ?? '';
+        const max = this._languages.length + 1;
         return html`
             <div class="flex flex-col gap-3">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                    ${this._renderBackBtn(() => this._dispatchSelect(0))}
-                    <span class="text-lg font-semibold text-gray-700 dark:text-gray-200">${this.msg.title}</span>
-                </div>
+                ${this._renderNavHeader(this.msg.title, this.msg.desc, this.value ?? 0, 0, max)}
                 <div class="
                     rounded-lg border border-gray-200 dark:border-gray-800
                     bg-gray-50 dark:bg-gray-900/50
@@ -205,6 +231,20 @@ export class PluginSelectLanguage extends StateLitElement {
                         font-semibold uppercase tracking-wider
                     ">${lang}</span>
                 </div>
+                <fieldset class="rounded-lg border border-red-200 dark:border-red-800/40 px-3 py-2.5 flex flex-col gap-2">
+                    <legend class="text-[10px] font-medium text-red-500 dark:text-red-400 px-1">${this.msg.removeTitle}</legend>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">${this.msg.removeDesc}</span>
+                    <button
+                        class="
+                            self-start text-xs px-3 py-1.5 rounded transition-colors
+                            ${this._removing
+                                ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                                : 'bg-red-500 dark:bg-red-600 text-white hover:bg-red-600 dark:hover:bg-red-500 cursor-pointer'}
+                        "
+                        ?disabled=${this._removing}
+                        @click=${() => this._removeLanguage()}
+                    >${this.msg.removeBtn}</button>
+                </fieldset>
             </div>
         `;
     }
@@ -219,20 +259,19 @@ export class PluginSelectLanguage extends StateLitElement {
                 return lang.toLowerCase().includes(q) || name.toLowerCase().includes(q);
             });
 
+        const max = this._languages.length + 1;
         return html`
             <div class="flex flex-col gap-3">
-                <div class="flex items-start justify-between gap-2">
-                    ${this._renderHeader(this.msg.allTitle, this.msg.allDesc)}
-                    <button
-                        class="
-                            shrink-0 text-[10px] px-2.5 py-1 rounded
-                            bg-indigo-500 dark:bg-indigo-600 text-white
-                            hover:bg-indigo-600 dark:hover:bg-indigo-500
-                            transition-colors whitespace-nowrap
-                        "
-                        @click=${() => this._dispatchSelect(this._languages.length + 1)}
-                    >+ ${this.msg.createNew}</button>
-                </div>
+                ${this._renderNavHeader(this.msg.allTitle, this.msg.allDesc, 0, 0, max)}
+                <button
+                    class="
+                        self-end text-[10px] px-2.5 py-1 rounded
+                        bg-indigo-500 dark:bg-indigo-600 text-white
+                        hover:bg-indigo-600 dark:hover:bg-indigo-500
+                        transition-colors whitespace-nowrap
+                    "
+                    @click=${() => this._dispatchSelect(max)}
+                >+ ${this.msg.createNew}</button>
 
                 <input
                     type="text"
@@ -273,13 +312,10 @@ export class PluginSelectLanguage extends StateLitElement {
             (!q || l.name.toLowerCase().includes(q) || l.code.toLowerCase().includes(q))
         ).slice(0, 80);
 
+        const max = this._languages.length + 1;
         return html`
             <div class="flex flex-col gap-3">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                    ${this._renderBackBtn(() => this._dispatchSelect(0))}
-                    <span class="text-lg font-semibold text-gray-700 dark:text-gray-200">${this.msg.customTitle}</span>
-                </div>
-                <span class="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">${this.msg.customDesc}</span>
+                ${this._renderNavHeader(this.msg.customTitle, this.msg.customDesc, max, 0, max)}
 
                 <input
                     type="text"
@@ -408,16 +444,34 @@ export class PluginSelectLanguage extends StateLitElement {
         `;
     }
 
-    private _renderBackBtn(onClick: () => void) {
-        return html`
+    private _renderNavHeader(title: string, desc: string, value: number, min: number, max: number) {
+        const atMin = value <= min;
+        const atMax = value >= max;
+        const navBtn = (label: string, target: number, disabled: boolean) => html`
             <button
-                class="cursor-pointer p-1 -ml-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200"
-                @click=${onClick}
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="15 18 9 12 15 6"></polyline>
-                </svg>
-            </button>
+                class="px-1.5 py-1 rounded text-base font-mono leading-none transition-colors
+                    ${disabled
+                        ? 'text-gray-300 dark:text-gray-700 cursor-default'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer'}"
+                ?disabled=${disabled}
+                @click=${() => { if (!disabled) this._dispatchSelect(target); }}
+            >${label}</button>
+        `;
+        return html`
+            <div class="flex flex-col gap-1">
+                <div class="flex items-center">
+                    <div class="flex items-center gap-0.5">
+                        ${navBtn('‹', value - 1, atMin)}
+                        ${navBtn('«', min, atMin)}
+                    </div>
+                    <span class="flex-1 text-center text-lg font-semibold text-gray-700 dark:text-gray-200">${title}</span>
+                    <div class="flex items-center gap-0.5">
+                        ${navBtn('›', value + 1, atMax)}
+                        ${navBtn('»', max, atMax)}
+                    </div>
+                </div>
+                <span class="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">${desc}</span>
+            </div>
         `;
     }
 

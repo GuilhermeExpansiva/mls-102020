@@ -9,7 +9,7 @@ import '/_102020_/l2/plugins/markdownViewer.js';
 // ─── i18n ─────────────────────────────────────────────────────────────
 /// **collab_i18n_start**
 const message_en = {
-    title: 'Select Project',
+    title: 'Project',
     desc: 'A project is a deliverable within an organization — it contains pages, components, and all generated code.',
     allTitle: 'All Projects',
     allDesc: 'Overview of all projects in this organization.',
@@ -28,7 +28,7 @@ type MessageType = typeof message_en;
 const messages: Record<string, MessageType> = {
     en: message_en,
     pt: {
-        title: 'Selecionar Projeto',
+        title: 'Projeto',
         desc: 'Um projeto é uma entrega dentro de uma organização — contém páginas, componentes e todo o código gerado.',
         allTitle: 'Todos os Projetos',
         allDesc: 'Visão geral de todos os projetos desta organização.',
@@ -44,7 +44,7 @@ const messages: Record<string, MessageType> = {
         searchPlaceholder: 'Buscar projetos…',
     },
     es: {
-        title: 'Seleccionar Proyecto',
+        title: 'Proyecto',
         desc: 'Un proyecto es un entregable dentro de una organización — contiene páginas, componentes y todo el código generado.',
         allTitle: 'Todos los Proyectos',
         allDesc: 'Visión general de todos los proyectos de esta organización.',
@@ -166,13 +166,13 @@ export class PluginSelectProject extends StateLitElement {
                 ${project
                     ? mls.actualProject === project.project
                         ? html`<span class="
-                            self-start text-[10px] px-2 py-0.5 rounded-full font-medium
+                            self-end text-[10px] px-2 py-0.5 rounded-full font-medium
                             bg-emerald-100 dark:bg-emerald-900/30
                             text-emerald-600 dark:text-emerald-400
                         ">${this.msg.actualProject}</span>`
                         : html`<button
                             class="
-                                self-start text-[10px] px-2.5 py-1 rounded
+                                self-end text-[10px] px-2.5 py-1 rounded
                                 bg-indigo-500 dark:bg-indigo-600 text-white
                                 hover:bg-indigo-600 dark:hover:bg-indigo-500
                                 transition-colors whitespace-nowrap cursor-pointer
@@ -236,7 +236,7 @@ export class PluginSelectProject extends StateLitElement {
                 ${this._renderNavHeader(this.msg.allTitle, this.msg.allDesc, 0, 0, max)}
                 <button
                     class="
-                        self-start text-[10px] px-2.5 py-1 rounded
+                        self-end text-[10px] px-2.5 py-1 rounded
                         bg-indigo-500 dark:bg-indigo-600 text-white
                         hover:bg-indigo-600 dark:hover:bg-indigo-500
                         transition-colors whitespace-nowrap
@@ -299,7 +299,7 @@ export class PluginSelectProject extends StateLitElement {
         const atMax = value >= max;
         const navBtn = (label: string, target: number, disabled: boolean) => html`
             <button
-                class="px-1 py-0.5 rounded text-sm font-mono leading-none transition-colors
+                class="px-1.5 py-1 rounded text-base font-mono leading-none transition-colors
                     ${disabled
                         ? 'text-gray-300 dark:text-gray-700 cursor-default'
                         : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer'}"
@@ -309,12 +309,16 @@ export class PluginSelectProject extends StateLitElement {
         `;
         return html`
             <div class="flex flex-col gap-1">
-                <div class="flex items-center gap-0.5 flex-wrap">
-                    ${navBtn('«', min, atMin)}
-                    ${navBtn('‹', value - 1, atMin)}
-                    <span class="text-lg font-semibold text-gray-700 dark:text-gray-200 px-1.5">${title}</span>
-                    ${navBtn('›', value + 1, atMax)}
-                    ${navBtn('»', max, atMax)}
+                <div class="flex items-center">
+                    <div class="flex items-center gap-0.5">
+                        ${navBtn('‹', value - 1, atMin)}
+                        ${navBtn('«', min, atMin)}
+                    </div>
+                    <span class="flex-1 text-center text-lg font-semibold text-gray-700 dark:text-gray-200">${title}</span>
+                    <div class="flex items-center gap-0.5">
+                        ${navBtn('›', value + 1, atMax)}
+                        ${navBtn('»', max, atMax)}
+                    </div>
                 </div>
                 <span class="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">${desc}</span>
             </div>

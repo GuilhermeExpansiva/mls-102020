@@ -8,7 +8,7 @@ import '/_102020_/l2/plugins/markdownViewer.js';
 // ─── i18n ─────────────────────────────────────────────────────────────
 /// **collab_i18n_start**
 const message_en = {
-    title: 'Select Organization',
+    title: 'Organizations',
     desc: 'An organization groups multiple projects under the same umbrella. Select one to browse the projects available to your team.',
     allTitle: 'All Organizations',
     allDesc: 'Overview of all organizations available in the system.',
@@ -25,7 +25,7 @@ type MessageType = typeof message_en;
 const messages: Record<string, MessageType> = {
     en: message_en,
     pt: {
-        title: 'Selecionar Organização',
+        title: 'Organizações',
         desc: 'Uma organização agrupa vários projetos sob o mesmo guarda-chuva. Selecione uma para navegar pelos projetos disponíveis para o seu time.',
         allTitle: 'Todas as Organizações',
         allDesc: 'Visão geral de todas as organizações disponíveis no sistema.',
@@ -39,7 +39,7 @@ const messages: Record<string, MessageType> = {
         inDevelopment: 'Em desenvolvimento',
     },
     es: {
-        title: 'Seleccionar Organización',
+        title: 'Organizaciones',
         desc: 'Una organización agrupa múltiples proyectos bajo el mismo paraguas. Seleccione una para explorar los proyectos disponibles para su equipo.',
         allTitle: 'Todas las Organizaciones',
         allDesc: 'Visión general de todas las organizaciones disponibles en el sistema.',
@@ -176,7 +176,7 @@ export class PluginSelectOrganization extends StateLitElement {
                 ${this._renderNavHeader(this.msg.allTitle, this.msg.allDesc, 0, 0, max)}
                 <button
                     class="
-                        self-start text-[10px] px-2.5 py-1 rounded
+                        self-end text-[10px] px-2.5 py-1 rounded
                         bg-indigo-500 dark:bg-indigo-600 text-white
                         hover:bg-indigo-600 dark:hover:bg-indigo-500
                         transition-colors whitespace-nowrap
@@ -233,7 +233,7 @@ export class PluginSelectOrganization extends StateLitElement {
         const atMax = value >= max;
         const navBtn = (label: string, target: number, disabled: boolean) => html`
             <button
-                class="px-1 py-0.5 rounded text-sm font-mono leading-none transition-colors
+                class="px-1.5 py-1 rounded text-base font-mono leading-none transition-colors
                     ${disabled
                         ? 'text-gray-300 dark:text-gray-700 cursor-default'
                         : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer'}"
@@ -243,12 +243,16 @@ export class PluginSelectOrganization extends StateLitElement {
         `;
         return html`
             <div class="flex flex-col gap-1">
-                <div class="flex items-center gap-0.5 flex-wrap">
-                    ${navBtn('«', min, atMin)}
-                    ${navBtn('‹', value - 1, atMin)}
-                    <span class="text-lg font-semibold text-gray-700 dark:text-gray-200 px-1.5">${title}</span>
-                    ${navBtn('›', value + 1, atMax)}
-                    ${navBtn('»', max, atMax)}
+                <div class="flex items-center">
+                    <div class="flex items-center gap-0.5">
+                        ${navBtn('‹', value - 1, atMin)}
+                        ${navBtn('«', min, atMin)}
+                    </div>
+                    <span class="flex-1 text-center text-lg font-semibold text-gray-700 dark:text-gray-200">${title}</span>
+                    <div class="flex items-center gap-0.5">
+                        ${navBtn('›', value + 1, atMax)}
+                        ${navBtn('»', max, atMax)}
+                    </div>
                 </div>
                 <span class="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">${desc}</span>
             </div>

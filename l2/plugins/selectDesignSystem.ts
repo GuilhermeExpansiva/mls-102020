@@ -7,7 +7,7 @@ import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
 // ─── i18n ─────────────────────────────────────────────────────────────
 /// **collab_i18n_start**
 const message_en = {
-    title: 'Select Design System',
+    title: 'Design System',
     desc: 'A design system defines the visual tokens (colors, typography, spacing) applied when generating components for this project.',
     needsProject: 'Select a project first to see the available design systems.',
     inDevelopment: 'In development',
@@ -16,13 +16,13 @@ type MessageType = typeof message_en;
 const messages: Record<string, MessageType> = {
     en: message_en,
     pt: {
-        title: 'Selecionar Design System',
+        title: 'Design System',
         desc: 'Um design system define os tokens visuais (cores, tipografia, espaçamentos) aplicados na geração de componentes do projeto.',
         needsProject: 'Selecione um projeto primeiro para ver os design systems disponíveis.',
         inDevelopment: 'Em desenvolvimento',
     },
     es: {
-        title: 'Seleccionar Design System',
+        title: 'Design System',
         desc: 'Un sistema de diseño define los tokens visuales (colores, tipografía, espaciado) aplicados al generar componentes del proyecto.',
         needsProject: 'Seleccione un proyecto primero para ver los sistemas de diseño disponibles.',
         inDevelopment: 'En desarrollo',
