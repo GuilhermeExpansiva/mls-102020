@@ -125,13 +125,13 @@ export class ServiceProject102020 extends ServiceBase {
 
     @state() private _moduleValue: number | null = null;
     @state() private _dsValue: number | null = 1;
-    @state() private _deviceValue: number | null = null;
+    @state() private _deviceValue: number | null = 1;
     @state() private _assetsValue: number | null = 1;
 
     @state() private _selectedKnob: string = 'module';
 
     @state() private _dsConfig: IKnobConfig = { ...DS_CONFIG };
-    @state() private _deviceConfig: IKnobConfig = DISABLED_CONFIG('device');
+    @state() private _deviceConfig: IKnobConfig = { ...DEVICE_CONFIG };
     @state() private _assetsConfig: IKnobConfig = { ...ASSETS_CONFIG };
 
     // ─── Module Loading ───────────────────────────────────────────────
@@ -180,7 +180,10 @@ export class ServiceProject102020 extends ServiceBase {
         switch (key) {
             case 'module': return this._moduleConfig;
             case 'designSystem': return this._dsConfig;
-            case 'device': return this._deviceConfig;
+            case 'device': {
+                // @ts-ignore
+                return mls.actualModule ? this._deviceConfig : DISABLED_CONFIG('device');
+            }
             case 'assets': return this._assetsConfig;
             default: return DISABLED_CONFIG(key);
         }
@@ -188,13 +191,7 @@ export class ServiceProject102020 extends ServiceBase {
 
     private _setKnobValue(key: string, value: number | null) {
         switch (key) {
-            case 'module': {
-                this._moduleValue = value;
-                const isReal = value !== null && value > 0 && value <= this._modules.length;
-                this._deviceConfig = isReal ? { ...DEVICE_CONFIG } : DISABLED_CONFIG('device');
-                if (!isReal) this._deviceValue = null;
-                break;
-            }
+            case 'module': this._moduleValue = value; break;
             case 'designSystem': this._dsValue = value; break;
             case 'device': this._deviceValue = value; break;
             case 'assets': this._assetsValue = value; break;
