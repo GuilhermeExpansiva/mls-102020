@@ -3,6 +3,7 @@
 import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
+import { setLastModule } from '/_102027_/l2/libCommom.js';
 import '/_102020_/l2/plugins/navHeader.js';
 
 // ─── i18n ─────────────────────────────────────────────────────────────
@@ -98,6 +99,8 @@ export class PluginSelectModule extends StateLitElement {
     }
 
     private _doSelectModule(name: string) {
+        // @ts-ignore
+        setLastModule(mls.actualProject, name);
         // @ts-ignore
         mls.setActualModule(name);
         // @ts-ignore

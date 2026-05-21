@@ -21,33 +21,46 @@ export class PluginNavHeader extends StateLitElement {
     render() {
         const atMin = this.value <= this.min;
         const atMax = this.value >= this.max;
-        const navBtn = (label: string, target: number, disabled: boolean) => html`
+        const navBtn = (svg: unknown, target: number, disabled: boolean) => html`
             <button
-                class="px-1 py-0.5 rounded text-sm font-mono leading-none transition-colors
+                class="p-1 rounded transition-colors
                     ${disabled
                         ? 'text-gray-300 dark:text-gray-700 cursor-default'
                         : 'text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer'}"
                 ?disabled=${disabled}
                 @click=${() => { if (!disabled) this._dispatch(target); }}
-            >${label}</button>
+            >${svg}</button>
         `;
         return html`
             <div class="flex flex-col gap-1 border-b border-gray-200 dark:border-gray-700 pb-4">
                 <span class="text-base font-semibold text-gray-700 dark:text-gray-200 text-center">${this.fixedLabel}</span>
-                <div class="flex items-center">
+                <div class="flex items-center rounded-md bg-gray-100 dark:bg-gray-800/60 px-1 py-2">
                     <div class="flex items-center gap-0.5">
-                        ${navBtn('«', this.min, atMin)}
-                        ${navBtn('‹', this.value - 1, atMin)}
+                        ${navBtn(this._iconFirst(), this.min, atMin)}
+                        ${navBtn(this._iconPrev(), this.value - 1, atMin)}
                     </div>
-                    <span class="flex-1 text-center text-sm font-medium text-gray-500 dark:text-gray-400">${this.itemName}</span>
+                    <span class="flex-1 text-center text-sm font-medium text-gray-600 dark:text-gray-300">${this.itemName}</span>
                     <div class="flex items-center gap-0.5">
-                        ${navBtn('›', this.value + 1, atMax)}
-                        ${navBtn('»', this.max, atMax)}
+                        ${navBtn(this._iconNext(), this.value + 1, atMax)}
+                        ${navBtn(this._iconLast(), this.max, atMax)}
                     </div>
                 </div>
                 <span class="text-xs text-gray-400 dark:text-gray-500 leading-relaxed text-center">${this.desc}</span>
             </div>
         `;
+    }
+
+    private _iconFirst() {
+        return html`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>`;
+    }
+    private _iconPrev() {
+        return html`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
+    }
+    private _iconNext() {
+        return html`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+    }
+    private _iconLast() {
+        return html`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>`;
     }
 
     private _dispatch(value: number) {

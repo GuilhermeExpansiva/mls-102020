@@ -6,6 +6,7 @@ import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
 import { setProjectDetails } from '/_102027_/l2/libCommom.js';
 import '/_102020_/l2/plugins/markdownViewer.js';
 import '/_102020_/l2/plugins/navHeader.js';
+import '/_100554_/l2/createProject.js';
 
 // ─── i18n ─────────────────────────────────────────────────────────────
 /// **collab_i18n_start**
@@ -307,6 +308,7 @@ export class PluginSelectProject extends StateLitElement {
                     .max=${max}
                     @nav-change=${(e: CustomEvent) => this._dispatchSelect(e.detail.value)}
                 ></plugins--nav-header-102020>
+                <plugin-create-project-100554></plugin-create-project-100554>
             </div>
         `;
     }
