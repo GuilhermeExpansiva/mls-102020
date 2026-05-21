@@ -205,7 +205,8 @@ function processOutput(
 }
 
 async function getContentByExtension(page: string, ext: 'ts' | 'less' | 'html' | 'defs'): Promise<string> {
-    const path = mls.stor.getPathToFile(page);
+    const normalizedPage = page.replace(/^(_\d+_)(?!\/l2\/)/, '$1/l2/');
+    const path = mls.stor.getPathToFile(normalizedPage);
     const files = await mls.stor.getFiles({ ...path, loadContent: false });
     const file = (files as any)[ext] as mls.stor.IFileInfo | undefined;
     if (!file) return '';
