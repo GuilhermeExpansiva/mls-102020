@@ -186,7 +186,12 @@ export class ServiceProject102020 extends ServiceBase {
                     && this._moduleValue <= this._modules.length;
                 return moduleSelected ? this._deviceConfig : DISABLED_CONFIG('device');
             }
-            case 'assets': return this._assetsConfig;
+            case 'assets': {
+                const moduleSelected = this._moduleValue !== null
+                    && this._moduleValue > 0
+                    && this._moduleValue <= this._modules.length;
+                return moduleSelected ? this._assetsConfig : DISABLED_CONFIG('assets');
+            }
             default: return DISABLED_CONFIG(key);
         }
     }
