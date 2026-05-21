@@ -73,7 +73,7 @@ export class PluginSelectAssetsComponents extends StateLitElement {
     @state() private _selected: string | null = null;
     @state() private _filterCategory: SkillCategory | '' = '';
     @state() private _search: string = '';
-    @state() private _viewMode: ViewMode = 'grid';
+    @state() private _viewMode: ViewMode = 'preview';
 
     willUpdate(changed: Map<string, unknown>) {
         if (changed.has('selectedModule')) {
