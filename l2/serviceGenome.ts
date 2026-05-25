@@ -8,6 +8,7 @@ import { IDesignSystemTokens, getTokens } from '/_102027_/l2/designSystemBase.js
 import { skills as listOfGroups } from '/_102020_/l2/skills/molecules/index.js';
 import { replaceComponentTag } from '/_102020_/l2/previewTextEditor.js';
 import { convertFileToTag, isPageFile } from '/_102020_/l2/utils.js';
+import { getLastOpenedFiles } from '/_102027_/l2/libCommom.js';
 
 import '/_102027_/l2/collabSelectKnob.js';
 import '/_102020_/l2/plugins/selectLayout.js';
@@ -21,6 +22,8 @@ const message_en = {
     layout: 'Layout',
     designSystem: 'Design System',
     molecules: 'Molecules',
+    noPageSelected: 'No page selected',
+    notAPage: 'Current file is not a page',
 };
 type MessageType = typeof message_en;
 const messages: Record<string, MessageType> = {
@@ -30,12 +33,16 @@ const messages: Record<string, MessageType> = {
         layout: 'Layout',
         designSystem: 'Design System',
         molecules: 'Moléculas',
+        noPageSelected: 'Nenhuma página selecionada',
+        notAPage: 'O arquivo atual não é uma página',
     },
     es: {
         svcTitle: 'Genome',
         layout: 'Layout',
         designSystem: 'Design System',
         molecules: 'Moléculas',
+        noPageSelected: 'Ninguna página seleccionada',
+        notAPage: 'El archivo actual no es una página',
     },
 };
 /// **collab_i18n_end**
@@ -87,7 +94,7 @@ export class ServiceGenome102020 extends ServiceBase {
         level: [3],
     };
 
-    public onClickMain(_op: string): void {}
+    public onClickMain(_op: string): void { }
 
     public menu: IServiceMenu = {
         title: '',
@@ -99,7 +106,7 @@ export class ServiceGenome102020 extends ServiceBase {
 
     async onServiceClick(_visible: boolean, _reinit: boolean, _el: IToolbarContent | null) {
         this._initDesignSystemKnob();
-        const file: mls.stor.IFileInfo | null = await mls.actual[3].getStorFile() ?? null;
+        const file = await this._getActual3File();
         await this._trySetActualModule(file);
         this._updateCurrentPage(file);
     }
@@ -328,9 +335,30 @@ export class ServiceGenome102020 extends ServiceBase {
 
     // ─── Lifecycle ────────────────────────────────────────────────────
 
+    private async setLastOpenedFileIfNeeded() {
+        if (!mls.actual[3].path) return;
+        const lastFileOpened = getLastOpenedFiles(mls.actualProject || 0);
+        if (!lastFileOpened || !lastFileOpened[3]) return;
+        console.info(lastFileOpened[3])
+        mls.actual[3].setFullName(lastFileOpened[3] as string);
+    }
+
+    private async _getActual3File(): Promise<mls.stor.IFileInfo | null> {
+        const fromStore = await mls.actual[3].getStorFile() ?? null;
+        if (fromStore) return fromStore;
+        const path: string = mls.actual[3]?.path ?? '';
+        if (!path) return null;
+        const lastSlash = path.lastIndexOf('/');
+        if (lastSlash < 0) return null;
+        const folder = path.substring(0, lastSlash);
+        const shortName = path.substring(lastSlash + 1);
+        if (!folder || !shortName) return null;
+        return { project: mls.actual[3].project, folder, shortName, level: 3, extension: '.ts' } as mls.stor.IFileInfo;
+    }
+
     private async _trySetActualModule(file: mls.stor.IFileInfo | null): Promise<void> {
-        if (mls.actualModule || !file) return;
-        const project: number = mls.actualProject;
+        if (!file) return;
+        const project: number = mls.actualProject as number;
         if (!project) return;
         let modules: IModule[] = [];
         try {
@@ -344,8 +372,16 @@ export class ServiceGenome102020 extends ServiceBase {
 
     private _updateCurrentPage(file: mls.stor.IFileInfo | null) {
         this._currentPageFile = file;
-        this._isPageContext = !file || isPageFile(file.folder ?? '');
-        if (!file) { this._actualPage = null; return; }
+        if (!file) {
+            this._actualPage = null;
+            this._isPageContext = false;
+            return;
+        }
+        this._isPageContext = isPageFile(file.folder ?? '');
+        if (this._isPageContext) {
+            const pageMatch = (file.folder ?? '').match(/\/page(\d)/);
+            if (pageMatch) this._layoutValue = parseInt(pageMatch[1]);
+        }
         const key = mls.editor.getKeyModel(file.project, file.shortName, file.folder, file.level);
         this._actualPage = mls.editor.models[key]?.ts ?? null;
     }
@@ -355,18 +391,18 @@ export class ServiceGenome102020 extends ServiceBase {
         try {
             const fa = JSON.parse(ev.desc) as mls.events.IFileAction;
             if (fa.action !== 'open' || fa.position !== 'left') return;
-            const file: mls.stor.IFileInfo | null = await mls.actual[3].getStorFile() ?? null;
+            const file = await this._getActual3File();
             this._updateCurrentPage(file);
             // @ts-ignore
             this.requestUpdate();
         } catch { /* ignore */ }
     };
 
-    connectedCallback() {
+    async connectedCallback() {
         super.connectedCallback();
         subscribe('previewL3.selectedTagName', this);
         this._initDesignSystemKnob();
-        // @ts-ignore
+        await this.setLastOpenedFileIfNeeded();
         mls.events.addEventListener([this.level], ['FileAction'], this._onFileActionGenome);
     }
 
@@ -378,7 +414,7 @@ export class ServiceGenome102020 extends ServiceBase {
     }
 
     async firstUpdated() {
-        const file: mls.stor.IFileInfo | null = await mls.actual[3].getStorFile() ?? null;
+        const file = await this._getActual3File();
         await this._trySetActualModule(file);
         this._updateCurrentPage(file);
     }
@@ -445,8 +481,8 @@ export class ServiceGenome102020 extends ServiceBase {
                     <span class="
                         text-[9px] font-semibold uppercase tracking-wider
                         ${isContext
-                            ? 'text-gray-700 dark:text-gray-200'
-                            : 'text-gray-400 dark:text-gray-600'}
+                ? 'text-gray-700 dark:text-gray-200'
+                : 'text-gray-400 dark:text-gray-600'}
                         transition-colors duration-200
                     ">${label}</span>
 
@@ -454,8 +490,8 @@ export class ServiceGenome102020 extends ServiceBase {
                         w-full h-0.5 rounded-full
                         transition-all duration-200
                         ${isContext
-                            ? 'bg-cyan-400 shadow-[0_0_4px_1px_rgba(34,211,238,0.6),0_0_8px_2px_rgba(34,211,238,0.3)]'
-                            : 'bg-transparent'}
+                ? 'bg-cyan-400 shadow-[0_0_4px_1px_rgba(34,211,238,0.6),0_0_8px_2px_rgba(34,211,238,0.3)]'
+                : 'bg-transparent'}
                     "></div>
                 </div>
             </div>
@@ -481,7 +517,9 @@ export class ServiceGenome102020 extends ServiceBase {
     private _renderContextStatusArea() {
         if (!this._isPageContext) return html`
             <div class="rounded-lg border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-900/10 px-3 py-2.5">
-                <span class="text-sm text-amber-600 dark:text-amber-400">Current file is not a page</span>
+                <span class="text-sm text-amber-600 dark:text-amber-400">
+                    ${!this._currentPageFile ? this.msg.noPageSelected : this.msg.notAPage}
+                </span>
             </div>
         `;
         switch (this._selectedKnob) {
