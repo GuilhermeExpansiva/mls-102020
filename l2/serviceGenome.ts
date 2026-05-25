@@ -7,7 +7,7 @@ import { getState, setState, subscribe, unsubscribe } from '/_102027_/l2/collabS
 import { IDesignSystemTokens, getTokens } from '/_102027_/l2/designSystemBase.js';
 import { skills as listOfGroups } from '/_102020_/l2/skills/molecules/index.js';
 import { replaceComponentTag } from '/_102020_/l2/previewTextEditor.js';
-import { convertFileToTag } from '/_102020_/l2/utils.js';
+import { convertFileToTag, isPageFile } from '/_102020_/l2/utils.js';
 
 import '/_102027_/l2/collabSelectKnob.js';
 import '/_102020_/l2/plugins/selectLayout.js';
@@ -105,6 +105,7 @@ export class ServiceGenome102020 extends ServiceBase {
 
     @state() private _layoutValue: number | null = 0;
     @state() private _currentPageFile: mls.stor.IFileInfo | null = null;
+    @state() private _isPageContext: boolean = true;
     @state() private _dsValue: number | null = 1;
     @state() private _moleculesValue: number | null = null;
     @state() private _selectedKnob: string = 'layout';
@@ -329,6 +330,7 @@ export class ServiceGenome102020 extends ServiceBase {
 
     private _updateCurrentPage(file: mls.stor.IFileInfo | null) {
         this._currentPageFile = file;
+        this._isPageContext = !file || isPageFile(file.folder ?? '');
         if (!file) { this._actualPage = null; return; }
         // @ts-ignore
         const key = mls.editor.getKeyModel(file.project, file.shortName, file.folder, file.level);
@@ -395,6 +397,7 @@ export class ServiceGenome102020 extends ServiceBase {
                 px-2 py-3
                 border-b border-gray-200 dark:border-gray-800
                 gap-0
+                ${!this._isPageContext ? 'opacity-30 pointer-events-none' : ''}
             " style="--knob-scale: 0.5">
                 ${this._renderKnobItem('layout')}
                 ${this._renderKnobItem('designSystem')}
@@ -465,6 +468,11 @@ export class ServiceGenome102020 extends ServiceBase {
     }
 
     private _renderContextStatusArea() {
+        if (!this._isPageContext) return html`
+            <div class="rounded-lg border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-900/10 px-3 py-2.5">
+                <span class="text-sm text-amber-600 dark:text-amber-400">Current file is not a page</span>
+            </div>
+        `;
         switch (this._selectedKnob) {
             case 'layout':
                 return html`
