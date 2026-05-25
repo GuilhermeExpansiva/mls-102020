@@ -187,6 +187,30 @@ Do NOT add entities that:
 - Are purely technical (sessions, logs, cache, tokens)
 - Can be modeled as fields within an existing entity
 
+## Entity structure (follow this schema exactly for each new entity)
+
+Each entry in 'newEntities' must follow this structure:
+\`\`\`
+"EntityName": {
+  "description": "...",
+  "fields": {
+    "id": { "type": "string" },
+    "fieldName": { "type": "string | number | boolean | datetime | array" },
+    "fieldWithEnum": { "type": "string", "values": ["val1", "val2"] },
+    "optionalField": { "type": "string", "required": false },
+    "fieldWithNote": { "type": "string", "constraints": "free-text hint" }
+  },
+  "rules": ["ruleId1", "ruleId2"]
+}
+\`\`\`
+
+Rules:
+- Every entity MUST have an 'id' field of type string
+- Use 'values' for closed enumerations
+- Use 'required: false' for optional fields
+- 'rules' references rule IDs from the existing ontology rules (only reference rules that exist)
+- Field names must be in the same language as the existing ontology fields
+
 IMPORTANT: When hasGaps is true, return ONLY the new missing entities in 'newEntities'.
 Do NOT repeat or copy existing entities — they will be merged automatically.
 
