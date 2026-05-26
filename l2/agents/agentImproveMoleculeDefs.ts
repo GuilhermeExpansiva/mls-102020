@@ -134,7 +134,7 @@ async function updateExistingDefs(skill: string, fileReference: string, group: s
     if (!fileReference || fileInfo.project < 1) throw new Error(`[updateExistingDefs] Invalid fileReference: ${fileReference}`);
 
     const skillNormalized = skill.replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
-    const defsFileReference = fileReference.replace('.ts', '.defs.ts');
+    const defsFileReference = fileReference.indexOf('.defs.ts') === -1 ? fileReference.replace('.ts', '.defs.ts') : fileReference;
 
     const template = `/// <mls fileReference="${defsFileReference}" enhancement="_blank" />
 
@@ -149,8 +149,8 @@ export const skill = \`${skillNormalized}\`;
     const file = await mls.stor.addOrUpdateFile(params);
     if (!file) throw new Error(`[updateExistingDefs] addOrUpdateFile returned null for: ${fileReference}`);
 
-    const model = await file.getOrCreateModel();
-    if (model) mls.editor.forceModelUpdate(model.model);
+    const model = await file.getOrCreateModel() as mls.editor.IModelDefs;
+    if (model) model.model.setValue(template);
 
 }
 
