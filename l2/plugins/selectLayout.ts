@@ -180,7 +180,7 @@ export class PluginSelectLayout extends StateLitElement {
 
                 ${isConfigured
                     ? this._renderLayoutCard(selectedOption, true)
-                    : this._renderNotCreatedBanner()}
+                    : this._renderNotCreatedBanner(selectedOption)}
             </div>
         `;
     }
@@ -229,11 +229,27 @@ export class PluginSelectLayout extends StateLitElement {
         `;
     }
 
-    private _renderNotCreatedBanner() {
+    private _renderNotCreatedBanner(opt: ILayoutOption) {
         const pageName = this.pageFile?.shortName ?? '';
+        const label = this.msg[opt.key];
         return html`
-            <div class="rounded-lg border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-900/10 px-3 py-2.5">
-                <span class="text-sm text-amber-600 dark:text-amber-400">${this.msg.notCreated} ${pageName}</span>
+            <div class="flex flex-col gap-2">
+                <div class="rounded-lg border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-900/10 px-3 py-2.5">
+                    <span class="text-sm text-amber-600 dark:text-amber-400">${this.msg.notCreated} ${pageName}</span>
+                </div>
+                <button
+                    class="
+                        self-start text-sm px-3 py-1.5 rounded
+                        bg-indigo-500 dark:bg-indigo-600 text-white
+                        hover:bg-indigo-600 dark:hover:bg-indigo-500
+                        disabled:opacity-50 disabled:cursor-not-allowed
+                        transition-colors cursor-pointer
+                    "
+                    ?disabled=${this._saving}
+                    @click=${() => this._addLayoutToGenome(opt)}
+                >
+                    ${this._saving ? this.msg.adding : `+ ${this.msg.addLayout} (${label})`}
+                </button>
             </div>
         `;
     }
