@@ -149,8 +149,8 @@ export const skill = \`${skillNormalized}\`;
     const file = await mls.stor.addOrUpdateFile(params);
     if (!file) throw new Error(`[updateExistingDefs] addOrUpdateFile returned null for: ${fileReference}`);
 
-    const model = await file.getOrCreateModel();
-    if (model) mls.editor.forceModelUpdate(model.model);
+    const model = await file.getOrCreateModel() as mls.editor.IModelDefs;
+    if (model) model.model.setValue(template);
 
 }
 

@@ -3,6 +3,8 @@
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import { appendLongTermMemory } from '/_102027_/l2/aiAgentHelper.js';
 import { skill as skillAura } from '/_102020_/l2/skills/aura/overview.js';
+import { skill as skillMolecule } from '/_102020_/l2/skills/aura/moleculeGeneration2.js';
+import { skills as skillList } from '/_102020_/l2/skills/molecules/index';
 
 export function createAgent(): IAgentAsync {
     return {
@@ -26,8 +28,9 @@ async function beforePromptImplicit(
     if (!userPrompt || userPrompt.length < 5) throw new Error('invalid prompt');
 
     const data: IDataPrompt = JSON.parse(userPrompt);
-    const { systemContext, humanContent } = await preparePrompts(context, data);
+    const { systemContext, humanContent, groupSkill } = await preparePrompts(context, data);
 
+    const baseMolecule = await getBaseMolecule();
     const addMessageAI: mls.msg.AgentIntentAddMessageAI = {
         type: "add-message-ai",
         request: {
@@ -35,7 +38,12 @@ async function beforePromptImplicit(
             agentName: agent.agentName,
             inputAI: [{
                 type: "system",
-                content: system1.replace("{{systemSkillAura}}", skillAura).replace("{{currentTs}}", systemContext)
+                content: system1
+                    .replace("{{systemSkillAura}}", skillAura)
+                    .replace("{{systemSkillMolecule}}", skillMolecule)
+                    .replace("{{systemBaseMolecule}}", baseMolecule)
+                    .replace("{{systemSkillGroup}}", groupSkill)
+                    .replace("{{currentTs}}", systemContext)
             }, {
                 type: "human",
                 content: humanContent
@@ -61,8 +69,9 @@ async function beforePromptStep(
     if (!args) throw new Error(`(${agent.agentName})[beforePromptStep] args invalid`);
 
     const data: IDataPrompt = JSON.parse(args);
-    const { systemContext, humanContent } = await preparePrompts(context, data);
+    const { systemContext, humanContent, groupSkill } = await preparePrompts(context, data);
 
+    const baseMolecule = await getBaseMolecule();
     const continueIntent: mls.msg.AgentIntentPromptReady = {
         type: "prompt_ready",
         args,
@@ -72,18 +81,28 @@ async function beforePromptStep(
         hookSequential,
         parentStepId: parentStep.stepId,
         humanPrompt: humanContent,
-        systemPrompt: system1.replace("{{systemSkillAura}}", skillAura).replace("{{currentTs}}", systemContext)
+        systemPrompt: system1
+            .replace("{{systemSkillAura}}", skillAura)
+            .replace("{{systemSkillMolecule}}", skillMolecule)
+            .replace("{{systemBaseMolecule}}", baseMolecule)
+            .replace("{{systemSkillGroup}}", groupSkill)
+            .replace("{{currentTs}}", systemContext)
     }
 
     return [continueIntent];
 }
 
-async function preparePrompts(context: mls.msg.ExecutionContext, data: IDataPrompt): Promise<{ systemContext: string; humanContent: string }> {
+async function preparePrompts(context: mls.msg.ExecutionContext, data: IDataPrompt): Promise<{ systemContext: string; humanContent: string; groupSkill: string }> {
     const currentTs = await getContentByExtension(data.page, 'ts');
+    const defsContent = await getContentByExtension(data.page, 'defs');
+    const groupMatch = defsContent.match(/export const group = '([^']+)'/);
+    const group = groupMatch?.[1] || '';
+    const groupSkill = group ? await getGroupSkill(group) : '';
     if (context.task) await appendLongTermMemory(context, { page: data.page, position: data.position || 'left' });
     return {
         systemContext: currentTs || '(no ts file found)',
-        humanContent: data.prompt
+        humanContent: data.prompt,
+        groupSkill
     };
 }
 
@@ -197,6 +216,22 @@ async function getGroup(context: mls.msg.ExecutionContext, fileReference: string
     return defs.group;
 }
 
+async function getGroupSkill(group: string): Promise<string> {
+    const path = skillList.find((item) => item.name === group)?.skillReference;
+    if (!path) return '';
+    const module = await import(path);
+    if (!module?.skill || typeof module.skill !== 'string') return '';
+    return module.skill;
+}
+
+async function getBaseMolecule(): Promise<string> {
+    const key = mls.stor.getKeyToFile({ project: 102020, shortName: 'moleculeBase', folder: '', extension: '.ts', level: 2 });
+    const storFile = mls.stor.files[key];
+    if (!storFile) return '';
+    const content = await storFile.getContent() as string;
+    return content;
+}
+
 async function getContentByExtension(page: string, ext: 'ts' | 'less' | 'html' | 'defs'): Promise<string> {
     const normalizedPage = page.replace(/^(_\d+_)(?!\/l2\/)/, '$1/l2/');
     const path = mls.stor.getPathToFile(normalizedPage);
@@ -219,6 +254,21 @@ Apply only what is asked — preserve all existing behaviors, structure, and sty
 ## Aura Overview
 \`\`\`
 {{systemSkillAura}}
+\`\`\`
+
+## Molecule Generation Skill
+\`\`\`
+{{systemSkillMolecule}}
+\`\`\`
+
+## Molecule Class Base
+\`\`\`typescript
+{{systemBaseMolecule}}
+\`\`\`
+
+## Group Contract
+\`\`\`
+{{systemSkillGroup}}
 \`\`\`
 
 ## Current molecule source
