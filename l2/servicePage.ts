@@ -76,6 +76,7 @@ export class ServicePage102020 extends ServiceBase {
 
     onServiceClick(_visible: boolean, _reinit: boolean, _el: IToolbarContent | null) {
         this._pageValue = 0;
+        this._reloadToken += 1;
         // @ts-ignore
         this.requestUpdate();
     }
@@ -91,6 +92,7 @@ export class ServicePage102020 extends ServiceBase {
 
     @state() private _pageValue: number | null = 0;
     @state() private _ruleValue: number | null = null;
+    @state() private _reloadToken: number = 0;
 
     private _pageEntries: Array<{ name: string; file: mls.stor.IFileInfo }> = [];
 
@@ -318,6 +320,7 @@ export class ServicePage102020 extends ServiceBase {
                     <plugins--select-page-102020
                         .selectedModule=${this._selectedModule}
                         .value=${this._pageValue}
+                        .reloadToken=${this._reloadToken}
                         @select-page=${(e: CustomEvent) => this._onPageSelect(e)}
                     ></plugins--select-page-102020>
                 `;
