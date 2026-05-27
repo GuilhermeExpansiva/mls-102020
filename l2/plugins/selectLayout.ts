@@ -370,22 +370,18 @@ export class PluginSelectLayout extends StateLitElement {
             if (!genomeKey) return;
 
             const parts = genomeKey.split('/');
-            const device = parts[1] ?? 'desktop';
             const currentPage = parts[2] ?? '';
             const dsDigit = currentPage.replace(/^page\d/, '');
             const newPage = `page${opt.value}${dsDigit}`;
             const newGenomeKey = [...parts.slice(0, 2), newPage].join('/');
 
-            const dsKeys = Object.keys(this._designSystems).map(Number).sort((a, b) => a - b);
-            const dsKey = dsKeys[0];
-            const ds = dsKey !== undefined ? this._designSystems[dsKey] : null;
+            const actualDsKey = getAuraState().actualDesignSystem;
+            const ds = actualDsKey !== null ? this._designSystems[actualDsKey] : null;
 
             const genomeValue = {
                 designSystem: ds?.name ?? 'default',
-                designSystemSkill: ds?.skill ?? '',
-                device,
+                device: getAuraState().actualDevice ?? 'web/desktop',
                 layout: opt.name,
-                layoutSkill: opt.skill,
             };
 
             console.log('[selectLayout] genome key   :', newGenomeKey);
