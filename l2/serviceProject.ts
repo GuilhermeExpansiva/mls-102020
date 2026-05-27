@@ -152,6 +152,11 @@ export class ServiceProject102020 extends ServiceBase {
             this._modules = [];
             this._moduleConfig = DISABLED_CONFIG('module');
         }
+        const actualDevice = getAuraState().actualDevice;
+        if (actualDevice) {
+            const entry = Object.entries(DEVICE_PATH_MAP).find(([, v]) => v === actualDevice);
+            this._deviceValue = entry ? Number(entry[0]) : 1;
+        }
         this._initDsConfig(project);
         this.requestUpdate();
     }
