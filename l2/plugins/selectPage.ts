@@ -3,6 +3,7 @@
 import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
+import { getAuraState } from '/_102020_/l2/auraState.js';
 import '/_102020_/l2/plugins/navHeader.js';
 
 // ─── i18n ─────────────────────────────────────────────────────────────
@@ -129,7 +130,7 @@ export class PluginSelectPage extends StateLitElement {
     // ─── Page Loading ─────────────────────────────────────────────────
 
     private get _modulePath(): string | null {
-        return this.selectedModule?.path ?? mls.actualModule ?? null;
+        return this.selectedModule?.path ?? getAuraState().actualModule ?? null;
     }
 
     private async _loadPages(): Promise<void> {
@@ -140,9 +141,8 @@ export class PluginSelectPage extends StateLitElement {
             return;
         }
 
-        const project: number = mls.actualProject as number;
-        const actualDevice: number | undefined = (mls as any).actualDevice;
-        const activeDevicePath = (actualDevice && DEVICE_SUB_PATHS[actualDevice]) ? DEVICE_SUB_PATHS[actualDevice] : null;
+        const project = getAuraState().actualProject;
+        const activeDevicePath = getAuraState().actualDevice;
 
         this._activeDevice = activeDevicePath ? (DEVICE_LABELS[activeDevicePath] ?? null) : null;
 

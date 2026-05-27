@@ -3,6 +3,7 @@
 import { html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { ServiceBase, IService, IToolbarContent, IServiceMenu } from '/_102027_/l2/serviceBase.js';
+import { AuraInitState, getAuraState, setAuraState, saveAuraProject } from '/_102020_/l2/auraState.js';
 
 import '/_102027_/l2/collabSelectKnob.js';
 import '/_102020_/l2/plugins/selectOrganization.js';
@@ -207,7 +208,7 @@ export class ServiceExploreProjects102020 extends ServiceBase {
 
         if (matchedPos >= 0) {
             const org = orgs[matchedPos];
-            const actualProjectId: number | null = mls?.actualProject ?? null;
+            const actualProjectId: number | null = getAuraState().actualProject;
             const matchedProjectPos = actualProjectId !== null
                 ? org.projects.findIndex(p => p.project === actualProjectId)
                 : -1;
@@ -318,8 +319,11 @@ export class ServiceExploreProjects102020 extends ServiceBase {
                 const orgLen = this._selectedOrg?.projects.length ?? 0;
                 const isRealProject = value !== null && value > 0 && value <= orgLen;
                 const candidateProject = isRealProject ? (this._selectedOrg?.projects[(value as number) - 1] ?? null) : null;
-                // @ts-ignore
-                const isActualProject = candidateProject !== null && candidateProject.project === mls.actualProject;
+                if (candidateProject) {
+                    setAuraState('actualProject', candidateProject.project);
+                    saveAuraProject();
+                }
+                const isActualProject = candidateProject !== null && candidateProject.project === getAuraState().actualProject;
                 this._dsConfig = isActualProject ? { ...DS_CONFIG } : DISABLED_CONFIG('designSystem');
                 this._langConfig = isActualProject ? { key: 'language', min: 0, max: 1, labels: {}, disabled: false } : DISABLED_CONFIG('language');
                 break;
@@ -355,6 +359,7 @@ export class ServiceExploreProjects102020 extends ServiceBase {
 
     connectedCallback() {
         super.connectedCallback();
+        AuraInitState();
         this._loadOrgs();
     }
 

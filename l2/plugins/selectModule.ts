@@ -4,6 +4,7 @@ import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
 import { setLastModule } from '/_102027_/l2/libCommom.js';
+import { getAuraState, setAuraState, saveAuraProject } from '/_102020_/l2/auraState.js';
 import '/_102020_/l2/plugins/navHeader.js';
 
 // ─── i18n ─────────────────────────────────────────────────────────────
@@ -99,10 +100,11 @@ export class PluginSelectModule extends StateLitElement {
     }
 
     private _doSelectModule(name: string) {
-        // @ts-ignore
-        setLastModule(mls.actualProject, name);
+        setLastModule(getAuraState().actualProject, name);
         // @ts-ignore
         mls.setActualModule(name);
+        setAuraState('actualModule', name);
+        saveAuraProject();
         // @ts-ignore
         this.requestUpdate();
     }
@@ -120,8 +122,7 @@ export class PluginSelectModule extends StateLitElement {
     private _renderSelected() {
         const module = this._selectedModule;
         const max = this.modules.length + 1;
-        // @ts-ignore
-        const isActual = module !== null && mls.actualModule === module.name;
+        const isActual = module !== null && getAuraState().actualModule === module.name;
         return html`
             <div class="flex flex-col gap-3">
                 <plugins--nav-header-102020
@@ -175,8 +176,7 @@ export class PluginSelectModule extends StateLitElement {
 
     private _renderAll() {
         const q = this._search.toLowerCase();
-        // @ts-ignore
-        const actualModule = mls.actualModule;
+        const actualModule = getAuraState().actualModule;
         const filtered = this.modules
             .map((m, i) => ({ m, selectValue: i + 1 }))
             .filter(({ m }) => !q || m.name.toLowerCase().includes(q) || m.path.toLowerCase().includes(q))
@@ -263,8 +263,7 @@ export class PluginSelectModule extends StateLitElement {
     // ─── Shared helpers ───────────────────────────────────────────────
 
     private _renderModuleCard(module: IModule, selectValue: number) {
-        // @ts-ignore
-        const isActive = mls.actualModule === module.name;
+        const isActive = getAuraState().actualModule === module.name;
         return html`
             <div
                 class="

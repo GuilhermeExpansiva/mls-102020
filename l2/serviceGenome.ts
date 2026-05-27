@@ -4,6 +4,7 @@ import { html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { ServiceBase, IService, IToolbarContent, IServiceMenu } from '/_102027_/l2/serviceBase.js';
 import { getState, setState, subscribe, unsubscribe } from '/_102027_/l2/collabState.js';
+import { AuraInitState, getAuraState, setAuraState, saveAuraProject } from '/_102020_/l2/auraState.js';
 import { skills as listOfGroups } from '/_102020_/l2/skills/molecules/index.js';
 import { replaceComponentTag } from '/_102020_/l2/previewTextEditor.js';
 import { convertFileToTag, isPageFile } from '/_102020_/l2/utils.js';
@@ -139,7 +140,7 @@ export class ServiceGenome102020 extends ServiceBase {
     // ─── Layout & Design System init from project.js ─────────────────
 
     private async _loadProjectConfig(): Promise<any> {
-        const project = mls.actualProject as number;
+        const project = getAuraState().actualProject;
         if (!project) return null;
         try {
             const mod = await import(`/_${project}_/l2/project.js`);
@@ -322,8 +323,16 @@ export class ServiceGenome102020 extends ServiceBase {
 
     private _setKnobValue(key: string, value: number | null) {
         switch (key) {
-            case 'layout': this._layoutValue = value; break;
-            case 'designSystem': this._dsValue = value; break;
+            case 'layout':
+                this._layoutValue = value;
+                setAuraState('actualLayout', value);
+                saveAuraProject();
+                break;
+            case 'designSystem':
+                this._dsValue = value;
+                setAuraState('actualDesignSystem', value);
+                saveAuraProject();
+                break;
             case 'molecules':
                 this._moleculesValue = value;
                 this._onMoleculesChanged(value);
@@ -408,6 +417,7 @@ export class ServiceGenome102020 extends ServiceBase {
 
     async connectedCallback() {
         super.connectedCallback();
+        AuraInitState();
         subscribe('previewL3.selectedTagName', this);
         this._initLayoutKnob();
         this._initDesignSystemKnob();

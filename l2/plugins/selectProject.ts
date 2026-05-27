@@ -4,6 +4,7 @@ import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
 import { setProjectDetails, loadPluginProject, openElementInServiceDetails } from '/_102027_/l2/libCommom.js';
+import { getAuraState, setAuraState, saveAuraProject } from '/_102020_/l2/auraState.js';
 import { convertFileToTag } from '/_102020_/l2/utils';
 import '/_102020_/l2/plugins/navHeader.js';
 
@@ -226,7 +227,7 @@ export class PluginSelectProject extends StateLitElement {
                     @nav-change=${(e: CustomEvent) => this._dispatchSelect(e.detail.value)}
                 ></plugins--nav-header-102020>
                 ${project
-                    ? mls.actualProject === project.project
+                    ? getAuraState().actualProject === project.project
                         ? html`<span class="
                             self-end text-sm px-2 py-0.5 rounded-full font-medium
                             bg-emerald-100 dark:bg-emerald-900/30
@@ -244,6 +245,8 @@ export class PluginSelectProject extends StateLitElement {
                                 const orgIndex = mls.l5.getProjectOrgIndex(project.project);
                                 mls.l5.setActualOrg(orgIndex);
                                 setProjectDetails(project.project);
+                                setAuraState('actualProject', project.project);
+                                saveAuraProject();
                                 window.location.reload();
                             }}
                         >${this.msg.selectBtn}</button>`
@@ -254,8 +257,7 @@ export class PluginSelectProject extends StateLitElement {
     }
 
     private _renderSelectedProjectDetail(project: IProject, org: IOrg) {
-        // @ts-ignore
-        const isActual = mls.actualProject === project.project;
+        const isActual = getAuraState().actualProject === project.project;
         return html`
             <div class="rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 px-3 py-2.5">
                 <div class="flex items-center gap-2">
@@ -358,8 +360,9 @@ export class PluginSelectProject extends StateLitElement {
             .map((p, i) => ({ p, selectValue: i + 1 }))
             .filter(({ p }) => !q || p.name.toLowerCase().includes(q) || String(p.project).includes(q))
             .sort((a, b) => {
-                if (a.p.project === mls.actualProject) return -1;
-                if (b.p.project === mls.actualProject) return 1;
+                const actualProject = getAuraState().actualProject;
+                if (a.p.project === actualProject) return -1;
+                if (b.p.project === actualProject) return 1;
                 return 0;
             });
         const max = org.projects.length + 1;

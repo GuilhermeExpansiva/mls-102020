@@ -3,6 +3,7 @@
 import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
+import { getAuraState } from '/_102020_/l2/auraState.js';
 import '/_102020_/l2/plugins/navHeader.js';
 
 // ─── i18n ─────────────────────────────────────────────────────────────
@@ -101,8 +102,7 @@ export class PluginSelectLayout extends StateLitElement {
     }
 
     private async _loadProjectConfig(): Promise<void> {
-        // @ts-ignore
-        const project = mls.actualProject as number;
+        const project = getAuraState().actualProject;
         if (!project) return;
         try {
             const mod = await import(`/_${project}_/l2/project.js`);
@@ -124,8 +124,8 @@ export class PluginSelectLayout extends StateLitElement {
 
         if (!this._layoutOptions.length) await this._loadProjectConfig();
 
-        const project: number = mls.actualProject as number;
-        const modulePrefix: string = mls.actualModule ?? '';
+        const project = getAuraState().actualProject;
+        const modulePrefix = getAuraState().actualModule ?? '';
         if (!modulePrefix) return;
 
         const folder = this.pageFile.folder ?? '';
@@ -360,7 +360,7 @@ export class PluginSelectLayout extends StateLitElement {
         this._saveError = '';
 
         try {
-            const modulePrefix: string = mls.actualModule ?? '';
+            const modulePrefix = getAuraState().actualModule ?? '';
             if (!modulePrefix || !this.pageFile) return;
 
             const folder = this.pageFile.folder ?? '';

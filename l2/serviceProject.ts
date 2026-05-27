@@ -3,6 +3,7 @@
 import { html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { ServiceBase, IService, IToolbarContent, IServiceMenu } from '/_102027_/l2/serviceBase.js';
+import { AuraInitState, getAuraState, setAuraState, saveAuraProject } from '/_102020_/l2/auraState.js';
 
 import '/_102027_/l2/collabSelectKnob.js';
 import '/_102020_/l2/plugins/selectModule.js';
@@ -87,6 +88,13 @@ const DISABLED_CONFIG = (key: string): IKnobConfig => ({
     disabled: true,
 });
 
+const DEVICE_PATH_MAP: Record<number, string> = {
+    1: 'web/desktop',
+    2: 'web/mobile',
+    3: 'android',
+    4: 'ios',
+};
+
 // ─── Service ─────────────────────────────────────────────────────────
 
 @customElement('service-project-102020')
@@ -137,16 +145,14 @@ export class ServiceProject102020 extends ServiceBase {
     // ─── Module Loading ───────────────────────────────────────────────
 
     private async _loadModules() {
-        // @ts-ignore
-        const project: number = mls.actualProject;
+        const project = getAuraState().actualProject;
         if (!project) return;
         try {
             const mod = await import(`/_${project}_/l2/project.js`);
             const modules: IModule[] = mod?.projectConfig?.modules ?? [];
             this._modules = modules;
             this._moduleConfig = this._buildModuleConfig(modules);
-            // @ts-ignore
-            const actualModule: string | undefined = mls.actualModule;
+            const actualModule = getAuraState().actualModule;
             const idx = actualModule ? modules.findIndex(m => m.name === actualModule) : -1;
             this._moduleValue = idx >= 0 ? idx + 1 : 0;
         } catch {
@@ -201,10 +207,26 @@ export class ServiceProject102020 extends ServiceBase {
 
     private _setKnobValue(key: string, value: number | null) {
         switch (key) {
-            case 'module': this._moduleValue = value; break;
-            case 'designSystem': this._dsValue = value; break;
-            case 'device': this._deviceValue = value; break;
-            case 'assets': this._assetsValue = value; break;
+            case 'module': {
+                this._moduleValue = value;
+                const mod = value !== null && value > 0 ? this._modules[value - 1] : null;
+                setAuraState('actualModule', mod?.path ?? null);
+                saveAuraProject();
+                break;
+            }
+            case 'designSystem':
+                this._dsValue = value;
+                setAuraState('actualDesignSystem', value);
+                saveAuraProject();
+                break;
+            case 'device':
+                this._deviceValue = value;
+                setAuraState('actualDevice', value !== null ? DEVICE_PATH_MAP[value] ?? null : null);
+                saveAuraProject();
+                break;
+            case 'assets':
+                this._assetsValue = value;
+                break;
         }
         this.requestUpdate();
     }
@@ -225,6 +247,7 @@ export class ServiceProject102020 extends ServiceBase {
 
     connectedCallback() {
         super.connectedCallback();
+        AuraInitState();
         this._loadModules();
     }
 

@@ -3,6 +3,7 @@
 import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
+import { getAuraState } from '/_102020_/l2/auraState.js';
 import '/_102020_/l2/plugins/navHeader.js';
 
 // ─── i18n ─────────────────────────────────────────────────────────────
@@ -148,8 +149,7 @@ export class PluginSelectAssetsMedia extends StateLitElement {
         this._loading = true;
         this.requestUpdate();
 
-        // @ts-ignore
-        const project: number = mls.actualProject;
+        const project = getAuraState().actualProject;
         const assetsFolder = `${this.selectedModule.path}/assets`;
 
         // @ts-ignore

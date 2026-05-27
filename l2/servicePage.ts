@@ -3,6 +3,7 @@
 import { html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { ServiceBase, IService, IToolbarContent, IServiceMenu } from '/_102027_/l2/serviceBase.js';
+import { AuraInitState, getAuraState } from '/_102020_/l2/auraState.js';
 import { createModel } from '/_102027_/l2/libModel.js';
 import { saveOpenedFile } from '/_102027_/l2/libCommom.js';
 
@@ -103,8 +104,7 @@ export class ServicePage102020 extends ServiceBase {
     // ─── Data Loading ─────────────────────────────────────────────────
 
     private async _loadData() {
-        // @ts-ignore
-        const project: number = mls.actualProject;
+        const project = getAuraState().actualProject;
         if (!project) return;
         try {
             const mod = await import(`/_${project}_/l2/project.js`);
@@ -118,8 +118,7 @@ export class ServicePage102020 extends ServiceBase {
     }
 
     private get _selectedModule(): IModule | null {
-        // @ts-ignore
-        const actualModule: string | undefined = mls.actualModule;
+        const actualModule = getAuraState().actualModule;
         if (!actualModule) return null;
         return this._modules.find(m => m.name === actualModule) ?? null;
     }
@@ -207,6 +206,7 @@ export class ServicePage102020 extends ServiceBase {
 
     connectedCallback() {
         super.connectedCallback();
+        AuraInitState();
         this._loadData();
     }
 
