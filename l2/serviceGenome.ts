@@ -4,7 +4,7 @@ import { html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { ServiceBase, IService, IToolbarContent, IServiceMenu } from '/_102027_/l2/serviceBase.js';
 import { getState, setState, subscribe, unsubscribe } from '/_102027_/l2/collabState.js';
-import { IDesignSystemTokens, getTokens } from '/_102027_/l2/designSystemBase.js';
+import { AuraInitState, getAuraState, setAuraState, saveAuraProject } from '/_102020_/l2/auraState.js';
 import { skills as listOfGroups } from '/_102020_/l2/skills/molecules/index.js';
 import { replaceComponentTag } from '/_102020_/l2/previewTextEditor.js';
 import { convertFileToTag, isPageFile } from '/_102020_/l2/utils.js';
@@ -64,13 +64,6 @@ interface IKnobConfig {
 
 // ─── Static configs ───────────────────────────────────────────────────
 
-const LAYOUT_CONFIG: IKnobConfig = {
-    key: 'layout',
-    min: 0,
-    max: 4,
-    labels: { 0: 'All', 1: 'standard', 2: 'compact', 3: 'tabs', 4: 'sidebar' },
-};
-
 const DISABLED_CONFIG = (key: string): IKnobConfig => ({
     key,
     min: 1,
@@ -105,7 +98,8 @@ export class ServiceGenome102020 extends ServiceBase {
     };
 
     async onServiceClick(_visible: boolean, _reinit: boolean, _el: IToolbarContent | null) {
-        this._initDesignSystemKnob();
+        this._initLayoutKnob();
+        this._initDsKnob();
         const file = await this._getActual3File();
         await this._trySetActualModule(file);
         this._updateCurrentPage(file);
@@ -122,9 +116,8 @@ export class ServiceGenome102020 extends ServiceBase {
     @state() private _moleculesValue: number | null = null;
     @state() private _selectedKnob: string = 'layout';
 
-    @state() private _dsConfig: IKnobConfig = {
-        key: 'designSystem', min: 1, max: 2, labels: { 1: 'Default', 2: '+' },
-    };
+    @state() private _layoutConfig: IKnobConfig = DISABLED_CONFIG('layout');
+    @state() private _dsConfig: IKnobConfig = DISABLED_CONFIG('designSystem');
 
     @state() private _moleculesConfig: IKnobConfig = DISABLED_CONFIG('molecules');
     @state() private _selectedMoleculeGroup: string = '';
@@ -144,24 +137,53 @@ export class ServiceGenome102020 extends ServiceBase {
         }
     }
 
-    // ─── Design System ────────────────────────────────────────────────
+    // ─── Layout & Design System init from project.js ─────────────────
 
-    private async _initDesignSystemKnob() {
-        if (!mls.actualProject) return;
-        const projectDS: IDesignSystemTokens[] = await getTokens(mls.actualProject);
+    private async _loadProjectConfig(): Promise<any> {
+        const project = getAuraState().actualProject;
+        if (!project) return null;
+        try {
+            const mod = await import(`/_${project}_/l2/project.js`);
+            return mod?.projectConfig ?? null;
+        } catch { return null; }
+    }
+
+    private async _initLayoutKnob() {
+        const config = await this._loadProjectConfig();
+        const layoutsMap: Record<number, { name: string }> = config?.layouts ?? {};
+        const keys = Object.keys(layoutsMap).map(Number).sort((a, b) => a - b);
+        if (!keys.length) return;
 
         const labels: Record<number, string> = { 0: 'All' };
-        projectDS.forEach((ds, i) => { labels[i + 1] = ds.themeName; });
-        labels[projectDS.length + 1] = '+';
+        keys.forEach(k => { labels[k] = layoutsMap[k].name; });
 
-        this._dsConfig = {
-            key: 'designSystem',
-            min: 0,
-            max: projectDS.length + 1,
-            labels,
-        };
+        this._layoutConfig = { key: 'layout', min: 0, max: keys[keys.length - 1], labels };
+        const stateLayout = getAuraState().actualLayout;
+        this._layoutValue = (stateLayout !== null && stateLayout <= this._layoutConfig.max) ? stateLayout : 0;
+        // @ts-ignore
+        this.requestUpdate();
+    }
 
-        if (this._dsValue === null || this._dsValue > this._dsConfig.max) {
+    private async _initDsKnob() {
+        const config = await this._loadProjectConfig();
+        const dsMap: Record<number, { name: string }> = config?.designSystems ?? {};
+        const keys = Object.keys(dsMap).map(Number).sort((a, b) => a - b);
+        if (!keys.length) return;
+        const labels: Record<number, string> = { 0: 'All' };
+        keys.forEach(k => { labels[k] = dsMap[k].name; });
+        const customKey = keys[keys.length - 1] + 1;
+        labels[customKey] = '+';
+        this._onDsConfig(new CustomEvent('ds-config', {
+            detail: { min: 0, max: customKey, labels },
+        }));
+    }
+
+    private _onDsConfig(e: CustomEvent) {
+        this._dsConfig = { key: 'designSystem', min: e.detail.min, max: e.detail.max, labels: e.detail.labels };
+        const actualDs = getAuraState().actualDesignSystem;
+        if (actualDs !== null && actualDs > 0 && actualDs < e.detail.max) {
+            this._dsValue = actualDs;
+        } else if (this._dsValue === null || this._dsValue > this._dsConfig.max) {
             this._dsValue = 0;
         }
         // @ts-ignore
@@ -303,7 +325,7 @@ export class ServiceGenome102020 extends ServiceBase {
 
     private _getKnobConfig(key: string): IKnobConfig {
         switch (key) {
-            case 'layout': return LAYOUT_CONFIG;
+            case 'layout': return this._layoutConfig;
             case 'designSystem': return this._dsConfig;
             case 'molecules': return this._moleculesConfig;
             default: return DISABLED_CONFIG(key);
@@ -312,8 +334,20 @@ export class ServiceGenome102020 extends ServiceBase {
 
     private _setKnobValue(key: string, value: number | null) {
         switch (key) {
-            case 'layout': this._layoutValue = value; break;
-            case 'designSystem': this._dsValue = value; break;
+            case 'layout':
+                this._layoutValue = value;
+                if (value !== null && value > 0 && value <= this._layoutConfig.max) {
+                    setAuraState('actualLayout', value);
+                    saveAuraProject();
+                }
+                break;
+            case 'designSystem':
+                this._dsValue = value;
+                if (value !== null && value > 0 && value < this._dsConfig.max) {
+                    setAuraState('actualDesignSystem', value);
+                    saveAuraProject();
+                }
+                break;
             case 'molecules':
                 this._moleculesValue = value;
                 this._onMoleculesChanged(value);
@@ -376,11 +410,6 @@ export class ServiceGenome102020 extends ServiceBase {
             return;
         }
         this._isPageContext = isPageFile(file.folder ?? '');
-        if (this._isPageContext) {
-            const pageMatch = (file.folder ?? '').match(/\/page(\d)/);
-            if (pageMatch) this._layoutValue = parseInt(pageMatch[1]);
-        }
-        
         const storFiles = await mls.stor.getFiles({ ...file, level: 2, loadContent: false })
         if (storFiles.ts) this._actualPage = await storFiles.ts.getOrCreateModel();
     }
@@ -398,8 +427,10 @@ export class ServiceGenome102020 extends ServiceBase {
 
     async connectedCallback() {
         super.connectedCallback();
+        AuraInitState();
         subscribe('previewL3.selectedTagName', this);
-        this._initDesignSystemKnob();
+        this._initLayoutKnob();
+        this._initDsKnob();
         await this.setLastOpenedFileIfNeeded();
         mls.events.addEventListener([this.level], ['FileAction'], this._onFileActionGenome);
     }
@@ -505,6 +536,8 @@ export class ServiceGenome102020 extends ServiceBase {
                     @select-layout=${(e: CustomEvent) => this._setKnobValue('layout', e.detail.value)}
                     @select-molecule=${(e: CustomEvent) => this._setKnobValue('molecules', e.detail.value)}
                     @molecule-replace-mode=${(e: CustomEvent) => { this._moleculeReplaceMode = e.detail.value; this.requestUpdate(); }}
+                    @ds-config=${(e: CustomEvent) => this._onDsConfig(e)}
+                    @select-ds=${(e: CustomEvent) => this._setKnobValue('designSystem', e.detail.value)}
                 >
                     ${this._renderContextStatusArea()}
                 </div>
@@ -531,11 +564,8 @@ export class ServiceGenome102020 extends ServiceBase {
             case 'designSystem':
                 return html`
                     <plugins--select-design-system-102020
-                        .projectSelected=${true}
+                        .projectId=${getAuraState().actualProject}
                         .value=${this._dsValue}
-                        .labels=${this._dsConfig.labels}
-                        .min=${this._dsConfig.min}
-                        .max=${this._dsConfig.max}
                     ></plugins--select-design-system-102020>
                 `;
             case 'molecules':

@@ -3,6 +3,7 @@
 import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
+import { getAuraState } from '/_102020_/l2/auraState.js';
 import '/_102020_/l2/plugins/navHeader.js';
 
 // ─── i18n ─────────────────────────────────────────────────────────────
@@ -19,8 +20,8 @@ const message_en = {
     tabsDesc: 'Tab-based navigation separating content into distinct sections.',
     sidebar: 'Sidebar',
     sidebarDesc: 'Persistent side navigation alongside a main content area.',
-    bentoGrids: 'Bento Grids',
-    bentoGridsDesc: 'Mosaic-style grid of cards with variable sizes and positions.',
+    bento: 'Bento Grids',
+    bentoDesc: 'Mosaic-style grid of cards with variable sizes and positions.',
     notCreated: 'Layout not yet created for page',
     addLayout: 'Add Layout',
     adding: 'Adding…',
@@ -40,8 +41,8 @@ const messages: Record<string, MessageType> = {
         tabsDesc: 'Navegação por abas que separa o conteúdo em seções distintas.',
         sidebar: 'Barra Lateral',
         sidebarDesc: 'Navegação lateral persistente ao lado de uma área de conteúdo principal.',
-        bentoGrids: 'Bento Grids',
-        bentoGridsDesc: 'Grade mosaico de cards com tamanhos e posições variáveis.',
+        bento: 'Bento Grids',
+        bentoDesc: 'Grade mosaico de cards com tamanhos e posições variáveis.',
         notCreated: 'Layout ainda não criado para a página',
         addLayout: 'Adicionar Layout',
         adding: 'Adicionando…',
@@ -58,8 +59,8 @@ const messages: Record<string, MessageType> = {
         tabsDesc: 'Navegación por pestañas que separa el contenido en secciones distintas.',
         sidebar: 'Barra Lateral',
         sidebarDesc: 'Navegación lateral persistente junto a un área de contenido principal.',
-        bentoGrids: 'Bento Grids',
-        bentoGridsDesc: 'Cuadrícula mosaico de tarjetas con tamaños y posiciones variables.',
+        bento: 'Bento Grids',
+        bentoDesc: 'Cuadrícula mosaico de tarjetas con tamaños y posiciones variables.',
         notCreated: 'Layout aún no creado para la página',
         addLayout: 'Agregar Layout',
         adding: 'Agregando…',
@@ -71,18 +72,10 @@ const messages: Record<string, MessageType> = {
 
 interface ILayoutOption {
     value: number;
-    key: 'standard' | 'compact' | 'tabs' | 'sidebar' | 'bentoGrids';
-    genomeKey: string;
+    name: string;
     skill: string;
+    enabled: boolean;
 }
-
-const LAYOUT_OPTIONS: ILayoutOption[] = [
-    { value: 1, key: 'standard',   genomeKey: 'standart',    skill: '/_102029_/l2/skills/layout/standart.js'    },
-    { value: 2, key: 'compact',    genomeKey: 'compact',     skill: '/_102029_/l2/skills/layout/compact.js'     },
-    { value: 3, key: 'tabs',       genomeKey: 'tabs',        skill: '/_102029_/l2/skills/layout/tabs.js'        },
-    { value: 4, key: 'sidebar',    genomeKey: 'sidebar',     skill: '/_102029_/l2/skills/layout/sidebar.js'     },
-    { value: 5, key: 'bentoGrids', genomeKey: 'bento-grids', skill: '/_102029_/l2/skills/layout/bento.js' },
-];
 
 // ─── Component ───────────────────────────────────────────────────────
 
@@ -92,9 +85,15 @@ export class PluginSelectLayout extends StateLitElement {
     @property({ attribute: false }) value: number | null = 0;
     @property({ attribute: false }) pageFile: mls.stor.IFileInfo | null = null;
 
-    @state() private _genomeLayoutValue: number | null = null;
+    @state() private _layoutOptions: ILayoutOption[] = [];
+    @state() private _designSystems: Record<number, { name: string; skill: string }> = {};
     @state() private _saving: boolean = false;
     @state() private _saveError: string = '';
+
+    connectedCallback() {
+        super.connectedCallback();
+        this._loadProjectConfig();
+    }
 
     willUpdate(changed: Map<string, unknown>) {
         if (changed.has('pageFile')) {
@@ -102,34 +101,46 @@ export class PluginSelectLayout extends StateLitElement {
         }
     }
 
-    private async _loadGenome(): Promise<void> {
-        this._genomeLayoutValue = null;
+    private async _loadProjectConfig(): Promise<void> {
+        const project = getAuraState().actualProject;
+        if (!project) return;
+        try {
+            const mod = await import(`/_${project}_/l2/project.js`);
+            const config = mod?.projectConfig ?? null;
+            const layoutsMap: Record<number, { name: string; skill: string }> = config?.layouts ?? {};
+            this._layoutOptions = Object.entries(layoutsMap)
+                .map(([k, v]) => ({ value: Number(k), name: v.name, skill: v.skill, enabled: false }))
+                .sort((a, b) => a.value - b.value);
+            this._designSystems = config?.designSystems ?? {};
+        } catch { /* no project config */ }
+        // @ts-ignore
+        this.requestUpdate();
+    }
 
+    private async _loadGenome(): Promise<void> {
+
+        this._layoutOptions = this._layoutOptions.map(o => ({ ...o, enabled: false }));
         if (!this.pageFile) return;
 
-        const project: number = mls.actualProject as number;
-        const modulePrefix: string = mls.actualModule ?? '';
+        if (!this._layoutOptions.length) await this._loadProjectConfig();
+
+        const project = getAuraState().actualProject;
+        const modulePrefix = getAuraState().actualModule ?? '';
         if (!modulePrefix) return;
 
         const folder = this.pageFile.folder ?? '';
         const genomeKey = folder.substring(modulePrefix.length + 1);
-
         if (!genomeKey) return;
 
         try {
-            const modulePath = modulePrefix;
-            const mod = await import(`/_${project}_/l2/${modulePath}/module.js`);
+            const mod = await import(`/_${project}_/l2/${modulePrefix}/module.js`);
             const genome: Record<string, any> = mod?.moduleGenome ?? {};
             const entry = genome[genomeKey];
             if (!entry) return;
-            const opt = LAYOUT_OPTIONS.find(o => o.genomeKey === entry.layout);
-            if (opt) {
-                this._genomeLayoutValue = opt.value;
-                this._dispatchSelect(opt.value);
-            }
-        } catch {
-            // no genome — keep null
-        }
+            this._layoutOptions = this._layoutOptions.map(o => ({ ...o, enabled: o.name === entry.layout }));
+            const enabled = this._layoutOptions.find(o => o.enabled);
+            if (enabled) this._dispatchSelect(enabled.value);
+        } catch { /* no genome */ }
 
         // @ts-ignore
         this.requestUpdate();
@@ -139,13 +150,21 @@ export class PluginSelectLayout extends StateLitElement {
         return messages[this.getMessageKey(messages)];
     }
 
+    private _getLayoutLabel(name: string): string {
+        return (this.msg[name as keyof MessageType] as string) ?? name;
+    }
+
+    private _getLayoutDesc(name: string): string {
+        return (this.msg[`${name}Desc` as keyof MessageType] as string) ?? '';
+    }
+
     createRenderRoot() { return this; }
 
     render() {
-        const max = LAYOUT_OPTIONS.length;
+        const max = this._layoutOptions.length;
         const v = this.value ?? 0;
         const isAll = v === 0;
-        const selectedOption = LAYOUT_OPTIONS.find(o => o.value === v);
+        const selectedOption = this._layoutOptions.find(o => o.value === v);
 
         if (isAll) {
             return html`
@@ -161,19 +180,19 @@ export class PluginSelectLayout extends StateLitElement {
                     ></plugins--nav-header-102020>
 
                     <div class="grid grid-cols-2 gap-2">
-                        ${LAYOUT_OPTIONS.map(opt => this._renderLayoutCard(opt, false))}
+                        ${this._layoutOptions.map(opt => this._renderLayoutCard(opt, false))}
                     </div>
                 </div>
             `;
         }
 
         if (!selectedOption) return nothing;
-        const isConfigured = this._genomeLayoutValue === null || selectedOption.value === this._genomeLayoutValue;
+        const isConfigured = selectedOption.enabled;
         return html`
             <div class="flex flex-col gap-3">
                 <plugins--nav-header-102020
                     .fixedLabel=${this.msg.title}
-                    .itemName=${this.msg[selectedOption.key]}
+                    .itemName=${this._getLayoutLabel(selectedOption.name)}
                     .desc=${this.msg.desc}
                     .value=${v}
                     .min=${0}
@@ -189,14 +208,13 @@ export class PluginSelectLayout extends StateLitElement {
     }
 
     private _isConfiguredLayout(opt: ILayoutOption): boolean {
-        if (this._genomeLayoutValue === null) return true;
-        return opt.value === this._genomeLayoutValue;
+        return opt.enabled;
     }
 
     private _renderLayoutCard(opt: ILayoutOption, isSelected: boolean) {
         const hasLayout = this._isConfiguredLayout(opt);
-        const label = this.msg[opt.key];
-        const desc = this.msg[`${opt.key}Desc` as keyof MessageType];
+        const label = this._getLayoutLabel(opt.name);
+        const desc = this._getLayoutDesc(opt.name);
         const pageName = this.pageFile?.shortName ?? '';
 
         return html`
@@ -214,7 +232,7 @@ export class PluginSelectLayout extends StateLitElement {
                 <div class="w-full aspect-[4/3] rounded-lg overflow-hidden ${hasLayout ? '' : 'opacity-40'}
                     ${isSelected ? 'bg-indigo-100 dark:bg-indigo-900/30' : 'bg-gray-100 dark:bg-gray-800'}
                 ">
-                    ${this._renderDiagram(opt.key, isSelected)}
+                    ${this._renderDiagram(opt.name, isSelected)}
                 </div>
                 <div class="flex flex-col gap-0.5">
                     <div class="flex items-center gap-1.5">
@@ -234,7 +252,7 @@ export class PluginSelectLayout extends StateLitElement {
 
     private _renderNotCreatedBanner(opt: ILayoutOption) {
         const pageName = this.pageFile?.shortName ?? '';
-        const label = this.msg[opt.key];
+        const label = this._getLayoutLabel(opt.name);
         return html`
             <div class="flex flex-col gap-2">
                 <div class="rounded-lg border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-900/10 px-3 py-2.5">
@@ -262,7 +280,7 @@ export class PluginSelectLayout extends StateLitElement {
         `;
     }
 
-    private _renderDiagram(key: ILayoutOption['key'], selected: boolean) {
+    private _renderDiagram(name: string, selected: boolean) {
         const header  = selected ? '#818cf8' : '#9ca3af';
         const content = selected ? '#c7d2fe' : '#e5e7eb';
         const sidebar = selected ? '#a5b4fc' : '#d1d5db';
@@ -270,7 +288,7 @@ export class PluginSelectLayout extends StateLitElement {
         const darkContent = selected ? '#3730a3' : '#374151';
         const darkSidebar = selected ? '#4338ca' : '#374151';
 
-        if (key === 'standard') return html`
+        if (name === 'standard') return html`
             <svg viewBox="0 0 80 60" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
                 <rect x="4" y="4" width="72" height="12" rx="2" fill="${header}" class="dark:hidden"/>
                 <rect x="4" y="4" width="72" height="12" rx="2" fill="${darkHeader}" class="hidden dark:block"/>
@@ -278,7 +296,7 @@ export class PluginSelectLayout extends StateLitElement {
                 <rect x="4" y="20" width="72" height="36" rx="2" fill="${darkContent}" class="hidden dark:block"/>
             </svg>`;
 
-        if (key === 'compact') return html`
+        if (name === 'compact') return html`
             <svg viewBox="0 0 80 60" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
                 <rect x="4" y="4" width="72" height="8" rx="2" fill="${header}" class="dark:hidden"/>
                 <rect x="4" y="4" width="72" height="8" rx="2" fill="${darkHeader}" class="hidden dark:block"/>
@@ -292,7 +310,7 @@ export class PluginSelectLayout extends StateLitElement {
                 <rect x="4" y="42" width="72" height="6" rx="1" fill="${darkContent}" class="hidden dark:block"/>
             </svg>`;
 
-        if (key === 'tabs') return html`
+        if (name === 'tabs') return html`
             <svg viewBox="0 0 80 60" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
                 <rect x="4" y="4" width="16" height="10" rx="2 2 0 0" fill="${header}" class="dark:hidden"/>
                 <rect x="4" y="4" width="16" height="10" rx="2 2 0 0" fill="${darkHeader}" class="hidden dark:block"/>
@@ -304,7 +322,7 @@ export class PluginSelectLayout extends StateLitElement {
                 <rect x="4" y="14" width="72" height="42" rx="0 2 2 2" fill="${darkContent}" class="hidden dark:block"/>
             </svg>`;
 
-        if (key === 'sidebar') return html`
+        if (name === 'sidebar') return html`
             <svg viewBox="0 0 80 60" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
                 <rect x="4" y="4" width="18" height="52" rx="2" fill="${sidebar}" class="dark:hidden"/>
                 <rect x="4" y="4" width="18" height="52" rx="2" fill="${darkSidebar}" class="hidden dark:block"/>
@@ -312,7 +330,7 @@ export class PluginSelectLayout extends StateLitElement {
                 <rect x="26" y="4" width="50" height="52" rx="2" fill="${darkContent}" class="hidden dark:block"/>
             </svg>`;
 
-        return html`
+        if (name === 'bento') return html`
             <svg viewBox="0 0 80 60" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
                 <rect x="4" y="4"  width="44" height="26" rx="2" fill="${content}" class="dark:hidden"/>
                 <rect x="4" y="4"  width="44" height="26" rx="2" fill="${darkContent}" class="hidden dark:block"/>
@@ -325,15 +343,24 @@ export class PluginSelectLayout extends StateLitElement {
                 <rect x="32" y="34" width="44" height="22" rx="2" fill="${content}" class="dark:hidden"/>
                 <rect x="32" y="34" width="44" height="22" rx="2" fill="${darkContent}" class="hidden dark:block"/>
             </svg>`;
-    }
 
+        return html`
+            <svg viewBox="0 0 80 60" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                <rect x="4" y="4" width="72" height="52" rx="2" fill="${content}" class="dark:hidden"/>
+                <rect x="4" y="4" width="72" height="52" rx="2" fill="${darkContent}" class="hidden dark:block"/>
+                <rect x="16" y="20" width="48" height="4" rx="1" fill="${header}" class="dark:hidden"/>
+                <rect x="16" y="20" width="48" height="4" rx="1" fill="${darkHeader}" class="hidden dark:block"/>
+                <rect x="24" y="28" width="32" height="4" rx="1" fill="${header}" class="dark:hidden"/>
+                <rect x="24" y="28" width="32" height="4" rx="1" fill="${darkHeader}" class="hidden dark:block"/>
+            </svg>`;
+    }
 
     private async _addLayoutToGenome(opt: ILayoutOption): Promise<void> {
         this._saving = true;
         this._saveError = '';
 
         try {
-            const modulePrefix: string = mls.actualModule ?? '';
+            const modulePrefix = getAuraState().actualModule ?? '';
             if (!modulePrefix || !this.pageFile) return;
 
             const folder = this.pageFile.folder ?? '';
@@ -342,16 +369,20 @@ export class PluginSelectLayout extends StateLitElement {
 
             const parts = genomeKey.split('/');
             const device = parts[1] ?? 'desktop';
-            const currentPage = parts[2] ?? '';                     // e.g. 'page11'
-            const dsDigit = currentPage.replace(/^page\d/, '');    // e.g. '1'
-            const newPage = `page${opt.value}${dsDigit}`;          // e.g. 'page21'
+            const currentPage = parts[2] ?? '';
+            const dsDigit = currentPage.replace(/^page\d/, '');
+            const newPage = `page${opt.value}${dsDigit}`;
             const newGenomeKey = [...parts.slice(0, 2), newPage].join('/');
 
+            const dsKeys = Object.keys(this._designSystems).map(Number).sort((a, b) => a - b);
+            const dsKey = dsKeys[0];
+            const ds = dsKey !== undefined ? this._designSystems[dsKey] : null;
+
             const genomeValue = {
-                designSystem: 'default',
-                designSystemSkill: '/_102029_/l2/skills/designsystem/default.js',
+                designSystem: ds?.name ?? 'default',
+                designSystemSkill: ds?.skill ?? '',
                 device,
-                layout: opt.genomeKey,
+                layout: opt.name,
                 layoutSkill: opt.skill,
             };
 

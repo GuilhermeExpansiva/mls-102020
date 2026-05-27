@@ -23,6 +23,7 @@ import '/_102027_/l2/collabSpliterVerticalVarFixed.js';
 import '/_102027_/l2/collabSpliterHorizontalVarFixed.js';
 
 import { PreviewModeAura } from '/_102020_/l2/previewModeAura.js';
+import { AuraInitState, getAuraState } from '/_102020_/l2/auraState.js';
 import { IJSONDependence } from '/_102027_/l2/libCompile.js';
 import { OpenedFileL2 } from '/_102027_/l2/libCommom.js';
 import { ServiceBase, IService, IToolbarContent, IServiceMenu, IOptions } from '/_102027_/l2/serviceBase.js';
@@ -377,7 +378,17 @@ export class ServicePreview extends ServiceBase {
     }
 
     if (this.level === 3 || this.level === 4) {
-      const { project, shortName, folder }  = mls.actual[this.level].getStorFileBase()
+      const base = mls.actual[this.level].getStorFileBase();
+      let { project, shortName, folder } = base;
+      if (!project || !shortName) {
+        AuraInitState();
+        const page = getAuraState().actualPage;
+        if (page) {
+          project = page.project;
+          shortName = page.shortName;
+          folder = page.folder ?? '';
+        }
+      }
       this.project = project;
       this.shortName = shortName;
       this.folder = folder;

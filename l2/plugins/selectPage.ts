@@ -3,6 +3,7 @@
 import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
+import { getAuraState } from '/_102020_/l2/auraState.js';
 import '/_102020_/l2/plugins/navHeader.js';
 
 // ─── i18n ─────────────────────────────────────────────────────────────
@@ -129,7 +130,7 @@ export class PluginSelectPage extends StateLitElement {
     // ─── Page Loading ─────────────────────────────────────────────────
 
     private get _modulePath(): string | null {
-        return this.selectedModule?.path ?? mls.actualModule ?? null;
+        return this.selectedModule?.path ?? getAuraState().actualModule ?? null;
     }
 
     private async _loadPages(): Promise<void> {
@@ -140,9 +141,8 @@ export class PluginSelectPage extends StateLitElement {
             return;
         }
 
-        const project: number = mls.actualProject as number;
-        const actualDevice: number | undefined = (mls as any).actualDevice;
-        const activeDevicePath = (actualDevice && DEVICE_SUB_PATHS[actualDevice]) ? DEVICE_SUB_PATHS[actualDevice] : null;
+        const project = getAuraState().actualProject;
+        const activeDevicePath = getAuraState().actualDevice;
 
         this._activeDevice = activeDevicePath ? (DEVICE_LABELS[activeDevicePath] ?? null) : null;
 
@@ -290,6 +290,7 @@ export class PluginSelectPage extends StateLitElement {
             .map((p, i) => ({ p, selectValue: i + 1 }))
             .filter(({ p }) => !q || p.name.toLowerCase().includes(q));
         const max = this._pages.length + 1;
+        const activePage = getAuraState().actualPage;
 
         return html`
             <div class="flex flex-col gap-3">
@@ -341,7 +342,12 @@ export class PluginSelectPage extends StateLitElement {
                         ? html`<span class="text-sm text-gray-400 dark:text-gray-600 italic">${this.msg.noResults}</span>`
                         : html`
                             <div class="flex flex-col gap-1.5">
-                                ${filtered.map(({ p, selectValue }) => this._renderPageCard(p, selectValue))}
+                                ${filtered.map(({ p, selectValue }) => {
+                                    const isActive = !!activePage
+                                        && p.file.shortName === activePage.shortName
+                                        && p.file.project === activePage.project;
+                                    return this._renderPageCard(p, selectValue, isActive);
+                                })}
                             </div>
                         `}
             </div>
@@ -370,15 +376,15 @@ export class PluginSelectPage extends StateLitElement {
 
     // ─── Shared helpers ───────────────────────────────────────────────
 
-    private _renderPageCard(page: IPageEntry, selectValue: number) {
+    private _renderPageCard(page: IPageEntry, selectValue: number, isActive = false) {
         return html`
             <div
                 class="
-                    rounded-lg border border-gray-200 dark:border-gray-800
-                    bg-gray-50 dark:bg-gray-900/50
-                    hover:bg-gray-100 dark:hover:bg-gray-800/70
-                    px-3 py-2.5 flex items-center gap-2
+                    rounded-lg px-3 py-2.5 flex items-center gap-2
                     cursor-pointer transition-colors
+                    ${isActive
+                        ? 'border border-cyan-400 dark:border-cyan-500 bg-cyan-50 dark:bg-cyan-900/20'
+                        : 'border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 hover:bg-gray-100 dark:hover:bg-gray-800/70'}
                 "
                 @click=${() => this._dispatchSelect(selectValue)}
             >

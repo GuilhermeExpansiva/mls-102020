@@ -3,6 +3,7 @@
 import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
+import { getAuraState } from '/_102020_/l2/auraState.js';
 import '/_102020_/l2/plugins/navHeader.js';
 
 // ─── i18n ─────────────────────────────────────────────────────────────
@@ -117,7 +118,7 @@ export class PluginSelectDevice extends StateLitElement {
         this._genome = {};
         this._routeCountByDevice = {};
         if (!this.selectedModule) return;
-        const project: number = mls.actualProject as number;
+        const project = getAuraState().actualProject;
         try {
             const mod = await import(`/_${project}_/l2/${this.selectedModule.path}/module.js`);
             this._genome = mod?.moduleGenome ?? {};

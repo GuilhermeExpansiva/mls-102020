@@ -3,6 +3,7 @@
 import { html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { ServiceBase, IService, IToolbarContent, IServiceMenu } from '/_102027_/l2/serviceBase.js';
+import { AuraInitState, getAuraState } from '/_102020_/l2/auraState.js';
 
 import '/_102027_/l2/collabSelectKnob.js';
 import '/_102020_/l2/plugins/selectOrganization.js';
@@ -129,14 +130,6 @@ interface IKnobConfig {
 
 // ─── Static configs ───────────────────────────────────────────────────
 
-const DS_CONFIG: IKnobConfig = {
-    key: 'designSystem',
-    min: 1,
-    max: 3,
-    labels: { 1: 'Default', 2: 'Material', 3: 'Custom' },
-};
-
-
 const DISABLED_CONFIG = (key: string): IKnobConfig => ({
     key,
     min: 1,
@@ -207,13 +200,32 @@ export class ServiceExploreProjects102020 extends ServiceBase {
 
         if (matchedPos >= 0) {
             const org = orgs[matchedPos];
-            const actualProjectId: number | null = mls?.actualProject ?? null;
+            const actualProjectId: number | null = getAuraState().actualProject;
             const matchedProjectPos = actualProjectId !== null
                 ? org.projects.findIndex(p => p.project === actualProjectId)
                 : -1;
             this._setKnobValue('project', matchedProjectPos >= 0 ? matchedProjectPos + 1 : 0);
-            if (matchedProjectPos >= 0) this._selectedKnob = 'project';
+            if (matchedProjectPos >= 0 && actualProjectId) {
+                this._selectedKnob = 'project';
+                this._initDsConfig(actualProjectId);
+                this._initLangConfig(actualProjectId);
+            }
         }
+    }
+
+    private async _initLangConfig(projectId: number): Promise<void> {
+        try {
+            const libUrl: string = '/_102027_/l2/libProjectConfig.js';
+            const { getConfigProject } = await import(libUrl);
+            const config = await getConfigProject(projectId);
+            const languages: string[] = (config as any)?.languages?.map((i: any) => i.language) ?? [];
+            const labels: Record<number, string> = { 0: 'All' };
+            languages.forEach((lang, i) => { labels[i + 1] = lang; });
+            labels[languages.length + 1] = '+';
+            this._onLangConfig(new CustomEvent('lang-config', {
+                detail: { min: 0, max: languages.length + 1, labels },
+            }));
+        } catch { /* ignore — project may have no languages configured */ }
     }
 
     private _getOrgsFromMls(): IOrg[] {
@@ -318,10 +330,13 @@ export class ServiceExploreProjects102020 extends ServiceBase {
                 const orgLen = this._selectedOrg?.projects.length ?? 0;
                 const isRealProject = value !== null && value > 0 && value <= orgLen;
                 const candidateProject = isRealProject ? (this._selectedOrg?.projects[(value as number) - 1] ?? null) : null;
-                // @ts-ignore
-                const isActualProject = candidateProject !== null && candidateProject.project === mls.actualProject;
-                this._dsConfig = isActualProject ? { ...DS_CONFIG } : DISABLED_CONFIG('designSystem');
-                this._langConfig = isActualProject ? { key: 'language', min: 0, max: 1, labels: {}, disabled: false } : DISABLED_CONFIG('language');
+                if (candidateProject) {
+                    this._initDsConfig(candidateProject.project);
+                    this._initLangConfig(candidateProject.project);
+                } else {
+                    this._dsConfig = DISABLED_CONFIG('designSystem');
+                    this._langConfig = DISABLED_CONFIG('language');
+                }
                 break;
             case 'designSystem':
                 this._dsValue = value;
@@ -347,14 +362,47 @@ export class ServiceExploreProjects102020 extends ServiceBase {
 
     private _onLangConfig(e: CustomEvent) {
         this._langConfig = { key: 'language', min: e.detail.min, max: e.detail.max, labels: e.detail.labels };
-        if (this._langValue === null) this._langValue = 0;
+        const actualLanguage = getAuraState().actualLanguage;
+        if (actualLanguage) {
+            const entry = Object.entries(e.detail.labels as Record<number, string>).find(([, v]) => v === actualLanguage);
+            this._langValue = entry ? Number(entry[0]) : 0;
+        } else {
+            if (this._langValue === null) this._langValue = 0;
+        }
         this.requestUpdate();
+    }
+
+    private _onDsConfig(e: CustomEvent) {
+        this._dsConfig = { key: 'designSystem', min: e.detail.min, max: e.detail.max, labels: e.detail.labels };
+        const actualDs = getAuraState().actualDesignSystem;
+        if (actualDs !== null && actualDs > 0 && actualDs < e.detail.max) {
+            this._dsValue = actualDs;
+        } else {
+            if (this._dsValue === null) this._dsValue = 0;
+        }
+        this.requestUpdate();
+    }
+
+    private async _initDsConfig(projectId: number): Promise<void> {
+        try {
+            const mod = await import(`/_${projectId}_/l2/project.js`);
+            const dsMap: Record<number, { name: string }> = mod?.projectConfig?.designSystems ?? {};
+            const keys = Object.keys(dsMap).map(Number).sort((a, b) => a - b);
+            const labels: Record<number, string> = { 0: 'All' };
+            keys.forEach(k => { labels[k] = dsMap[k].name; });
+            const customKey = keys.length ? keys[keys.length - 1] + 1 : 1;
+            labels[customKey] = '+';
+            this._onDsConfig(new CustomEvent('ds-config', {
+                detail: { min: 0, max: customKey, labels },
+            }));
+        } catch { /* ignore */ }
     }
 
     // ─── Lifecycle ────────────────────────────────────────────────────
 
     connectedCallback() {
         super.connectedCallback();
+        AuraInitState();
         this._loadOrgs();
     }
 
@@ -445,6 +493,7 @@ export class ServiceExploreProjects102020 extends ServiceBase {
             <div class="flex flex-col flex-1">
                 <div class="flex flex-col gap-3 px-4 py-4 flex-1"
                     @select-ds=${(e: CustomEvent) => this._setKnobValue('designSystem', e.detail.value)}
+                    @ds-config=${(e: CustomEvent) => this._onDsConfig(e)}
                 >
                     ${this._renderContextStatusArea()}
                 </div>
@@ -473,11 +522,8 @@ export class ServiceExploreProjects102020 extends ServiceBase {
             case 'designSystem':
                 return html`
                     <plugins--select-design-system-102020
-                        .projectSelected=${this._selectedProject !== null}
+                        .projectId=${this._selectedProject?.project ?? null}
                         .value=${this._dsValue}
-                        .labels=${this._dsConfig.labels}
-                        .min=${this._dsConfig.min}
-                        .max=${this._dsConfig.max}
                     ></plugins--select-design-system-102020>
                 `;
             case 'language':

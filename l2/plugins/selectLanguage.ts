@@ -10,6 +10,7 @@ import { executeBeforePrompt, loadAgent } from '/_102027_/l2/aiAgentOrchestratio
 import { createThread, getUserId } from '/_102025_/l2/collabMessagesHelper.js';
 import { getThreadByName } from '/_102025_/l2/collabMessagesIndexedDB.js';
 import { getTemporaryContext } from '/_102027_/l2/aiAgentHelper.js';
+import { setAuraState, saveAuraProject } from '/_102020_/l2/auraState.js';
 import '/_102020_/l2/plugins/navHeader.js';
 
 // ─── i18n ─────────────────────────────────────────────────────────────
@@ -619,6 +620,11 @@ export class PluginSelectLanguage extends StateLitElement {
     }
 
     private _dispatchSelect(value: number) {
+        const langCode = value > 0 && value <= this._languages.length ? this._languages[value - 1] : null;
+        if (langCode) {
+            setAuraState('actualLanguage', langCode);
+            saveAuraProject();
+        }
         this.dispatchEvent(new CustomEvent('select-language', {
             detail: { value },
             bubbles: true,
