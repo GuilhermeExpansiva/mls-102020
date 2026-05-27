@@ -2,6 +2,14 @@
 
 import { getState, setState, initState } from '/_102027_/l2/collabState.js';
 
+export interface IAuraPage {
+    project: number;
+    shortName: string;
+    folder: string | null;
+    level: number;
+    extension: string;
+}
+
 export interface IAuraState {
     actualProject: number | null;
     actualModule: string | null;
@@ -9,6 +17,7 @@ export interface IAuraState {
     actualDevice: string | null;
     actualLayout: number | null;
     actualDesignSystem: number | null;
+    actualPage: IAuraPage | null;
 }
 
 const STATE_KEY = 'aura';
@@ -37,6 +46,10 @@ function getActualDesignSystem(): number | null {
     return loadAuraProject(getActualProject())?.actualDesignSystem ?? null;
 }
 
+function getActualPage(): IAuraPage | null {
+    return loadAuraProject(getActualProject())?.actualPage ?? null;
+}
+
 export function AuraInitState(): void {
     if (getAuraState()) return;
     initState(STATE_KEY, {
@@ -46,6 +59,7 @@ export function AuraInitState(): void {
         actualDevice: getActualDevice(),
         actualLayout: getActualLayout(),
         actualDesignSystem: getActualDesignSystem(),
+        actualPage: getActualPage(),
     } satisfies IAuraState);
 }
 
@@ -87,6 +101,7 @@ export function saveAuraProject(): void {
         actualDevice: state.actualDevice,
         actualLayout: state.actualLayout,
         actualDesignSystem: state.actualDesignSystem,
+        actualPage: state.actualPage,
     };
     writeStore(store);
 }
