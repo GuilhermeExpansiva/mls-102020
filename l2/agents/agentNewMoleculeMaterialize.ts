@@ -368,6 +368,12 @@ Task: Generate a molecule according the user request.
 \`\`\`
 
 
+## File Reference Rule
+The triple-slash comment \`fileReference\` value must be copied EXACTLY from \`## File Reference\` in the human message.
+- fileReference format: \`_NNNNN_/l2/...\`  (no leading slash)
+- Import path format:   \`/_NNNNN_/l2/...\` (leading slash required)
+These are different conventions. Never apply the import path convention to fileReference.
+
 ## Output format
 You must return the object strictly as JSON
 [[OutputSection]]
