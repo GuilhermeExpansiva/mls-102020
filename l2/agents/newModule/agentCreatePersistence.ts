@@ -2,6 +2,7 @@
 
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import { createStorFile, IReqCreateStorFile } from '/_102027_/l2/libStor.js';
+import {  findPreviousAgentStep } from '/_102027_/l2/aiAgentHelper.js';
 
 export function createAgent(): IAgentAsync {
   return {
@@ -98,7 +99,7 @@ async function afterPromptStep(
   let intents: mls.msg.AgentIntent[] = [];
 
   const output = payload.result;
-  intents = await processOutput(context, output);
+  intents = await processOutput(context, output, parentStep);
 
   const updateStatus: mls.msg.AgentIntentUpdateStatus = {
     type: 'update-status',
@@ -115,7 +116,7 @@ async function afterPromptStep(
 
 }
 
-async function processOutput(context: mls.msg.ExecutionContext, output: any): Promise<mls.msg.AgentIntent[]> {
+async function processOutput(context: mls.msg.ExecutionContext, output: any, parentStep: mls.msg.AIAgentStep): Promise<mls.msg.AgentIntent[]> {
 
   if (!output.srcFile) throw new Error('[agentCreatePersistence] not found srcFile');
 
@@ -137,7 +138,27 @@ async function processOutput(context: mls.msg.ExecutionContext, output: any): Pr
   //Router
   await generateRouter(moduleName);
 
-  return [];
+  const stepOri = context.task ? (findPreviousAgentStep(context.task, parentStep.stepId))?.stepId : parentStep.stepId;
+
+  const newStep: mls.msg.AgentIntentAddStep = {
+    type: "add-step",
+    messageId: context.message.orderAt,
+    threadId: context.message.threadId,
+    taskId: context.task?.PK || '',
+    parentStepId: stepOri || parentStep.stepId,
+    step: {
+      type: 'agent',
+      stepId: 0,
+      interaction: null,
+      status: 'waiting_human_input',
+      nextSteps: [],
+      agentName: 'agentInitializeMock',
+      prompt: JSON.stringify({ moduleName }),
+      rags: [],
+    }
+  };
+
+  return [newStep];
 }
 
 async function generateConfig(moduleName: string) {
