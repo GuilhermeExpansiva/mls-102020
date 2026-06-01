@@ -45,12 +45,42 @@ interface ITableRepository<T> {
 
 ---
 
-## CRITICAL: Update pattern
+## CRITICAL: Write action patterns — three distinct patterns
 
-Because \`upsert()\` returns \`void\`, you must build the merged object yourself and return it:
+Because \`upsert()\` returns \`void\`, you must build the merged object yourself and return it.
+**Which pattern to use depends on the action name suffix** (see "How to classify write actions" below).
+
+### Pattern A — Save / Upsert (no throw)
+Use when the action name starts with: \`save\`, \`salvar\`, \`upsert\`, or is not clearly an explicit update or create.
+If the record exists → merge and overwrite. If it does NOT exist → create it. Never throw NOT_FOUND.
 
 \`\`\`typescript
-// CORRECT update pattern
+export async function saveFoo(ctx: RequestContext, input: PrefixUpdateFooParams): Promise<PrefixFoo> {
+  const repo = await getFooRepository(ctx);
+  const existing = await repo.findOne({ where: { id: input.id } });
+  let record: PrefixFoo;
+  if (existing) {
+    record = {
+      ...existing,
+      ...(input.field1 !== undefined ? { field1: input.field1 } : {}),
+      // repeat for every optional field in input
+    };
+  } else {
+    record = {
+      id: input.id,
+      field1: input.field1 ?? defaultValue,
+      // repeat for every required field — fill required fields from input or a safe default
+    };
+  }
+  await repo.upsert({ record });
+  return record;
+}
+\`\`\`
+
+### Pattern B — Explicit Update (throw if not found)
+Use ONLY when the action name starts with: \`update\`, \`atualizar\`, \`editar\`, \`edit\`, \`patch\`.
+
+\`\`\`typescript
 export async function updateFoo(ctx: RequestContext, input: PrefixUpdateFooParams): Promise<PrefixFoo> {
   const repo = await getFooRepository(ctx);
   const existing = await repo.findOne({ where: { id: input.id } });
@@ -61,9 +91,43 @@ export async function updateFoo(ctx: RequestContext, input: PrefixUpdateFooParam
     // repeat for every optional field in input
   };
   await repo.upsert({ record: merged });
-  return merged;   // return the merged object, NOT the result of upsert()
+  return merged;
 }
 \`\`\`
+
+### Pattern C — Explicit Create (throw if already exists)
+Use ONLY when the action name starts with: \`create\`, \`criar\`, \`add\`, \`adicionar\`, \`insert\`.
+
+\`\`\`typescript
+export async function createFoo(ctx: RequestContext, input: PrefixUpdateFooParams): Promise<PrefixFoo> {
+  const repo = await getFooRepository(ctx);
+  const existing = await repo.findOne({ where: { id: input.id } });
+  if (existing) throw new AppError('ALREADY_EXISTS', 'Foo already exists', 409);
+  const record: PrefixFoo = {
+    id: input.id,
+    field1: input.field1 ?? defaultValue,
+    // all required fields
+  };
+  await repo.upsert({ record });
+  return record;
+}
+\`\`\`
+
+---
+
+## CRITICAL: How to classify write actions
+
+For each entry in \`definition.pages[0].actionStates[]\`, look at the suffix (part after the last \`.\` of \`stateKey\`, e.g. \`saveVeiculo\`, \`updateCliente\`, \`addLocacao\`):
+
+| Suffix starts with | Pattern to use |
+|---|---|
+| \`save\`, \`salvar\`, \`upsert\` | **Pattern A** — no throw |
+| \`update\`, \`atualizar\`, \`editar\`, \`edit\`, \`patch\` | **Pattern B** — throw NOT_FOUND |
+| \`create\`, \`criar\`, \`add\`, \`adicionar\`, \`insert\` | **Pattern C** — throw ALREADY_EXISTS |
+| anything else | **Pattern A** — safe default, no throw |
+
+Only use Pattern B or C when the definition **explicitly names the action as update-only or create-only**.
+When in doubt, use Pattern A.
 
 ---
 
@@ -201,6 +265,7 @@ For each entry in \`definition.pages[0].actionStates[]\`:
 - Skip entries whose suffix is one of \`idle\`, \`loading\`, \`success\`, \`error\` — those are UI states, not routines
 - The BFF routine key is \`{pageName}.{suffix}\`
 - Infer the entity and params from context (which entities the page works with)
+- **Classify the action** using the table in "How to classify write actions" above to choose Pattern A, B, or C
 
 ---
 
@@ -214,6 +279,26 @@ For each entry in \`definition.pages[0].actionStates[]\`:
   - tabs → \\t
   - double quotes → \\"
   - backslashes → \\\\
+
+## How to populate routers[]
+
+For every \`export const *Handler: BffHandler\` constant you generate in \`srcFile\`, add one entry to \`routers\`:
+
+- \`funcName\`: the exact constant name (e.g. \`veiculosCadastroSaveHandler\`)
+- \`router\`: the BFF route key — ALWAYS in the format \`{moduleName}.{pageName}.{routineSuffix}\`
+  - \`moduleName\` = the module name from User info (e.g. \`locadora\`)
+  - \`pageName\` = \`definition.pages[0].pageName\` (e.g. \`veiculosCadastro\`)
+  - \`routineSuffix\` = the suffix used when building the handler (e.g. \`saveVeiculo\`, \`getStatusVeiculoOptions\`)
+
+Example:
+\`\`\`json
+"routers": [
+  { "router": "locadora.veiculosCadastro.getStatusVeiculoOptions", "funcName": "veiculosCadastroGetStatusVeiculoOptionsHandler" },
+  { "router": "locadora.veiculosCadastro.saveVeiculo", "funcName": "veiculosCadastroSaveHandler" }
+]
+\`\`\`
+
+Include ALL handlers — one entry per handler constant, no omissions.
 
 ---
 

@@ -4,7 +4,7 @@ import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import { createStorFile, IReqCreateStorFile } from '/_102027_/l2/libStor.js';
 import { findPreviousAgentStep } from '/_102027_/l2/aiAgentHelper.js';
 import { updateVariableJson, updateVariableText } from '/_102027_/l2/defsAST.js';
-import { addImport, addRoute, extractRouteHandlers } from "/_102020_/l2/newModule/astRouter.js";
+// import { addImport, addRoute, extractRouteHandlers } from "/_102020_/l2/newModule/astRouter.js"; // routers now handled by agentMaterializeContract
 export function createAgent(): IAgentAsync { 
     return {
         agentName: "agentToBePage",
@@ -156,7 +156,7 @@ async function processOutput(context: mls.msg.ExecutionContext, output: ToBePage
 
     await saveFile(refDef, srcDefs);
 
-    await addRouters(output, module, output.pages[0].pageName);
+    // await addRouters(output, module, output.pages[0].pageName); // routers now handled by agentMaterializeContract
 
     const stepOri = context.task ? (findPreviousAgentStep(context.task, parentStep.stepId))?.stepId : parentStep.stepId;
 
@@ -202,34 +202,20 @@ function addPipeLine(src: string, moduleName: string, shortName: string, defsPat
     return newSrc;
 }
 
-async function addRouters(tobe: ToBePages, moduleName: string, shortName: string) {
-
-    const key = mls.stor.getKeyToFile({ project: mls.actualProject || 0, level: 1, folder: `${moduleName}/layer_2_controllers`, shortName: "router", extension: ".ts" });
-    if (!mls.stor.files[key]) throw new Error('[toBePage]Not found router file');
-
-    const sf = mls.stor.files[key];
-
-    let src = await sf.getContent() as string;
-
-    const routes = extractRouteHandlers(tobe, moduleName);
-    const pathImport = `/_${mls.actualProject}_/l1/${moduleName}/layer_2_controllers/${shortName}.js`
-
-    routes.forEach((rt) => {
-
-        const [state, nmFunc] = rt;
-        src = addRoute(src, state, nmFunc);
-        src = addImport(src, {
-            kind: 'value',
-            names: [nmFunc],
-            from: pathImport,
-        })
-
-    });
-
-    await saveFile(mls.stor.convertFileToFileReference(sf), src);
-
-
-}
+// async function addRouters(tobe: ToBePages, moduleName: string, shortName: string) {
+//     const key = mls.stor.getKeyToFile({ project: mls.actualProject || 0, level: 1, folder: `${moduleName}/layer_2_controllers`, shortName: "router", extension: ".ts" });
+//     if (!mls.stor.files[key]) throw new Error('[toBePage]Not found router file');
+//     const sf = mls.stor.files[key];
+//     let src = await sf.getContent() as string;
+//     const routes = extractRouteHandlers(tobe, moduleName);
+//     const pathImport = `/_${mls.actualProject}_/l1/${moduleName}/layer_2_controllers/${shortName}.js`
+//     routes.forEach((rt) => {
+//         const [state, nmFunc] = rt;
+//         src = addRoute(src, state, nmFunc);
+//         src = addImport(src, { kind: 'value', names: [nmFunc], from: pathImport });
+//     });
+//     await saveFile(mls.stor.convertFileToFileReference(sf), src);
+// } // routers now handled by agentMaterializeContract
 
 
 function generateContract(src: string, defsPath: string, moduleName: string) {
