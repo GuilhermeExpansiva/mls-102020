@@ -205,6 +205,7 @@ async function afterPromptStep(
 
   const payload = step.interaction?.payload?.[0] as Output | undefined;
   let status: mls.msg.AIStepStatus = 'completed';
+  let traceMsg: string | undefined;
 
   try {
     if (!payload) throw new Error('missing payload');
@@ -217,9 +218,15 @@ async function afterPromptStep(
       initialMetricsRequested: wantsInitialMetricsDashboard(requirementsAnswer),
     });
 
-    if (output.status !== 'ok') status = 'failed';
+    if (output.status === 'failed') {
+      status = 'failed';
+      traceMsg = 'agentRecommendImplementations returned status failed';
+    } else if (output.status === 'needs_input') {
+      traceMsg = 'agentRecommendImplementations returned status needs_input; keeping the validated recommendations and continuing with questions.';
+    }
   } catch (error) {
-    console.error(`[${agent.agentName}](afterPromptStep) ${error instanceof Error ? error.message : error}`);
+    traceMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[${agent.agentName}](afterPromptStep) ${traceMsg}`);
     status = 'failed';
   }
 
@@ -232,6 +239,7 @@ async function afterPromptStep(
     parentStepId: parentStep.stepId,
     stepId: step.stepId,
     status,
+    traceMsg,
   };
 
   if (status === 'completed') updateStatus.cleaner = 'input';
