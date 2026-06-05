@@ -13,6 +13,7 @@ import {
   extractPlannerOutput,
   findStepByPlanId,
   getPlannerOutputs,
+  optionalString,
 } from '/_102020_/l2/agentNewSolution/agentPlanningShared.js';
 import { FinalSolutionPlanOutput, getFinalizeSolutionPlanOutput } from '/_102020_/l2/agentNewSolution/agentFinalizeSolutionPlan.js';
 import { saveNewSolutionAgentTracePayload } from '/_102020_/l2/agentNewSolution/agentNewSolutionArtifacts.js';
@@ -61,8 +62,36 @@ const planTableDefinitionToolSchema = createPlannerToolSchema(
     additionalProperties: false,
     required: ['tableDefinition', 'defsPlan'],
     properties: {
-      tableDefinition: { type: 'object', additionalProperties: true },
-      defsPlan: { type: 'object', additionalProperties: true },
+      tableDefinition: {
+        type: 'object',
+        additionalProperties: true,
+        required: ['tableId', 'tableName', 'moduleId', 'layer', 'tableKind', 'accessPolicy'],
+        properties: {
+          tableId: { type: 'string' },
+          tableName: { type: 'string' },
+          moduleId: { type: 'string' },
+          layer: { const: 'layer_1_external' },
+          tableKind: { const: 'transactional' },
+          accessPolicy: {
+            type: 'object',
+            additionalProperties: true,
+            required: ['directAccessAllowedFor'],
+            properties: {
+              directAccessAllowedFor: { type: 'array', items: { type: 'string' } },
+            },
+          },
+        },
+      },
+      defsPlan: {
+        type: 'object',
+        additionalProperties: true,
+        required: ['fileName', 'exportName', 'saveAsDefs'],
+        properties: {
+          fileName: { type: 'string' },
+          exportName: { type: 'string' },
+          saveAsDefs: { type: 'boolean' },
+        },
+      },
     },
   }
 );
@@ -155,22 +184,38 @@ function normalizePlanTableDefinitionResult(value: unknown): PlanTableDefinition
   const result = assertRecord(value, 'result');
   const tableDefinition = assertRecord(result.tableDefinition, 'result.tableDefinition');
   const defsPlan = assertRecord(result.defsPlan, 'result.defsPlan');
+  const tableId = assertString(tableDefinition.tableId, 'result.tableDefinition.tableId');
+  const moduleId = optionalString(tableDefinition.moduleId, 'result.tableDefinition.moduleId')
+    || optionalString(defsPlan.moduleId, 'result.defsPlan.moduleId')
+    || optionalString(tableDefinition.moduleName, 'result.tableDefinition.moduleName');
+  const accessPolicy = normalizeAccessPolicy(tableDefinition);
+  if (!moduleId) throw new Error('result.tableDefinition.moduleId must be a non-empty string');
+
   return {
     tableDefinition: {
       ...tableDefinition,
-      tableId: assertString(tableDefinition.tableId, 'result.tableDefinition.tableId'),
+      tableId,
       tableName: assertString(tableDefinition.tableName, 'result.tableDefinition.tableName'),
-      moduleId: assertString(tableDefinition.moduleId, 'result.tableDefinition.moduleId'),
+      moduleId,
       layer: assertString(tableDefinition.layer, 'result.tableDefinition.layer'),
       tableKind: assertString(tableDefinition.tableKind, 'result.tableDefinition.tableKind'),
-      accessPolicy: assertRecord(tableDefinition.accessPolicy, 'result.tableDefinition.accessPolicy'),
+      accessPolicy,
     },
     defsPlan: {
       fileName: assertString(defsPlan.fileName, 'result.defsPlan.fileName'),
-      exportName: assertString(defsPlan.exportName, 'result.defsPlan.exportName'),
-      saveAsDefs: Boolean(defsPlan.saveAsDefs),
+      exportName: optionalString(defsPlan.exportName, 'result.defsPlan.exportName') || `${tableId}TableDefinition`,
+      saveAsDefs: defsPlan.saveAsDefs === undefined ? true : Boolean(defsPlan.saveAsDefs),
     },
   };
+}
+
+function normalizeAccessPolicy(tableDefinition: Record<string, unknown>): Record<string, unknown> {
+  if (tableDefinition.accessPolicy !== undefined) return assertRecord(tableDefinition.accessPolicy, 'result.tableDefinition.accessPolicy');
+  const directAccess = assertRecord(tableDefinition.directAccess, 'result.tableDefinition.directAccess');
+  const directAccessAllowedFor = Object.entries(directAccess)
+    .filter(([, allowed]) => allowed === true)
+    .map(([layer]) => layer);
+  return { directAccessAllowedFor };
 }
 
 function validatePlanTableDefinitionOutput(output: PlanTableDefinitionOutput): void {
@@ -213,22 +258,94 @@ function buildHumanPrompt(
   persistenceIndex: PlanPersistenceIndexOutput,
   tableIndexItem: unknown,
 ): string {
+  const compactContext = buildTableDefinitionContext(finalPlan, persistenceIndex, tableIndexItem);
   return `## Current table selector
 ${args}
 
-## Selected table index item
-${JSON.stringify(tableIndexItem, null, 2)}
-
-## Final solution plan
-${JSON.stringify(finalPlan, null, 2)}
-
-## Persistence index
-${JSON.stringify(persistenceIndex, null, 2)}
+## Focused table definition context
+${JSON.stringify(compactContext, null, 2)}
 `;
 }
 
+function buildTableDefinitionContext(
+  finalPlan: FinalSolutionPlanOutput,
+  persistenceIndex: PlanPersistenceIndexOutput,
+  tableIndexItem: unknown,
+): Record<string, unknown> {
+  const table = assertRecord(tableIndexItem, 'tableIndexItem');
+  const entityRefs = collectStringRefs(table.rootEntity, table.sourceEntities, table.embeddedEntities);
+  const ruleRefs = collectStringRefs(table.rulesApplied, table.rules);
+  const artifactRefs = collectStringRefs(table.readsByArtifacts, table.writesByArtifacts);
+
+  return {
+    module: finalPlan.result.module,
+    persistenceScope: persistenceIndex.result.persistenceScope,
+    selectedTable: table,
+    relevantEntities: pickRelevantEntities(finalPlan.result.ontology.entities, entityRefs),
+    relevantRules: pickRelevantArrayItems(finalPlan.result.rules, ruleRefs, ['ruleId', 'id', 'code', 'name']),
+    artifactRefs: Array.from(artifactRefs),
+    relevantArtifacts: pickRelevantArtifacts(finalPlan.result.approvedArtifacts, artifactRefs),
+  };
+}
+
+function collectStringRefs(...values: unknown[]): Set<string> {
+  const refs = new Set<string>();
+  for (const value of values) collectStringRefsInto(refs, value);
+  return refs;
+}
+
+function collectStringRefsInto(refs: Set<string>, value: unknown): void {
+  if (typeof value === 'string' && value.trim()) {
+    refs.add(value.trim());
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach(item => collectStringRefsInto(refs, item));
+    return;
+  }
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    ['entityId', 'entityName', 'tableId', 'artifactId', 'workflowId', 'pageId', 'ruleId', 'id', 'name', 'signal'].forEach(key => {
+      const item = record[key];
+      if (typeof item === 'string' && item.trim()) refs.add(item.trim());
+    });
+  }
+}
+
+function pickRelevantEntities(entities: Record<string, unknown>, refs: Set<string>): Record<string, unknown> {
+  const picked: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(entities)) {
+    if (refs.has(key) || recordHasAnyRef(value, refs, ['entityId', 'name', 'displayName'])) picked[key] = value;
+  }
+  return picked;
+}
+
+function pickRelevantArrayItems(items: unknown[], refs: Set<string>, keys: string[]): unknown[] {
+  if (refs.size === 0) return [];
+  return items.filter(item => recordHasAnyRef(item, refs, keys));
+}
+
+function pickRelevantArtifacts(artifacts: FinalSolutionPlanOutput['result']['approvedArtifacts'], refs: Set<string>): Record<string, unknown[]> {
+  const picked: Record<string, unknown[]> = {};
+  for (const [artifactType, items] of Object.entries(artifacts)) {
+    if (!Array.isArray(items)) continue;
+    const selected = pickRelevantArrayItems(items, refs, ['artifactId', 'pageId', 'workflowId', 'agentId', 'signal', 'id', 'name', 'title']);
+    if (selected.length > 0) picked[artifactType] = selected;
+  }
+  return picked;
+}
+
+function recordHasAnyRef(value: unknown, refs: Set<string>, keys: string[]): boolean {
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Record<string, unknown>;
+  return keys.some(key => {
+    const item = record[key];
+    return typeof item === 'string' && refs.has(item);
+  });
+}
+
 const systemPrompt = `
-<!-- modelType: codepro -->
+<!-- modelType: codeinstruct -->
 
 You are agentPlanTableDefinition for the collab.codes "newSolution" flow.
 Plan exactly one module-owned persistence table definition for the current table selector.
@@ -242,6 +359,10 @@ Do not return prose.
 ## Rules
 - Generate one table only: the table whose tableId equals the current selector.
 - The table must be moduleOwned, transactional, and in layer_1_external.
+- tableDefinition.moduleId is required and must equal the module id from persistenceScope/module context.
+- defsPlan.exportName is required and should be a stable camelCase export name, such as {tableId}TableDefinition.
+- defsPlan.saveAsDefs must be true.
+- Use accessPolicy.directAccessAllowedFor: ["layer_3_usecases"]. Do not use a loose directAccess object as the canonical policy.
 - Direct table access must be allowed only for layer_3_usecases; layer_2_controllers and pages cannot access tables directly.
 - Do not create table definitions for MDM, horizontal, or plugin-owned entities.
 - Always include physical columns for primary key, important foreign refs, status/lifecycle, date filters, and fields required by BFF queries/workflows.
@@ -253,6 +374,7 @@ Do not return prose.
 - defsPlan.fileName should be stable and table-specific, such as tables/{tableId}.defs.ts.
 - Use rule ids; do not write loose rule text.
 - Do not generate TypeScript code.
+- The focused context intentionally omits unrelated entities and artifacts. Do not infer extra tables or capabilities from omitted context.
 
 ## Content Memory
 actualDate: 2026-06-05

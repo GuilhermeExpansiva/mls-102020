@@ -575,7 +575,7 @@ function optionalNumber(value: unknown, path: string): number | undefined {
 }
 
 const systemPrompt = `
-<!-- modelType: codepro -->
+<!-- modelType: codeinstruct -->
 
 You are agentPlanPlugins for the collab.codes "newSolution" flow.
 Plan external plugins from the reduced plugin planning context, implementation decisions, plugin catalog, and plugin inventory.

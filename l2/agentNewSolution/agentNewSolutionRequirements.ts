@@ -491,8 +491,8 @@ ${JSON.stringify(initialPlan, null, 2)}
 `;
 }
 
-const systemPrompt = `
-<!-- modelType: codepro -->
+    const systemPrompt = `
+    <!-- modelType: codeinstruct -->
 
 You are the first requirements clarification agent for the collab.codes "newModule" flow.
 

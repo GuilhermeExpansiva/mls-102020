@@ -359,7 +359,7 @@ ${initialMetricsRequested}
 }
 
 const systemPrompt = `
-<!-- modelType: codepro -->
+<!-- modelType: codeinstruct -->
 
 You are agentPlanPersistenceIndex for the collab.codes "newSolution" flow.
 Plan only the persistence table index for new transactional tables owned by the current module.

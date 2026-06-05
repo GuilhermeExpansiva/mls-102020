@@ -224,7 +224,7 @@ const horizontalCatalog = {
 };
 
 const systemPrompt = `
-<!-- modelType: codepro -->
+<!-- modelType: codeinstruct -->
 
 You are agentPlanHorizontals for the collab.codes "newSolution" flow.
 Plan horizontal modules from the final solution plan and horizontal catalog.

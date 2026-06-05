@@ -184,7 +184,7 @@ ${JSON.stringify(blueprint, null, 2)}
 }
 
 const systemPrompt = `
-<!-- modelType: codepro -->
+<!-- modelType: codeinstruct -->
 
 You are agentBlueprintReview for the collab.codes "newSolution" flow.
 Review the blueprint for gaps before specialized planners run.

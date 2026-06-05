@@ -244,7 +244,7 @@ ${snapshot.initialMetricsRequested}
 }
 
 const systemPrompt = `
-<!-- modelType: codepro -->
+<!-- modelType: codeinstruct -->
 
 You are agentSolutionBlueprint for the collab.codes "newSolution" flow.
 Create a detailed solution blueprint from the prompt, clarification, discovered scope, recommendations, and approved implementation decisions.

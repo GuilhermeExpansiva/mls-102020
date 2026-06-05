@@ -243,7 +243,7 @@ ${JSON.stringify(metricsIndex, null, 2)}
 }
 
 const systemPrompt = `
-<!-- modelType: codepro -->
+<!-- modelType: codeinstruct -->
 
 You are agentPlanMetricTableDefinition for the collab.codes "newSolution" flow.
 Plan exactly one TimescaleDB metric table definition for the current metric table selector.

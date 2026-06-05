@@ -601,7 +601,7 @@ function normalizeText(value: string): string {
 }
 
 const systemPrompt = `
-<!-- modelType: codepro -->
+<!-- modelType: codeinstruct -->
 
 You are agentRecommendImplementations for the collab.codes "newModule" flow.
 Use the discovered scope and clarification answer to recommend implementation artifacts for the next planning decision.

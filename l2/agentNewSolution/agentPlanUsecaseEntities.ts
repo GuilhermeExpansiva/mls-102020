@@ -204,8 +204,8 @@ ${JSON.stringify(metricTableDefinitions, null, 2)}
 }
 
 const systemPrompt = `
-<!-- modelType: codepro -->
-
+<!-- modelType: codeinstruct -->
+  
 You are agentPlanUsecaseEntities for the collab.codes "newSolution" flow.
 Plan entities and use cases for layer_3_usecases.
 The goal is to create .defs data that will later materialize backend use case files. Do not generate TypeScript code.
