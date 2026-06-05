@@ -17,6 +17,7 @@ import {
   getPlannerOutput,
 } from '/_102020_/l2/agentNewSolution/agentPlanningShared.js';
 import { FinalSolutionPlanOutput, getFinalizeSolutionPlanOutput } from '/_102020_/l2/agentNewSolution/agentFinalizeSolutionPlan.js';
+import { saveNewSolutionAgentTracePayload } from '/_102020_/l2/agentNewSolution/agentNewSolutionArtifacts.js';
 import { PlanMetricTableDefinitionOutput, getPlanMetricTableDefinitionOutputs } from '/_102020_/l2/agentNewSolution/agentPlanMetricTableDefinition.js';
 import { PlanMetricsIndexOutput, getPlanMetricsIndexOutput } from '/_102020_/l2/agentNewSolution/agentPlanMetricsIndex.js';
 import { PlanPersistenceIndexOutput, getPlanPersistenceIndexOutput } from '/_102020_/l2/agentNewSolution/agentPlanPersistenceIndex.js';
@@ -136,6 +137,8 @@ async function afterPromptStep(
     traceMsg = error instanceof Error ? error.message : String(error);
     console.error(`[${agent.agentName}](afterPromptStep) ${traceMsg}`);
   }
+
+  await saveNewSolutionAgentTracePayload(context, agent.agentName, step);
 
   const intents: mls.msg.AgentIntent[] = [
     createPlannerUpdateStatusIntent(context, parentStep, step, hookSequential, status, traceMsg, status === 'completed' ? 'input' : undefined),

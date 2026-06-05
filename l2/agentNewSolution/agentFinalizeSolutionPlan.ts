@@ -9,10 +9,12 @@ import {
   createPlannerToolSchema,
   createPlannerUpdateStatusIntent,
   extractPlannerOutput,
+  findStepByPlanId,
   getPlannerOutput,
   getPlanningContextSnapshot,
   hasAcceptedNowArtifact,
 } from '/_102020_/l2/agentNewSolution/agentPlanningShared.js';
+import { saveNewSolutionAgentTracePayload } from '/_102020_/l2/agentNewSolution/agentNewSolutionArtifacts.js';
 import { BlueprintReviewOutput, getBlueprintReviewOutput } from '/_102020_/l2/agentNewSolution/agentBlueprintReview.js';
 import { SolutionBlueprintOutput, getSolutionBlueprintOutput } from '/_102020_/l2/agentNewSolution/agentSolutionBlueprint.js';
 
@@ -160,7 +162,20 @@ async function afterPromptStep(
     console.error(`[${agent.agentName}](afterPromptStep) ${traceMsg}`);
   }
 
-  return [createPlannerUpdateStatusIntent(context, parentStep, step, hookSequential, status, traceMsg, status === 'completed' ? 'input' : undefined)];
+  await saveNewSolutionAgentTracePayload(context, agent.agentName, step);
+
+  const intents = [
+    createPlannerUpdateStatusIntent(context, parentStep, step, hookSequential, status, traceMsg, status === 'completed' ? 'input' : undefined),
+  ];
+
+  if (status === 'completed') {
+    const blueprintStep = findStepByPlanId(context, 'plan-solution-blueprint') as mls.msg.AIAgentStep | null;
+    if (blueprintStep?.type === 'agent') {
+      intents.push(createPlannerUpdateStatusIntent(context, parentStep, blueprintStep, hookSequential, 'completed', undefined, 'input_output'));
+    }
+  }
+
+  return intents;
 }
 
 export function getFinalizeSolutionPlanOutput(context: mls.msg.ExecutionContext): FinalSolutionPlanOutput {

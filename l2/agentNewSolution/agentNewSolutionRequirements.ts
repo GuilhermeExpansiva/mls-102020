@@ -2,6 +2,7 @@
 
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import { getAgentStepByAgentName, getAllSteps, notifyTaskChange } from '/_102027_/l2/aiAgentHelper.js';
+import { saveNewSolutionAgentTracePayload } from '/_102020_/l2/agentNewSolution/agentNewSolutionArtifacts.js';
 import {
   ImplementationRecommendation,
   RecommendImplementationsOutput,
@@ -63,6 +64,7 @@ async function afterPromptStep(
   if (!payload) throw new Error(`[afterPromptStep] missing payload`);
 
   if (payload.type === 'result') {
+    await saveNewSolutionAgentTracePayload(context, agent.agentName, step);
     return [createUpdateStatusIntent(context, parentStep, step, hookSequential, 'failed')];
   }
 
@@ -70,6 +72,7 @@ async function afterPromptStep(
     throw new Error(`[afterPromptStep] invalid payload: ${JSON.stringify(payload)}`);
   }
 
+  await saveNewSolutionAgentTracePayload(context, agent.agentName, step);
   return [];
 }
 
@@ -83,7 +86,7 @@ async function beforeClarificationStep(
 ): Promise<HTMLElement> {
   if (!context.task) throw new Error(`[beforeClarificationStep] invalid task: undefined`);
 
-  await import('/_100554_/l2/widgetQuestionsForClarification.js');
+  await import('/_102025_/l2/widgetQuestionsForClarification.js');
 
   const parsedJson = parseClarificationJson(json);
   const planId = (step as any).planning?.planId || parsedJson.planId;
@@ -93,7 +96,7 @@ async function beforeClarificationStep(
   }
 
   const div = document.createElement('div');
-  const clariEl = document.createElement('widget-questions-for-clarification-100554');
+  const clariEl = document.createElement('widget-questions-for-clarification-102025');
 
   (clariEl as any).value = {
     taskId: context.task.PK,
@@ -129,7 +132,7 @@ function createImplementationDecisionElement(
   const clarification = buildImplementationDecisionClarification(recommendationsOutput);
 
   const div = document.createElement('div');
-  const clariEl = document.createElement('widget-questions-for-clarification-100554');
+  const clariEl = document.createElement('widget-questions-for-clarification-102025');
 
   (clariEl as any).value = {
     taskId: context.task.PK,

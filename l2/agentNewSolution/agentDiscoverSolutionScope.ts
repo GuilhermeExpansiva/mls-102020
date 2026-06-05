@@ -2,6 +2,7 @@
 
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import { getAgentStepByAgentName, getAllSteps } from '/_102027_/l2/aiAgentHelper.js';
+import { saveNewSolutionAgentTracePayload } from '/_102020_/l2/agentNewSolution/agentNewSolutionArtifacts.js';
 
 export function createAgent(): IAgentAsync {
   return {
@@ -285,6 +286,7 @@ async function afterPromptStep(
   };
 
   if (status === 'completed') updateStatus.cleaner = 'input';
+  await saveNewSolutionAgentTracePayload(context, agent.agentName, step);
   return [updateStatus];
 }
 

@@ -2,6 +2,11 @@
 
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import { getAgentStepByAgentName } from '/_102027_/l2/aiAgentHelper.js';
+import {
+  reserveAvailableModuleName,
+  reserveNewSolutionModuleArtifacts,
+  saveNewSolutionAgentTracePayload,
+} from '/_102020_/l2/agentNewSolution/agentNewSolutionArtifacts.js';
 
 export function createAgent(): IAgentAsync {
   return {
@@ -132,6 +137,11 @@ async function afterPromptStep(
   if (payload.type !== 'flexible' || !payload.result) throw new Error(`[afterPromptStep] invalid payload: ${JSON.stringify(payload)}`);
 
   const initialPlan = normalizeInitialPlan(payload.result);
+  initialPlan.moduleName = reserveAvailableModuleName(initialPlan.moduleName, initialPlan.userPrompt);
+  payload.result.moduleName = initialPlan.moduleName;
+  await reserveNewSolutionModuleArtifacts(initialPlan);
+  await saveNewSolutionAgentTracePayload(context, agent.agentName, step, initialPlan.moduleName);
+
   const plannedSteps = buildPlannedTree(initialPlan);
   const addStepIntents: mls.msg.AgentIntentAddStep[] = plannedSteps.map((plannedStep) => ({
     type: 'add-step',
@@ -274,6 +284,7 @@ function normalizeInitialPlan(result: InitialNewSolutionPlan): InitialNewSolutio
   if (!result.userLanguage || typeof result.userLanguage !== 'string') throw new Error('[normalizeInitialPlan] missing userLanguage');
   if (!['module', 'solution', 'module_solution'].includes(result.requestKind)) throw new Error(`[normalizeInitialPlan] invalid requestKind: ${result.requestKind}`);
   if (!result.userPrompt || typeof result.userPrompt !== 'string') throw new Error('[normalizeInitialPlan] missing userPrompt');
+  result.moduleName = reserveAvailableModuleName(result.moduleName, result.userPrompt);
   if (!result.titles || typeof result.titles !== 'object') result.titles = {};
   if (!Array.isArray(result.todoItems)) result.todoItems = [];
   if (!Array.isArray(result.openDetails)) result.openDetails = [];
@@ -366,6 +377,7 @@ If the prompt is valid, return only:
   "result": {
     "userLanguage": "ISO language code, such as pt-BR or en",
     "requestKind": "module | solution | module_solution",
+    "moduleName": "short unused folder name for the module, lower camel case, for example petshop",
     "userPrompt": "copy of the user prompt",
     "titles": {
       "plan id from the list": "localized user-facing title"
@@ -390,6 +402,7 @@ If the prompt is valid, return only:
 Rules:
 - Return valid JSON only.
 - The titles object must include every plan id listed below.
+- Choose a concise moduleName that can be used as l2/{moduleName}; it must be lower camel case, ASCII, and not in Already existing modules.
 - Do not invent agent names, dependencies, selectors, or execution rules. Code owns those.
 - Do not hard-code fixture examples such as rentalTable, vehicleSearchPage, fleet, rental, or reservation.
 - Every todo item must have done=false.
@@ -419,6 +432,7 @@ export type Output =
 export interface InitialNewSolutionPlan {
   userLanguage: string;
   requestKind: 'module' | 'solution' | 'module_solution';
+  moduleName: string;
   userPrompt: string;
   titles: Partial<Record<NewSolutionPlanId, string>>;
   todoItems: {

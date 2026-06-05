@@ -8,6 +8,7 @@ import {
   assertPriority,
   assertRecord,
   assertString,
+  optionalString,
   createDynamicAgentStepIntent,
   createPlannerPromptReadyIntent,
   createPlannerToolSchema,
@@ -18,6 +19,7 @@ import {
   getPlanningContextSnapshot,
 } from '/_102020_/l2/agentNewSolution/agentPlanningShared.js';
 import { FinalSolutionPlanOutput, getFinalizeSolutionPlanOutput } from '/_102020_/l2/agentNewSolution/agentFinalizeSolutionPlan.js';
+import { saveNewSolutionAgentTracePayload } from '/_102020_/l2/agentNewSolution/agentNewSolutionArtifacts.js';
 import { PlanHorizontalsOutput, getPlanHorizontalsOutput } from '/_102020_/l2/agentNewSolution/agentPlanHorizontals.js';
 import { PlanMDMOutput, getPlanMDMOutput } from '/_102020_/l2/agentNewSolution/agentPlanMDM.js';
 import { PlanPluginsOutput, getPlanPluginsOutput } from '/_102020_/l2/agentNewSolution/agentPlanPlugins.js';
@@ -89,7 +91,49 @@ const planPersistenceIndexToolSchema = createPlannerToolSchema(
           excludedEntities: { type: 'array', items: { type: 'object', additionalProperties: true } },
         },
       },
-      tables: { type: 'array', items: { type: 'object', additionalProperties: true } },
+      tables: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: true,
+          required: [
+            'tableId',
+            'tableName',
+            'title',
+            'purpose',
+            'ownership',
+            'rootEntity',
+            'sourceEntities',
+            'embeddedEntities',
+            'persistencePattern',
+            'tableKind',
+            'detailsColumnRecommended',
+            'priority',
+            'readsByArtifacts',
+            'writesByArtifacts',
+            'rulesApplied',
+            'reason',
+          ],
+          properties: {
+            tableId: { type: 'string' },
+            tableName: { type: 'string' },
+            title: { type: 'string' },
+            purpose: { type: 'string' },
+            ownership: { const: 'moduleOwned' },
+            rootEntity: { type: 'string' },
+            sourceEntities: { type: 'array', items: { type: 'string' } },
+            embeddedEntities: { type: 'array', items: { anyOf: [{ type: 'string' }, { type: 'object', additionalProperties: true }] } },
+            persistencePattern: { enum: ['singleEntity', 'aggregateJsonDetails', 'eventLog', 'lookup', 'readModel'] },
+            tableKind: { const: 'transactional' },
+            detailsColumnRecommended: { type: 'boolean' },
+            priority: { enum: ['now', 'soon', 'later', 'never'] },
+            readsByArtifacts: { type: 'array', items: { type: 'string' } },
+            writesByArtifacts: { type: 'array', items: { type: 'string' } },
+            rulesApplied: { type: 'array', items: { type: 'string' } },
+            reason: { type: 'string' },
+          },
+        },
+      },
     },
   }
 );
@@ -154,6 +198,8 @@ async function afterPromptStep(
     console.error(`[${agent.agentName}](afterPromptStep) ${traceMsg}`);
   }
 
+  await saveNewSolutionAgentTracePayload(context, agent.agentName, step);
+
   const intents: mls.msg.AgentIntent[] = [
     createPlannerUpdateStatusIntent(context, parentStep, step, hookSequential, status, traceMsg, status === 'completed' ? 'input' : undefined),
   ];
@@ -193,23 +239,40 @@ function normalizePlanPersistenceIndexResult(value: unknown): PlanPersistenceInd
 
 function normalizePersistenceTable(value: unknown, path: string): PersistenceTableIndexItem {
   const table = assertRecord(value, path);
+  const rootEntity = optionalString(table.rootEntity, `${path}.rootEntity`)
+    || optionalString(table.entityName, `${path}.entityName`)
+    || optionalString(table.entityId, `${path}.entityId`);
+  const reason = optionalString(table.reason, `${path}.reason`);
+  const purpose = optionalString(table.purpose, `${path}.purpose`) || reason;
+  const title = optionalString(table.title, `${path}.title`)
+    || optionalString(table.tableTitle, `${path}.tableTitle`)
+    || rootEntity
+    || optionalString(table.tableName, `${path}.tableName`)
+    || optionalString(table.tableId, `${path}.tableId`);
+  const embeddedEntities = normalizeStringArray(table.embeddedEntities || [], `${path}.embeddedEntities`);
+  const persistencePattern = optionalString(table.persistencePattern, `${path}.persistencePattern`) || (embeddedEntities.length > 0 ? 'aggregateJsonDetails' : 'singleEntity');
+
+  if (!rootEntity) throw new Error(`${path}.rootEntity must be a non-empty string`);
+  if (!purpose) throw new Error(`${path}.purpose must be a non-empty string`);
+  if (!title) throw new Error(`${path}.title must be a non-empty string`);
+
   return {
     tableId: assertString(table.tableId, `${path}.tableId`),
     tableName: assertString(table.tableName, `${path}.tableName`),
-    title: assertString(table.title, `${path}.title`),
-    purpose: assertString(table.purpose, `${path}.purpose`),
-    ownership: assertString(table.ownership, `${path}.ownership`),
-    rootEntity: assertString(table.rootEntity, `${path}.rootEntity`),
-    sourceEntities: normalizeStringArray(table.sourceEntities, `${path}.sourceEntities`),
-    embeddedEntities: normalizeStringArray(table.embeddedEntities, `${path}.embeddedEntities`),
-    persistencePattern: assertString(table.persistencePattern, `${path}.persistencePattern`),
-    tableKind: assertString(table.tableKind, `${path}.tableKind`),
-    detailsColumnRecommended: Boolean(table.detailsColumnRecommended),
-    priority: assertPriority(table.priority, `${path}.priority`),
-    readsByArtifacts: normalizeStringArray(table.readsByArtifacts, `${path}.readsByArtifacts`),
-    writesByArtifacts: normalizeStringArray(table.writesByArtifacts, `${path}.writesByArtifacts`),
-    rulesApplied: normalizeStringArray(table.rulesApplied, `${path}.rulesApplied`),
-    reason: assertString(table.reason, `${path}.reason`),
+    title,
+    purpose,
+    ownership: optionalString(table.ownership, `${path}.ownership`) || 'moduleOwned',
+    rootEntity,
+    sourceEntities: normalizeStringArray(table.sourceEntities || [rootEntity], `${path}.sourceEntities`),
+    embeddedEntities,
+    persistencePattern,
+    tableKind: optionalString(table.tableKind, `${path}.tableKind`) || 'transactional',
+    detailsColumnRecommended: table.detailsColumnRecommended === undefined ? persistencePattern === 'aggregateJsonDetails' || embeddedEntities.length > 0 : Boolean(table.detailsColumnRecommended),
+    priority: table.priority === undefined ? 'now' : assertPriority(table.priority, `${path}.priority`),
+    readsByArtifacts: normalizeStringArray(table.readsByArtifacts || [], `${path}.readsByArtifacts`),
+    writesByArtifacts: normalizeStringArray(table.writesByArtifacts || [], `${path}.writesByArtifacts`),
+    rulesApplied: normalizeStringArray(table.rulesApplied || table.rules || [], `${path}.rulesApplied`),
+    reason: reason || purpose,
   };
 }
 
@@ -252,7 +315,19 @@ function createFirstTableDefinitionIntent(context: mls.msg.ExecutionContext, out
 }
 
 function normalizeStringArray(value: unknown, path: string): string[] {
-  return assertArray(value, path).map((item, index) => assertString(item, `${path}[${index}]`));
+  return assertArray(value, path).map((item, index) => normalizeStringRef(item, `${path}[${index}]`));
+}
+
+function normalizeStringRef(value: unknown, path: string): string {
+  if (typeof value === 'string') return assertString(value, path);
+  const record = assertRecord(value, path);
+  return optionalString(record.entityName, `${path}.entityName`)
+    || optionalString(record.entityId, `${path}.entityId`)
+    || optionalString(record.name, `${path}.name`)
+    || optionalString(record.collectionName, `${path}.collectionName`)
+    || optionalString(record.tableId, `${path}.tableId`)
+    || optionalString(record.ruleId, `${path}.ruleId`)
+    || JSON.stringify(record);
 }
 
 function buildHumanPrompt(
@@ -297,6 +372,9 @@ Do not return prose.
 
 ## Rules
 - Generate only module-owned new transactional tables.
+- Generate tables only for entities/artifacts that are present in the final solution plan approvedArtifacts, ontology, workflows, or usecase signals.
+- Do not introduce scheduling, payment, finance, cart, order, delivery, or other feature tables unless they are explicitly approved in the final solution plan.
+- Payment, finance, notification, document, and plugin-owned records must be excluded when they belong to horizontal modules or plugins.
 - Normal transactional tables and metric tables are separate. This step plans transactional module-owned tables only.
 - Set metricsTablesRequired true when initial metrics/dashboard was accepted.
 - Do not generate tables for MDM entities; list them in excludedEntities with ownership "mdmOwned".

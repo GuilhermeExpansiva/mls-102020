@@ -13,6 +13,7 @@ import {
   getPlanningContextSnapshot,
   hasAcceptedNowArtifact,
 } from '/_102020_/l2/agentNewSolution/agentPlanningShared.js';
+import { saveNewSolutionAgentTracePayload } from '/_102020_/l2/agentNewSolution/agentNewSolutionArtifacts.js';
 
 export function createAgent(): IAgentAsync {
   return {
@@ -154,6 +155,7 @@ async function afterPromptStep(
     console.error(`[${agent.agentName}](afterPromptStep) ${traceMsg}`);
   }
 
+  await saveNewSolutionAgentTracePayload(context, agent.agentName, step);
   return [createPlannerUpdateStatusIntent(context, parentStep, step, hookSequential, status, traceMsg, status === 'completed' ? 'input' : undefined)];
 }
 

@@ -15,6 +15,7 @@ import {
   RequirementsClarificationAnswer,
   getRequirementsClarificationAnswer,
 } from '/_102020_/l2/agentNewSolution/agentNewSolutionRequirements.js';
+import { normalizeModuleFolderName } from '/_102020_/l2/agentNewSolution/agentNewSolutionArtifacts.js';
 
 export const PLANNER_SCHEMA_VERSION = '2026-06-02';
 
@@ -24,6 +25,7 @@ export type Priority = 'now' | 'soon' | 'later' | 'never';
 export interface InitialNewSolutionPlanSummary {
   userLanguage: string;
   requestKind: string;
+  moduleName: string;
   userPrompt: string;
   titles?: Record<string, string>;
   todoItems?: unknown[];
@@ -286,6 +288,7 @@ export function getInitialNewSolutionPlanSummary(context: mls.msg.ExecutionConte
 
   if (!result || typeof result !== 'object') throw new Error('[getInitialNewSolutionPlanSummary] initial plan not found');
   if (!result.userPrompt || typeof result.userPrompt !== 'string') throw new Error('[getInitialNewSolutionPlanSummary] user prompt not found');
+  result.moduleName = normalizeModuleFolderName(result.moduleName, result.userPrompt);
   return result;
 }
 

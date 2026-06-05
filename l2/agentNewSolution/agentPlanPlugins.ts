@@ -15,8 +15,11 @@ import {
   getPlannerOutput,
   getPlanningContextSnapshot,
   hasAcceptedArtifact,
+  normalizeStringList,
+  optionalString,
 } from '/_102020_/l2/agentNewSolution/agentPlanningShared.js';
 import { FinalSolutionPlanOutput, getFinalizeSolutionPlanOutput } from '/_102020_/l2/agentNewSolution/agentFinalizeSolutionPlan.js';
+import type { PluginCatalogDefinition, PluginCatalogItem } from '/_102020_/l2/agentNewSolution/pluginCatalog.defs.js';
 
 export function createAgent(): IAgentAsync {
   return {
@@ -34,6 +37,8 @@ export const PLAN_PLUGINS_TOOL_NAME = 'submitPluginPlan';
 export const PLAN_PLUGINS_STEP_ID = '11-plan-plugins';
 const PLAN_PLUGINS_ALIASES = [PLAN_PLUGINS_STEP_ID, 'plan-plugins'];
 
+export type PluginResolution = 'existing' | 'create_draft';
+
 export interface PluginPlan {
   pluginId: string;
   provider: string;
@@ -45,6 +50,11 @@ export interface PluginPlan {
   outputData: string[];
   webhooks: string[];
   risks: string[];
+  questions: string[];
+  resolution: PluginResolution;
+  pluginDefsFileRef: string;
+  moduleConnectionDefsFileRef: string;
+  sourceProject?: number;
 }
 
 export interface PlanPluginsResult {
@@ -67,7 +77,22 @@ const planPluginsToolSchema = createPlannerToolSchema(
         items: {
           type: 'object',
           additionalProperties: false,
-          required: ['pluginId', 'provider', 'priority', 'reason', 'events', 'requiredCredentials', 'inputData', 'outputData', 'webhooks', 'risks'],
+          required: [
+            'pluginId',
+            'provider',
+            'priority',
+            'reason',
+            'events',
+            'requiredCredentials',
+            'inputData',
+            'outputData',
+            'webhooks',
+            'risks',
+            'questions',
+            'resolution',
+            'pluginDefsFileRef',
+            'moduleConnectionDefsFileRef',
+          ],
           properties: {
             pluginId: { type: 'string' },
             provider: { type: 'string' },
@@ -79,6 +104,11 @@ const planPluginsToolSchema = createPlannerToolSchema(
             outputData: { type: 'array', items: { type: 'string' } },
             webhooks: { type: 'array', items: { type: 'string' } },
             risks: { type: 'array', items: { type: 'string' } },
+            questions: { type: 'array', items: { type: 'string' } },
+            resolution: { enum: ['existing', 'create_draft'] },
+            pluginDefsFileRef: { type: 'string' },
+            moduleConnectionDefsFileRef: { type: 'string' },
+            sourceProject: { type: 'number' },
           },
         },
       },
@@ -100,6 +130,9 @@ async function beforePromptStep(
 
   const finalPlan = getFinalizeSolutionPlanOutput(context);
   const snapshot = getPlanningContextSnapshot(context);
+  const moduleName = getFinalPlanModuleName(finalPlan);
+  const catalog = await buildRuntimePluginCatalog(finalPlan, snapshot);
+  const inventory = await buildPluginInventory(moduleName, catalog);
   return [
     createPlannerPromptReadyIntent(
       context,
@@ -107,7 +140,7 @@ async function beforePromptStep(
       hookSequential,
       args,
       systemPrompt.split('{{toolName}}').join(PLAN_PLUGINS_TOOL_NAME),
-      buildHumanPrompt(args, finalPlan, snapshot),
+      buildHumanPrompt(args, finalPlan, snapshot, catalog, inventory),
       planPluginsToolSchema,
       PLAN_PLUGINS_TOOL_NAME
     ),
@@ -179,70 +212,373 @@ function normalizePlugin(value: unknown, path: string): PluginPlan {
     outputData: assertArray(item.outputData, `${path}.outputData`).map((value, index) => assertString(value, `${path}.outputData[${index}]`)),
     webhooks: assertArray(item.webhooks, `${path}.webhooks`).map((value, index) => assertString(value, `${path}.webhooks[${index}]`)),
     risks: assertArray(item.risks, `${path}.risks`).map((value, index) => assertString(value, `${path}.risks[${index}]`)),
+    questions: normalizeStringList(item.questions, `${path}.questions`),
+    resolution: normalizePluginResolution(item.resolution, `${path}.resolution`) || 'create_draft',
+    pluginDefsFileRef: optionalString(item.pluginDefsFileRef, `${path}.pluginDefsFileRef`) || '',
+    moduleConnectionDefsFileRef: optionalString(item.moduleConnectionDefsFileRef, `${path}.moduleConnectionDefsFileRef`) || '',
+    sourceProject: optionalNumber(item.sourceProject, `${path}.sourceProject`),
   };
 }
 
 function validatePlanPluginsOutput(output: PlanPluginsOutput, context: mls.msg.ExecutionContext): void {
-  const allowedIds = new Set(pluginCatalog.plugins.map(item => item.pluginId));
-  const allowedProviders = new Set(pluginCatalog.plugins.map(item => item.provider));
-  for (const plugin of output.result.plugins) {
-    if (!allowedIds.has(plugin.pluginId)) throw new Error(`unknown pluginId: ${plugin.pluginId}`);
-    if (!allowedProviders.has(plugin.provider)) throw new Error(`unknown plugin provider: ${plugin.provider}`);
-  }
+  const finalPlan = getFinalizeSolutionPlanOutput(context);
   const snapshot = getPlanningContextSnapshot(context);
+  const catalog = buildRuntimePluginCatalogSync(finalPlan, snapshot);
+  const allowedById = new Map(catalog.plugins.map(item => [item.pluginId, item]));
+  const moduleName = getFinalPlanModuleName(finalPlan);
+  const inventory = buildPluginInventorySync(moduleName, catalog);
+  const inventoryById = new Map(inventory.plugins.map(item => [item.pluginId, item]));
+
+  for (const plugin of output.result.plugins) {
+    const catalogItem = allowedById.get(plugin.pluginId);
+    if (!catalogItem) throw new Error(`unknown pluginId: ${plugin.pluginId}`);
+    if (toPluginId(catalogItem.provider) !== toPluginId(plugin.provider)) throw new Error(`plugin provider mismatch for ${plugin.pluginId}: ${plugin.provider}`);
+
+    const expected = inventoryById.get(plugin.pluginId);
+    if (!expected) throw new Error(`missing plugin inventory for ${plugin.pluginId}`);
+
+    plugin.resolution = plugin.resolution || expected.resolution;
+    plugin.pluginDefsFileRef = plugin.pluginDefsFileRef || expected.pluginDefsFileRef;
+    plugin.moduleConnectionDefsFileRef = plugin.moduleConnectionDefsFileRef || expected.moduleConnectionDefsFileRef;
+    plugin.sourceProject = plugin.sourceProject ?? expected.sourceProject;
+
+    if (plugin.resolution !== expected.resolution) throw new Error(`invalid resolution for ${plugin.pluginId}: ${plugin.resolution}`);
+    if (plugin.pluginDefsFileRef !== expected.pluginDefsFileRef) throw new Error(`invalid pluginDefsFileRef for ${plugin.pluginId}: ${plugin.pluginDefsFileRef}`);
+    if (plugin.moduleConnectionDefsFileRef !== expected.moduleConnectionDefsFileRef) throw new Error(`invalid moduleConnectionDefsFileRef for ${plugin.pluginId}: ${plugin.moduleConnectionDefsFileRef}`);
+    if (expected.resolution === 'existing' && plugin.sourceProject !== expected.sourceProject) {
+      throw new Error(`invalid sourceProject for existing plugin ${plugin.pluginId}: ${plugin.sourceProject}`);
+    }
+  }
   if (output.status === 'ok' && hasAcceptedArtifact(snapshot.implementationDecisions, 'plugin') && output.result.plugins.length === 0) {
     throw new Error('plugin was accepted, but plugins output is empty');
   }
-  if (output.status === 'needs_input' && output.questions.length === 0) throw new Error('needs_input plugin plan must include questions');
+  const hasPluginQuestions = output.result.plugins.some(plugin => plugin.questions.length > 0);
+  if (output.status === 'needs_input' && output.questions.length === 0 && !hasPluginQuestions) {
+    throw new Error('needs_input plugin plan must include top-level or per-plugin questions');
+  }
 }
 
-function buildHumanPrompt(args: string, finalPlan: FinalSolutionPlanOutput, snapshot: ReturnType<typeof getPlanningContextSnapshot>): string {
+function buildHumanPrompt(
+  args: string,
+  finalPlan: FinalSolutionPlanOutput,
+  snapshot: ReturnType<typeof getPlanningContextSnapshot>,
+  catalog: PluginCatalogDefinition,
+  inventory: PluginInventory,
+): string {
+  const promptContext = buildPluginPromptContext(args, finalPlan, snapshot, catalog, inventory);
   return `## Planned step args
 ${args}
 
-## Final solution plan
-${JSON.stringify(finalPlan, null, 2)}
-
-## Accepted implementation decisions
-${JSON.stringify(snapshot.implementationDecisions, null, 2)}
-
-## Plugin catalog
-${JSON.stringify(pluginCatalog, null, 2)}
+## Plugin planning context
+${JSON.stringify(promptContext, null, 2)}
 `;
 }
 
-const pluginCatalog = {
-  schemaVersion: '2026-06-02',
-  plugins: [
-    {
-      pluginId: 'stripe',
-      provider: 'Stripe',
+interface PluginInventoryItem {
+  pluginId: string;
+  provider: string;
+  resolution: PluginResolution;
+  exists: boolean;
+  sourceProject?: number;
+  pluginDefsFileRef: string;
+  moduleConnectionDefsFileRef: string;
+}
+
+interface PluginInventory {
+  actualProject: number;
+  moduleName: string;
+  searchProjects: number[];
+  plugins: PluginInventoryItem[];
+}
+
+async function buildRuntimePluginCatalog(
+  finalPlan: FinalSolutionPlanOutput,
+  snapshot: ReturnType<typeof getPlanningContextSnapshot>,
+): Promise<PluginCatalogDefinition> {
+  const actualProject = getActualProject();
+  try {
+    await mls.stor.loadProjectdependenciesInfoIfNeed(actualProject);
+  } catch {
+    // The sync dependency list is enough when dependencies are already loaded.
+  }
+  return buildRuntimePluginCatalogSync(finalPlan, snapshot);
+}
+
+function buildRuntimePluginCatalogSync(
+  finalPlan: FinalSolutionPlanOutput,
+  snapshot: ReturnType<typeof getPlanningContextSnapshot>,
+): PluginCatalogDefinition {
+  const actualProject = getActualProject();
+  const searchProjects = getPluginSearchProjects(actualProject);
+  const byId = new Map<string, PluginCatalogItem>();
+
+  for (const item of discoverExistingPluginCatalogItems(searchProjects)) {
+    byId.set(item.pluginId, item);
+  }
+
+  for (const item of discoverApprovedPluginCatalogItems(finalPlan, snapshot)) {
+    if (!byId.has(item.pluginId)) byId.set(item.pluginId, item);
+  }
+
+  return {
+    schemaVersion: '2026-06-02',
+    plugins: Array.from(byId.values()).sort((a, b) => a.pluginId.localeCompare(b.pluginId)),
+  };
+}
+
+function discoverExistingPluginCatalogItems(searchProjects: number[]): PluginCatalogItem[] {
+  const byId = new Map<string, PluginCatalogItem>();
+
+  for (const file of Object.values(mls.stor.files)) {
+    if (!searchProjects.includes(file.project)) continue;
+    if (file.level !== 2 || file.shortName !== 'plugin' || file.extension !== '.defs.ts') continue;
+    const pluginId = getPluginIdFromPluginFolder(file.folder);
+    if (!pluginId || byId.has(pluginId)) continue;
+    byId.set(pluginId, {
+      pluginId,
+      provider: toProviderName(pluginId),
       artifactType: 'plugin',
-      capabilities: ['paymentIntent', 'checkout', 'refund', 'webhookPaymentStatus'],
-      requiredCredentials: ['secretKey', 'webhookSecret'],
-    },
-    {
-      pluginId: 'whatsapp',
-      provider: 'WhatsApp',
-      artifactType: 'plugin',
-      capabilities: ['sendMessage', 'templateMessage', 'deliveryStatus'],
-      requiredCredentials: ['accessToken', 'phoneNumberId'],
-    },
-    {
-      pluginId: 'email',
-      provider: 'Email',
-      artifactType: 'plugin',
-      capabilities: ['sendEmail', 'templateEmail'],
-      requiredCredentials: ['apiKey'],
-    },
-  ],
-};
+      capabilities: [],
+      requiredCredentials: [],
+    });
+  }
+
+  return Array.from(byId.values());
+}
+
+function discoverApprovedPluginCatalogItems(
+  finalPlan: FinalSolutionPlanOutput,
+  snapshot: ReturnType<typeof getPlanningContextSnapshot>,
+): PluginCatalogItem[] {
+  const candidates = [
+    ...finalPlan.result.approvedArtifacts.plugins,
+    ...snapshot.implementationDecisions.decisions.filter(decision =>
+      decision.artifactType === 'plugin' && decision.accepted && decision.decidedPriority !== 'never'
+    ),
+  ];
+
+  const byId = new Map<string, PluginCatalogItem>();
+  candidates.forEach((candidate, index) => {
+    const item = normalizePluginCatalogCandidate(candidate, `pluginCandidate[${index}]`);
+    if (item && !byId.has(item.pluginId)) byId.set(item.pluginId, item);
+  });
+  return Array.from(byId.values());
+}
+
+function normalizePluginCatalogCandidate(value: unknown, path: string): PluginCatalogItem | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const pluginId = getPluginIdFromCandidate(record, path);
+  if (!pluginId) return null;
+  return {
+    pluginId,
+    provider: getProviderFromCandidate(record, pluginId, path),
+    artifactType: 'plugin',
+    capabilities: normalizeStringList(record.capabilities, `${path}.capabilities`),
+    requiredCredentials: normalizeStringList(record.requiredCredentials, `${path}.requiredCredentials`),
+  };
+}
+
+async function buildPluginInventory(moduleName: string, catalog: PluginCatalogDefinition): Promise<PluginInventory> {
+  const actualProject = getActualProject();
+  try {
+    await mls.stor.loadProjectdependenciesInfoIfNeed(actualProject);
+  } catch {
+    // The sync dependency list is enough when dependencies are already loaded.
+  }
+  return buildPluginInventorySync(moduleName, catalog);
+}
+
+function buildPluginInventorySync(moduleName: string, catalog: PluginCatalogDefinition): PluginInventory {
+  const actualProject = getActualProject();
+  const searchProjects = getPluginSearchProjects(actualProject);
+  return {
+    actualProject,
+    moduleName,
+    searchProjects,
+    plugins: catalog.plugins.map(plugin => {
+      const existing = findExistingPlugin(plugin.pluginId, searchProjects);
+      return {
+        pluginId: plugin.pluginId,
+        provider: plugin.provider,
+        resolution: existing ? 'existing' : 'create_draft',
+        exists: !!existing,
+        sourceProject: existing?.project,
+        pluginDefsFileRef: existing?.fileRef || buildPluginDefsFileRef(actualProject, plugin.pluginId),
+        moduleConnectionDefsFileRef: buildModuleConnectionDefsFileRef(actualProject, moduleName, plugin.pluginId),
+      };
+    }),
+  };
+}
+
+function findExistingPlugin(pluginId: string, searchProjects: number[]): { project: number; fileRef: string } | null {
+  for (const project of searchProjects) {
+    const fileInfo = {
+      project,
+      level: 2,
+      folder: `plugins/${pluginId}`,
+      shortName: 'plugin',
+      extension: '.defs.ts',
+    };
+    const key = mls.stor.getKeyToFile(fileInfo);
+    if (mls.stor.files[key]) return { project, fileRef: buildPluginDefsFileRef(project, pluginId) };
+  }
+  return null;
+}
+
+function getPluginIdFromPluginFolder(folder: string): string | null {
+  const match = /^plugins\/([^/]+)$/.exec(folder);
+  if (!match) return null;
+  const pluginId = toPluginId(match[1]);
+  return pluginId || null;
+}
+
+function getPluginSearchProjects(actualProject: number): number[] {
+  const dependencies = mls.l5.getProjectDependencies(actualProject, false) || [];
+  return Array.from(new Set([actualProject, ...dependencies]));
+}
+
+function buildPluginDefsFileRef(project: number, pluginId: string): string {
+  return `_${project}_/l2/plugins/${pluginId}/plugin.defs.ts`;
+}
+
+function buildModuleConnectionDefsFileRef(project: number, moduleName: string, pluginId: string): string {
+  return `_${project}_/l2/${moduleName}/plugins/${pluginId}.defs.ts`;
+}
+
+function getActualProject(): number {
+  return mls.actualProject || 0;
+}
+
+function getFinalPlanModuleName(finalPlan: FinalSolutionPlanOutput): string {
+  return assertString(finalPlan.result.module.moduleName, 'result.module.moduleName');
+}
+
+function buildPluginPromptContext(
+  args: string,
+  finalPlan: FinalSolutionPlanOutput,
+  snapshot: ReturnType<typeof getPlanningContextSnapshot>,
+  catalog: PluginCatalogDefinition,
+  inventory: PluginInventory,
+): Record<string, unknown> {
+  return {
+    args,
+    module: finalPlan.result.module,
+    approvedPluginArtifacts: summarizeObjects(finalPlan.result.approvedArtifacts.plugins),
+    approvedWorkflowArtifacts: summarizeObjects(finalPlan.result.approvedArtifacts.workflows),
+    approvedAgentArtifacts: summarizeObjects(finalPlan.result.approvedArtifacts.agents),
+    approvedHorizontalModules: summarizeObjects(finalPlan.result.approvedArtifacts.horizontalModules),
+    capabilities: summarizeObjects(finalPlan.result.capabilities),
+    implementationDecisions: snapshot.implementationDecisions.decisions.filter(decision => isPluginRelevantDecision(decision)),
+    pluginCatalog: catalog,
+    pluginInventory: inventory,
+  };
+}
+
+function summarizeObjects(items: unknown[]): unknown[] {
+  return items.map(item => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return item;
+    const record = item as Record<string, unknown>;
+    const summary: Record<string, unknown> = {};
+    for (const key of ['pluginId', 'artifactId', 'signal', 'workflowId', 'agentId', 'horizontalModuleId', 'capabilityId', 'title', 'description', 'reason', 'priority', 'actor']) {
+      if (record[key] !== undefined) summary[key] = record[key];
+    }
+    return Object.keys(summary).length > 0 ? summary : item;
+  });
+}
+
+function isPluginRelevantDecision(decision: { artifactType: string; title?: string; description?: string; reason?: string }): boolean {
+  if (['plugin', 'agent', 'horizontalModule', 'workflow'].includes(decision.artifactType)) return true;
+  const text = [decision.title, decision.description, decision.reason].join(' ').toLowerCase();
+  return /plugin|integracao|integration|provider|pagamento|payment|mensagem|message|comunicacao|communication|notifica|notification|webhook/.test(text);
+}
+
+function getPluginIdFromCandidate(record: Record<string, unknown>, path: string): string | null {
+  const explicit = optionalString(record.pluginId, `${path}.pluginId`)
+    || optionalString(record.providerId, `${path}.providerId`)
+    || optionalString(record.integrationId, `${path}.integrationId`);
+  if (explicit) return toPluginId(explicit);
+
+  const provider = inferProviderFromText(record, path);
+  if (provider) return toPluginId(provider);
+
+  const idSource = optionalString(record.recommendationId, `${path}.recommendationId`)
+    || optionalString(record.artifactId, `${path}.artifactId`)
+    || optionalString(record.signal, `${path}.signal`)
+    || optionalString(record.itemId, `${path}.itemId`);
+  return idSource ? toPluginId(stripPluginSuffix(idSource)) : null;
+}
+
+function getProviderFromCandidate(record: Record<string, unknown>, pluginId: string, path: string): string {
+  return optionalString(record.provider, `${path}.provider`)
+    || optionalString(record.providerName, `${path}.providerName`)
+    || inferProviderFromText(record, path)
+    || toProviderName(pluginId);
+}
+
+function inferProviderFromText(record: Record<string, unknown>, path: string): string | null {
+  const text = [
+    optionalString(record.title, `${path}.title`),
+    optionalString(record.description, `${path}.description`),
+    optionalString(record.reason, `${path}.reason`),
+    optionalString(record.decision, `${path}.decision`),
+  ].filter((item): item is string => !!item).join(' ');
+  const match = /(?:\bvia\b|\bcom\b|\busing\b)\s+([a-zA-Z][a-zA-Z0-9._-]*)/.exec(text);
+  return match ? match[1] : null;
+}
+
+function stripPluginSuffix(value: string): string {
+  return value.replace(/(?:Plugin|Integration|Provider)$/i, '');
+}
+
+function toPluginId(value: string): string {
+  const words = toAsciiWords(value);
+  if (words.length === 0) return '';
+  return words.map((word, index) => index === 0 ? word.toLowerCase() : capitalize(word.toLowerCase())).join('');
+}
+
+function toProviderName(value: string): string {
+  const words = toAsciiWords(value);
+  if (words.length === 0) return value;
+  return words.map(word => capitalize(word.toLowerCase())).join(' ');
+}
+
+function toAsciiWords(value: string): string[] {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[^a-zA-Z0-9]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function normalizePluginResolution(value: unknown, path: string): PluginResolution | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (value === 'existing' || value === 'create_draft') return value;
+  throw new Error(`${path} must be existing or create_draft`);
+}
+
+function optionalNumber(value: unknown, path: string): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  throw new Error(`${path} must be a number`);
+}
 
 const systemPrompt = `
 <!-- modelType: codepro -->
 
 You are agentPlanPlugins for the collab.codes "newSolution" flow.
-Plan external plugins from the final solution plan, implementation decisions, and plugin catalog.
+Plan external plugins from the reduced plugin planning context, implementation decisions, plugin catalog, and plugin inventory.
 Use the same language as the user for reasons, risks, questions, and trace.
 
 ## Tool mode
@@ -251,11 +587,16 @@ Do not return prose.
 
 ## Rules
 - Use only pluginId and provider values from the provided plugin catalog.
+- Use pluginInventory as the source of truth for resolution, pluginDefsFileRef, moduleConnectionDefsFileRef, and sourceProject.
+- When pluginInventory marks a plugin as existing, return resolution "existing" and preserve sourceProject.
+- When pluginInventory marks a plugin as create_draft, return resolution "create_draft"; the later defs save step will create l2/plugins/{pluginId}/plugin.defs.ts with draft status.
+- moduleConnectionDefsFileRef must point to l2/{moduleName}/plugins/{pluginId}.defs.ts.
+- Put plugin-specific questions in plugins[].questions. Use top-level questions only for general blockers.
 - Do not hard-code plugin providers or priorities from a sample domain.
 - A plugin can be "now" only when the approved MVP depends on that external integration.
 - A plugin can be "soon" or "later" when it is useful for a future workflow, agent, notification, payment, document, or operational improvement.
 - Do not plan a plugin as required for MVP unless implementation decisions approve it as "now".
-- Messaging and email plugins may be planned only when reminders, alerts, approvals, contact, follow-ups, or communication workflows justify them.
+- Communication plugins may be planned only when reminders, alerts, approvals, contact, follow-ups, or communication workflows justify them.
 - Return an empty array when no external plugin is justified.
 
 ## Content Memory
