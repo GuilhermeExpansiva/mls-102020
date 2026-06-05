@@ -433,8 +433,8 @@ function normalizeDiscoverSolutionScopeOutput(value: Record<string, unknown>): D
       businessRisks: assertStringArray(result.businessRisks, 'result.businessRisks'),
       missingContext: assertStringArray(result.missingContext, 'result.missingContext'),
     },
-    questions: assertStringArray(value.questions, 'questions'),
-    trace: assertStringArray(value.trace, 'trace'),
+    questions: normalizeStringList(value.questions, 'questions'),
+    trace: normalizeStringList(value.trace, 'trace'),
   };
 }
 
@@ -611,6 +611,34 @@ function optionalString(value: unknown, path: string): string | undefined {
 function assertStringArray(value: unknown, path: string): string[] {
   if (!Array.isArray(value)) throw new Error(`${path} must be an array`);
   return value.map((item, index) => assertString(item, `${path}[${index}]`));
+}
+
+function normalizeStringList(value: unknown, path: string): string[] {
+  if (value === undefined || value === null) return [];
+  if (Array.isArray(value)) return value.map((item, index) => normalizeStringListItem(item, `${path}[${index}]`));
+  if (isRecord(value)) {
+    return Object.entries(value).map(([key, item]) => {
+      const normalized = normalizeStringListItem(item, `${path}.${key}`);
+      return normalized || key;
+    });
+  }
+  return [assertString(value, path)];
+}
+
+function normalizeStringListItem(value: unknown, path: string): string {
+  if (typeof value === 'string') return assertString(value, path);
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (isRecord(value)) {
+    const parts = [
+      optionalString(value.title, `${path}.title`),
+      optionalString(value.question, `${path}.question`),
+      optionalString(value.description, `${path}.description`),
+      optionalString(value.reason, `${path}.reason`),
+    ].filter((item): item is string => !!item);
+    if (parts.length > 0) return parts.join(' - ');
+    return JSON.stringify(value);
+  }
+  throw new Error(`${path} must be a string-compatible value`);
 }
 
 function assertStatus(value: unknown, path: string): ScopeStatus {
