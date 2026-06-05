@@ -261,7 +261,7 @@ function normalizePersistenceTable(value: unknown, path: string): PersistenceTab
     tableName: assertString(table.tableName, `${path}.tableName`),
     title,
     purpose,
-    ownership: optionalString(table.ownership, `${path}.ownership`) || 'moduleOwned',
+    ownership: normalizePersistenceOwnership(table.ownership, `${path}.ownership`),
     rootEntity,
     sourceEntities: normalizeStringArray(table.sourceEntities || [rootEntity], `${path}.sourceEntities`),
     embeddedEntities,
@@ -274,6 +274,12 @@ function normalizePersistenceTable(value: unknown, path: string): PersistenceTab
     rulesApplied: normalizeStringArray(table.rulesApplied || table.rules || [], `${path}.rulesApplied`),
     reason: reason || purpose,
   };
+}
+
+function normalizePersistenceOwnership(value: unknown, path: string): string {
+  const ownership = optionalString(value, path) || 'moduleOwned';
+  if (ownership === 'module' || ownership === 'module_owned' || ownership === 'module-owned') return 'moduleOwned';
+  return ownership;
 }
 
 function validatePlanPersistenceIndexOutput(output: PlanPersistenceIndexOutput, initialMetricsRequested: boolean): void {
@@ -372,6 +378,7 @@ Do not return prose.
 
 ## Rules
 - Generate only module-owned new transactional tables.
+- For each tables[] item, set ownership exactly to "moduleOwned".
 - Generate tables only for entities/artifacts that are present in the final solution plan approvedArtifacts, ontology, workflows, or usecase signals.
 - Do not introduce scheduling, payment, finance, cart, order, delivery, or other feature tables unless they are explicitly approved in the final solution plan.
 - Payment, finance, notification, document, and plugin-owned records must be excluded when they belong to horizontal modules or plugins.
