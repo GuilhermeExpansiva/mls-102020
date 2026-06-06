@@ -191,16 +191,16 @@ function tryNormalizePlannerEnvelope<T>(value: unknown, config: PlannerExtractCo
     throw new Error(`stepId must be ${config.stepId}`);
   }
   if (output.result === undefined) return null;
-  validatePlannerResultSchema(output.result, config);
+  const payload = normalizePlannerResultPayload(output, config);
 
   return {
     runId: optionalString(output.runId, 'runId') || 'provider-tool-call',
     stepId: config.stepId,
     schemaVersion: PLANNER_SCHEMA_VERSION,
     status: output.status === undefined ? 'ok' : assertPlannerStatus(output.status, 'status'),
-    result: config.normalizeResult(output.result),
-    questions: normalizeStringList(output.questions, 'questions'),
-    trace: normalizeStringList(output.trace, 'trace'),
+    result: payload.result,
+    questions: payload.questions,
+    trace: payload.trace,
   };
 }
 
@@ -250,17 +250,48 @@ function tryNormalizePlannerOutput<T>(value: unknown, config: PlannerExtractConf
   if (output.result === undefined) return null;
   if (isToolWrapper(output.result, config.toolName)) return null;
   if (isNestedPlannerOutput(output.result, config)) return null;
-  validatePlannerResultSchema(output.result, config);
+  const payload = normalizePlannerResultPayload(output, config);
 
   return {
     runId: optionalString(output.runId, 'runId') || 'provider-tool-call',
     stepId: config.stepId,
     schemaVersion: PLANNER_SCHEMA_VERSION,
     status: output.status === undefined ? 'ok' : assertPlannerStatus(output.status, 'status'),
-    result: config.normalizeResult(output.result),
-    questions: normalizeStringList(output.questions, 'questions'),
-    trace: normalizeStringList(output.trace, 'trace'),
+    result: payload.result,
+    questions: payload.questions,
+    trace: payload.trace,
   };
+}
+
+function normalizePlannerResultPayload<T>(
+  output: Record<string, unknown>,
+  config: PlannerExtractConfig<T>,
+): { result: T; questions: string[]; trace: string[] } {
+  try {
+    validatePlannerResultSchema(output.result, config);
+    return {
+      result: config.normalizeResult(output.result),
+      questions: normalizeStringList(output.questions, 'questions'),
+      trace: normalizeStringList(output.trace, 'trace'),
+    };
+  } catch (error) {
+    const result = output.result;
+    if (!isRecord(result)) throw error;
+    if (output.questions !== undefined || output.trace !== undefined) throw error;
+    if (result.questions === undefined && result.trace === undefined) throw error;
+
+    const cleanedResult: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(result)) {
+      if (key !== 'questions' && key !== 'trace') cleanedResult[key] = value;
+    }
+
+    validatePlannerResultSchema(cleanedResult, config);
+    return {
+      result: config.normalizeResult(cleanedResult),
+      questions: normalizeStringList(result.questions, 'result.questions'),
+      trace: normalizeStringList(result.trace, 'result.trace'),
+    };
+  }
 }
 
 function validatePlannerResultSchema<T>(value: unknown, config: PlannerExtractConfig<T>): void {

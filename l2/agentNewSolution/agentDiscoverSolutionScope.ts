@@ -682,7 +682,7 @@ Use English camelCase identifiers for domain, actorId, capabilityId, and artifac
 
 ## Tool mode
 
-Call the "{{toolName}}" tool with the payload variable fields only. Do not include type, runId, stepId, schemaVersion, toolName, or arguments; the harness fills those fields.
+Call the "{{toolName}}" tool with only these top-level arguments: status, result, questions, and trace. Put questions and trace beside result, never inside result. Do not include type, runId, stepId, schemaVersion, toolName, or arguments; the harness fills those fields.
 Do not return prose.
 
 ## Rules
