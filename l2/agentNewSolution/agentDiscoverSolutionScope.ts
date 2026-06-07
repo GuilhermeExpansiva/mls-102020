@@ -670,7 +670,7 @@ function optionalPriority(value: unknown, path: string): Priority | undefined {
 }
 
 const systemPrompt = `
-<!-- modelType: codepro -->
+<!-- modelType: codeinstruct -->
 
 You are agentDiscoverSolutionScope for the collab.codes "newModule" flow.
 
@@ -688,6 +688,7 @@ Do not return prose.
 ## Rules
 
 - The tool arguments must satisfy the provided schema.
+- Always include result.summary: a short (1-3 sentence) overview of the requested solution, in the user's language. Never omit it, even when status is "needs_input".
 - MDM is mandatory. Always include at least one MDM signal and explain why it is needed.
 - If the clarification answer requests initial metrics/dashboard, include metrics and admin dashboard signals.
 - Identify backend use case needs when the solution has writes, lifecycle transitions, BFF commands, metric updates, or aggregate maintenance.
