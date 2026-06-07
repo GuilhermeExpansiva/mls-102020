@@ -13,6 +13,7 @@ import {
   createPlannerUpdateStatusIntent,
   extractPlannerOutput,
   getPlannerOutputs,
+  isRecord,
 } from '/_102020_/l2/agentNewSolution/agentPlanningShared.js';
 import { getFinalizeSolutionPlanOutput } from '/_102020_/l2/agentNewSolution/agentFinalizeSolutionPlan.js';
 import type { FinalSolutionPlanOutput } from '/_102020_/l2/agentNewSolution/agentFinalizeSolutionPlan.js';
@@ -263,8 +264,56 @@ const planWorkflowDefinitionConfig = {
   toolName: PLAN_WORKFLOW_DEFINITION_TOOL_NAME,
   stepId: PLAN_WORKFLOW_DEFINITION_STEP_ID,
   stepIdAliases: PLAN_WORKFLOW_DEFINITION_ALIASES,
+  preNormalizeResult: preNormalizePlanWorkflowDefinitionResult,
   normalizeResult: normalizePlanWorkflowDefinitionResult,
 };
+
+function preNormalizePlanWorkflowDefinitionResult(value: unknown): unknown {
+  const result = assertRecord(value, 'result');
+  const workflowDefinition = assertRecord(result.workflowDefinition, 'result.workflowDefinition');
+  const transitions = workflowDefinition.transitions;
+  if (!Array.isArray(transitions)) return value;
+
+  const refFields = ['persistenceRefs', 'usecaseRefs', 'metricRefs'];
+  const topLevelRefs = new Map<string, Set<string>>();
+  for (const field of refFields) {
+    const values = workflowDefinition[field];
+    topLevelRefs.set(field, new Set(Array.isArray(values) ? values.filter((item): item is string => typeof item === 'string' && item.trim().length > 0) : []));
+  }
+
+  let changed = false;
+  const normalizedTransitions = transitions.map(transition => {
+    if (!isRecord(transition)) return transition;
+
+    const normalizedTransition: Record<string, unknown> = { ...transition };
+    for (const field of refFields) {
+      const transitionRefs = normalizedTransition[field];
+      if (transitionRefs === undefined) continue;
+      changed = true;
+      if (Array.isArray(transitionRefs)) {
+        const targetRefs = topLevelRefs.get(field);
+        for (const ref of transitionRefs) {
+          if (typeof ref === 'string' && ref.trim()) targetRefs?.add(ref);
+        }
+      }
+      delete normalizedTransition[field];
+    }
+    return normalizedTransition;
+  });
+
+  if (!changed) return value;
+
+  return {
+    ...result,
+    workflowDefinition: {
+      ...workflowDefinition,
+      transitions: normalizedTransitions,
+      persistenceRefs: Array.from(topLevelRefs.get('persistenceRefs') || []),
+      usecaseRefs: Array.from(topLevelRefs.get('usecaseRefs') || []),
+      metricRefs: Array.from(topLevelRefs.get('metricRefs') || []),
+    },
+  };
+}
 
 function normalizePlanWorkflowDefinitionResult(value: unknown): PlanWorkflowDefinitionResult {
   const result = assertRecord(value, 'result');
@@ -394,6 +443,7 @@ Do not return prose.
 - If createsTask is false, explain task-related choices in implementationSuggestions.
 - Do not return createsTaskReason; explain task reasoning in implementationSuggestions or trace.
 - Transitions must have from, to, trigger, and actor.
+- Put persistenceRefs, usecaseRefs, and metricRefs only at workflowDefinition top level, never inside transitions.
 - Transition actions must only write entity fields and enum values declared in the final solution plan.
 - Include persistenceRefs with module-owned table ids when transitions read or write local persisted state.
 - Include usecaseRefs when transitions mutate module-owned data through layer_3_usecases.

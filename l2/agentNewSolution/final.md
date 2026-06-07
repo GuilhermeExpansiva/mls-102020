@@ -502,6 +502,37 @@ Criterio de aceite:
   - `/Volumes/WagnerSSD1/collab/collab-messages`: `pnpm build`
 - Risco residual: ainda nao ha teste automatizado especifico para o fluxo paralelo de `add-step` + `executionMode=parallel`; a validacao feita foi por build e revisao de fluxo.
 
+### TODO-FINAL-023 - Criar validacoes incrementais por checkpoint
+
+Problema:
+- Hoje `agentValidateSolutionCoverage` concentra a verificacao forte no fim do fluxo.
+- Isso detecta inconsistencias tarde demais e obriga a task a manter payloads grandes ate o final, porque os agentes posteriores ainda precisam reler outputs completos da task.
+- Para gravar `.defs.ts` logo apos cada artefato ser gerado e depois limpar o payload, o fluxo precisa validar em varios pontos, nao apenas no coverage final.
+
+Acao:
+- Criar checkpoints deterministas de validacao apos cada grupo de artefatos:
+  - blueprint/final plan antes dos indices especializados
+  - persistence index antes de table definitions
+  - table definitions antes de metric/page/usecase consumers
+  - metrics index antes de metric table definitions
+  - workflow index antes de workflow definitions
+  - page index antes de page definitions
+  - usecases/plugins/horizontals antes de coverage final
+- Em cada `afterPromptStep` que produz artefato persistivel:
+  - validar JSON schema e regras semanticas locais
+  - salvar `.defs.ts` draft quando valido
+  - atualizar manifesto/checkpoint com arquivo, checksum, ids, planId, stepId e status
+  - expor o artefato por getters capazes de ler task payload ou manifesto/defs
+  - limpar ou substituir payload grande por referencia somente depois do getter por arquivo existir
+- Transformar `agentValidateSolutionCoverage` em validador final de integracao/cobertura, consumindo checkpoints e snapshots compactos, nao como unica barreira de qualidade do fluxo.
+- Manter payload completo apenas quando o step falhar, retornar `needs_input`, ou ainda nao tiver arquivo salvo.
+
+Criterio de aceite:
+- Um `.defs.ts` validado pode ser gravado e usado por agentes seguintes sem esperar o fim do planejamento.
+- Payloads de page/workflow/table/metric/usecase podem ser limpos da task apos save e checkpoint, sem quebrar retry, coverage ou materializacao futura.
+- O paralelo dinamico pode voltar a usar slots reutilizaveis sem precisar preservar todos os filhos completos na task, quando os getters ja estiverem baseados em manifesto/defs.
+- `agentValidateSolutionCoverage` continua pegando erros cruzados, mas nao e mais o primeiro lugar onde problemas estruturais basicos aparecem.
+
 ## Executed (one at a time, with evidence, no side effects)
 
 ### TODO-FINAL-001 - Encerrar a task de planejamento sem materializar (DONE)
@@ -563,9 +594,10 @@ Criterio de aceite:
 3. Resolver os 3 erros reais da coverage: `TODO-FINAL-003`, `TODO-FINAL-004`, `TODO-FINAL-005` (feito).
 4. Implementar gravacao incremental plan-only e limpeza por arquivo salvo: `TODO-FINAL-010` (safe-part), `TODO-FINAL-011`, `TODO-FINAL-012`, `TODO-FINAL-014`, `TODO-FINAL-022` (feito).
 5. Converter grupos independentes para paralelo controlado: `TODO-FINAL-021`.
-6. Reduzir tokens nos maiores consumidores: `TODO-FINAL-006`, `TODO-FINAL-007`, `TODO-FINAL-008`, `TODO-FINAL-009`.
-7. Completar mapeamento de artefatos plan: `TODO-FINAL-013`, `TODO-FINAL-015`, `TODO-FINAL-016`.
-8. Criar testes e politica de trace: `TODO-FINAL-017`, `TODO-FINAL-018`.
-9. Consolidar regras transversais: `TODO-FINAL-019`, `TODO-FINAL-020`.
+6. Criar checkpoints de validacao incremental antes de limpeza por referencia: `TODO-FINAL-023`.
+7. Reduzir tokens nos maiores consumidores: `TODO-FINAL-006`, `TODO-FINAL-007`, `TODO-FINAL-008`, `TODO-FINAL-009`.
+8. Completar mapeamento de artefatos plan: `TODO-FINAL-013`, `TODO-FINAL-015`, `TODO-FINAL-016`.
+9. Criar testes e politica de trace: `TODO-FINAL-017`, `TODO-FINAL-018`.
+10. Consolidar regras transversais: `TODO-FINAL-019`, `TODO-FINAL-020`.
 
 Resposta: um exemplo de módule dentro do <module>/l2, pode ser achada em /Volumes/WagnerSSD1/collab/mls-base/mls-102020/l2/agents/newSolution/run30/module.ts
