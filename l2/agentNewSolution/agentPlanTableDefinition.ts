@@ -257,13 +257,15 @@ function preNormalizePlanTableDefinitionResult(value: unknown): unknown {
   const result = assertRecord(value, 'result');
   const tableDefinition = assertRecord(result.tableDefinition, 'result.tableDefinition');
   const ownership = normalizeTableOwnershipValue(tableDefinition.ownership);
-  if (ownership === tableDefinition.ownership) return value;
+  const metricUpdatePolicy = normalizeMetricUpdatePolicyValue(tableDefinition.metricUpdatePolicy);
+  if (ownership === tableDefinition.ownership && metricUpdatePolicy === tableDefinition.metricUpdatePolicy) return value;
 
   return {
     ...result,
     tableDefinition: {
       ...tableDefinition,
       ownership,
+      ...(metricUpdatePolicy === undefined ? {} : { metricUpdatePolicy }),
     },
   };
 }
@@ -273,6 +275,18 @@ function normalizeTableOwnershipValue(value: unknown): unknown {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
   const record = value as Record<string, unknown>;
   return record.kind === 'moduleOwned' ? 'moduleOwned' : value;
+}
+
+function normalizeMetricUpdatePolicyValue(value: unknown): unknown {
+  if (value === undefined) return undefined;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const record = value as Record<string, unknown>;
+  if (record.updatedByLayer !== undefined) return value;
+  if (record.feedsMetrics !== true) return value;
+  return {
+    ...record,
+    updatedByLayer: 'layer_3_usecases',
+  };
 }
 
 function normalizePlanTableDefinitionResult(value: unknown): PlanTableDefinitionResult {
@@ -318,7 +332,16 @@ function validatePlanTableDefinitionOutput(output: PlanTableDefinitionOutput): v
   if (table.tableKind !== 'transactional') throw new Error(`table ${table.tableId} must be transactional`);
   const directAccess = assertArray(table.accessPolicy.directAccessAllowedFor, 'tableDefinition.accessPolicy.directAccessAllowedFor');
   if (!directAccess.includes('layer_3_usecases')) throw new Error(`table ${table.tableId} must allow direct access for layer_3_usecases`);
+  validateMetricUpdatePolicy(table);
   if (output.status === 'needs_input' && output.questions.length === 0) throw new Error('needs_input table definition must include questions');
+}
+
+function validateMetricUpdatePolicy(table: PlanTableDefinitionResult['tableDefinition']): void {
+  if (table.metricUpdatePolicy === undefined) return;
+  const policy = assertRecord(table.metricUpdatePolicy, 'tableDefinition.metricUpdatePolicy');
+  if (policy.feedsMetrics === true && policy.updatedByLayer !== 'layer_3_usecases') {
+    throw new Error(`table ${table.tableId} metricUpdatePolicy.updatedByLayer must be layer_3_usecases when feedsMetrics=true`);
+  }
 }
 
 function createNextTableDefinitionIntent(
@@ -472,7 +495,7 @@ Do not return prose.
 - Do not put fields in details when they are required for frequent filtering, joins, lifecycle, authorization, or independent updates.
 - foreignRefs may point to MDM/horizontal/plugin entities, but must not imply creating those tables in this module.
 - indexes must cover common lookup fields used by BFF commands, workflows, and agents.
-- Include metricUpdatePolicy when base table changes should feed operational metrics. The actual update must happen in backend use cases, not in pages.
+- Include metricUpdatePolicy when base table changes should feed operational metrics. When metricUpdatePolicy.feedsMetrics is true, set updatedByLayer exactly to "layer_3_usecases".
 - defsPlan.fileName should be stable and table-specific, such as tables/{tableId}.defs.ts.
 - Use rule ids; do not write loose rule text.
 - Do not generate TypeScript code.

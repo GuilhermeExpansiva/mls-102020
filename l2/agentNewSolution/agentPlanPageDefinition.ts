@@ -553,6 +553,7 @@ function validateSpecificActionRequiredInputs(page: PageDefinitionSpec, commands
     }
 
     for (const identifierName of commandIdentifierNames) {
+      if (!shouldRequirePageInputIdentifier(page, command, identifierName)) continue;
       const matchingInput = page.pageInputs.find(input => pageInputMatchesIdentifier(input, identifierName));
       if (!matchingInput || matchingInput.required !== true) {
         throw new Error(`page ${page.pageId} command ${command.commandName} identifier ${identifierName} must have a matching pageInput with required=true`);
@@ -634,6 +635,32 @@ function getCommandIdentifierInputNames(input: Record<string, unknown>): string[
   const names = new Set<string>();
   collectIdentifierInputNames(input, names);
   return [...names];
+}
+
+function shouldRequirePageInputIdentifier(page: PageDefinitionSpec, command: BffCommandSpec, identifierName: string): boolean {
+  return !isContextualIdentifier(normalizeIdentifierName(identifierName), page, command);
+}
+
+function isContextualIdentifier(normalizedIdentifier: string, page: PageDefinitionSpec, command: BffCommandSpec): boolean {
+  if (['userid', 'usuarioid', 'customerid', 'clienteid', 'sessionid', 'sessaoid', 'tenantid', 'orgid', 'organizationid'].includes(normalizedIdentifier)) {
+    return true;
+  }
+
+  const text = normalizeSearchText([
+    page.pageId,
+    page.pageName,
+    page.purpose,
+    command.commandName,
+    command.purpose,
+    ...command.readsEntities,
+    ...command.writesEntities,
+  ].join(' '));
+
+  if ((normalizedIdentifier === 'cartid' || normalizedIdentifier === 'carrinhoid') && (text.includes('cart') || text.includes('carrinho'))) {
+    return true;
+  }
+
+  return false;
 }
 
 function collectIdentifierInputNames(value: unknown, names: Set<string>): void {
@@ -770,6 +797,7 @@ Do not return prose.
 - For detail/status/edit/confirmation pages, declare required external identifiers (the id of the main subject or commitment record from the ontology) in pageInputs with appropriate sources (routeParam, previousStepResult, ...). Never use names from any sample domain.
 - If a detail/update/edit/status/cancel/refund/lifecycle BFF command has an identifier input such as {entity}Id, the matching pageInputs entry must exist and must use required: true.
 - If such a BFF command does not expose the identifier name in its input schema, the page must still include at least one required identifier pageInput for the main subject or commitment record.
+- Do not require contextual identifiers as pageInputs when they are resolved by authentication/session/current cart, such as userId, customerId, sessionId, cartId, or carrinhoId.
 - navigationRefs are lightweight references only (direction, pageId, trigger, optional description). Never include inputMapping.
 - Commitment/confirmation pages (booking, order, request, subscription, contract, or the domain-equivalent commitment action) must include selection organisms before the confirm action; selection organisms must read the selected entity fields and the confirm command must write the relationship to the commitment entity. All names must come from the final plan and ontology.
 - Use rule ids from catalogs (e.g. RULE_*) in rulesApplied; never loose rule text.
