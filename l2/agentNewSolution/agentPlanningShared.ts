@@ -21,9 +21,11 @@ import { normalizeModuleFolderName } from '/_102020_/l2/agentNewSolution/agentNe
 import {
   extractPlannerOutput,
   parseMaybeJson,
+  PLANNER_SCHEMA_VERSION as PLANNER_SCHEMA_VERSION_VALUE,
   type PlannerExtractConfig,
   type PlannerOutput,
 } from '/_102020_/l2/agentNewSolution/agentPlanningExtract.js';
+import { readSavedPlanArtifactDataList } from '/_102020_/l2/agentNewSolution/agentNewSolutionArtifacts.js';
 
 export {
   PLANNER_SCHEMA_VERSION,
@@ -161,6 +163,48 @@ export function getPlannerOutputs<T>(
   }
 
   return outputs;
+}
+
+/**
+ * TODO-FINAL-010/023: read fan-out definition outputs preferring task payloads, falling back
+ * to the saved .defs.ts artifacts when the payload was cleared with cleaner="input_output".
+ * Saved artifacts are reconstructed into PlannerOutput via config.normalizeResult; task payloads
+ * override file copies (more recent within the same run). Results are deduped/sorted by getId.
+ */
+export async function getPlannerOutputsWithFileFallback<T>(
+  context: mls.msg.ExecutionContext,
+  agentName: string,
+  artifactType: string,
+  config: PlannerExtractConfig<T>,
+  getId: (output: PlannerOutput<T>) => string,
+  validate?: (output: PlannerOutput<T>) => void,
+): Promise<PlannerOutput<T>[]> {
+  const byId = new Map<string, PlannerOutput<T>>();
+
+  for (const data of await readSavedPlanArtifactDataList(context, artifactType)) {
+    let output: PlannerOutput<T>;
+    try {
+      output = {
+        runId: 'from-file',
+        stepId: config.stepId,
+        schemaVersion: PLANNER_SCHEMA_VERSION_VALUE,
+        status: 'ok',
+        result: config.normalizeResult(data),
+        questions: [],
+        trace: [],
+      };
+      validate?.(output);
+    } catch {
+      continue;
+    }
+    byId.set(getId(output), output);
+  }
+
+  for (const output of getPlannerOutputs(context, agentName, config, validate)) {
+    byId.set(getId(output), output);
+  }
+
+  return [...byId.values()].sort((a, b) => getId(a).localeCompare(getId(b)));
 }
 
 export function findStepByPlanId(context: mls.msg.ExecutionContext, planId: string): mls.msg.AIPayload | null {
@@ -404,6 +448,46 @@ export function getPlannerOutputWithRepair<T>(
 
 function isRecordValue(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+// TODO-FINAL-006..009: token-reduction helpers. Each definition/index agent only needs the
+// artifacts its selector references, not the full plan. These build reduced, per-item context.
+
+/** Keep only records whose id (any of `keys`) is in `ids`. Non-records are dropped. */
+export function pickRecordsByIds(items: unknown[] | undefined, ids: Set<string>, keys: string[]): unknown[] {
+  if (!Array.isArray(items) || ids.size === 0) return [];
+  return items.filter(item => {
+    if (!isRecordValue(item)) return false;
+    return keys.some(key => {
+      const value = item[key];
+      return typeof value === 'string' && ids.has(value);
+    });
+  });
+}
+
+/** Project records down to a small set of fields (drops everything else). */
+export function summarizeRecords(items: unknown[] | undefined, keys: string[]): unknown[] {
+  if (!Array.isArray(items)) return [];
+  return items.map(item => {
+    if (!isRecordValue(item)) return item;
+    const summary: Record<string, unknown> = {};
+    for (const key of keys) {
+      if (item[key] !== undefined) summary[key] = item[key];
+    }
+    return Object.keys(summary).length > 0 ? summary : item;
+  });
+}
+
+/** Collect non-empty string values from the given fields of a record into a target set. */
+export function collectStringRefs(record: unknown, fields: string[], target: Set<string>): void {
+  if (!isRecordValue(record)) return;
+  for (const field of fields) {
+    const value = record[field];
+    if (typeof value === 'string' && value.trim()) target.add(value);
+    else if (Array.isArray(value)) {
+      for (const item of value) if (typeof item === 'string' && item.trim()) target.add(item);
+    }
+  }
 }
 
 export function getPlanningContextSnapshot(context: mls.msg.ExecutionContext): PlanningContextSnapshot {

@@ -15,6 +15,7 @@ import {
   findStepByPlanId,
   getPlannerOutputWithRepair,
   getPlanningContextSnapshot,
+  summarizeRecords,
 } from '/_102020_/l2/agentNewSolution/agentPlanningShared.js';
 import { getFinalizeSolutionPlanOutput } from '/_102020_/l2/agentNewSolution/agentFinalizeSolutionPlan.js';
 import type { FinalSolutionPlanOutput } from '/_102020_/l2/agentNewSolution/agentFinalizeSolutionPlan.js';
@@ -199,12 +200,12 @@ async function beforePromptStep(
   const horizontals = getPlanHorizontalsOutput(context);
   const plugins = getPlanPluginsOutput(context);
   const persistenceIndex = getPlanPersistenceIndexOutput(context);
-  const tableDefinitions = getPlanTableDefinitionOutputs(context);
+  const tableDefinitions = await getPlanTableDefinitionOutputs(context);
   const metricsIndex = getPlanMetricsIndexOutput(context);
-  const metricTableDefinitions = getPlanMetricTableDefinitionOutputs(context);
+  const metricTableDefinitions = await getPlanMetricTableDefinitionOutputs(context);
   const usecasePlan = getPlanUsecaseEntitiesOutput(context);
   const workflowIndex = getPlanWorkflowIndexOutput(context);
-  const workflowDefinitions = getPlanWorkflowDefinitionOutputs(context);
+  const workflowDefinitions = await getPlanWorkflowDefinitionOutputs(context);
   const agentsPlan = getPlanAgentsOutput(context);
 
   return [
@@ -380,30 +381,35 @@ export function validatePlanPageIndexOutput(
   }
 }
 
+// The bucket of a flowRef is fully determined by the workflow's executionMode, so a wrong
+// bucket is a deterministic, mechanically-fixable error — NOT something to bounce to the LLM
+// (the repair LLM often fails to fix it, killing the whole index/task). This function now
+// AUTO-CORRECTS: it re-buckets every referenced workflow id by its executionMode and dedupes,
+// mutating `flowRefs` in place. It only throws on a truly unknown workflow id.
 export function validatePageFlowRefsAgainstWorkflowIndex(pageId: string, flowRefs: PageFlowRefs, workflowIndex: PlanWorkflowIndexOutput): void {
   const workflowsById = new Map(workflowIndex.result.workflows.map(workflow => [workflow.workflowId, workflow]));
-  const seen = new Map<string, PageFlowRefBucket>();
-  const buckets: Array<{ bucket: PageFlowRefBucket; refs: string[] }> = [
-    { bucket: 'experienceFlows', refs: flowRefs.experienceFlows },
-    { bucket: 'entityLifecycles', refs: flowRefs.entityLifecycles },
-    { bucket: 'taskWorkflows', refs: flowRefs.taskWorkflows },
-    { bucket: 'automations', refs: flowRefs.automations },
-  ];
+  const buckets: PageFlowRefBucket[] = ['experienceFlows', 'entityLifecycles', 'taskWorkflows', 'automations'];
 
-  for (const { bucket, refs } of buckets) {
-    for (const workflowId of refs) {
-      const previousBucket = seen.get(workflowId);
-      if (previousBucket) throw new Error(`page ${pageId} flowRefs.${bucket} duplicates workflow ${workflowId} already in ${previousBucket}`);
-      seen.set(workflowId, bucket);
-
+  const correctBucketById = new Map<string, PageFlowRefBucket>();
+  const order: string[] = [];
+  for (const bucket of buckets) {
+    for (const workflowId of flowRefs[bucket]) {
       const workflow = workflowsById.get(workflowId);
       if (!workflow) throw new Error(`page ${pageId} flowRefs.${bucket} references unknown workflow ${workflowId}`);
-
-      const expectedBucket = getFlowRefBucketForExecutionMode(workflow.executionMode);
-      if (bucket !== expectedBucket) {
-        throw new Error(`page ${pageId} flowRefs.${bucket} references workflow ${workflowId} with executionMode=${workflow.executionMode}; expected ${expectedBucket}`);
+      if (!correctBucketById.has(workflowId)) {
+        correctBucketById.set(workflowId, getFlowRefBucketForExecutionMode(workflow.executionMode));
+        order.push(workflowId);
       }
     }
+  }
+
+  // Rebuild the four buckets deterministically (dedup + correct placement by executionMode).
+  flowRefs.experienceFlows = [];
+  flowRefs.entityLifecycles = [];
+  flowRefs.taskWorkflows = [];
+  flowRefs.automations = [];
+  for (const workflowId of order) {
+    flowRefs[correctBucketById.get(workflowId)!].push(workflowId);
   }
 }
 
@@ -474,52 +480,44 @@ function buildHumanPrompt(
   workflowDefinitions: PlanWorkflowDefinitionOutput[],
   agentsPlan: PlanAgentsOutput,
 ): string {
+  // TODO-FINAL-009: the page index only needs summaries (ids + reason/title), not full
+  // table/usecase/page-definition/materialization detail. Send a compact planning snapshot.
+  void tableDefinitions; void metricTableDefinitions; void workflowDefinitions; // detail not needed to plan pages
+  const fp = finalPlan.result;
+
+  const snapshot = {
+    initialMetricsRequested,
+    module: fp.module,
+    actors: summarizeRecords(fp.actors, ['actorId', 'title', 'description']),
+    capabilities: summarizeRecords(fp.capabilities, ['capabilityId', 'id', 'title', 'priority']),
+    userActions: summarizeRecords(fp.userActions, ['actionId', 'id', 'title', 'actor', 'capabilityId']),
+    rules: summarizeRecords(fp.rules, ['ruleId', 'title']),
+    // workflows: keep executionMode (needed for flowRefs bucketing) but drop full state machines.
+    workflows: summarizeRecords(workflowIndex.result.workflows, ['workflowId', 'title', 'executionMode', 'createsTask', 'actors', 'relatedCapabilities']),
+    metrics: {
+      enabled: metricsIndex.result.metricsPlan.enabled,
+      metricTables: summarizeRecords(metricsIndex.result.metricTables, ['metricTableId', 'title', 'purpose']),
+      dashboards: summarizeRecords(metricsIndex.result.dashboardPages, ['metricDashboardId', 'title', 'actor', 'accessPolicy']),
+    },
+    persistenceTables: summarizeRecords(persistenceIndex.result.tables, ['tableId', 'title', 'rootEntity']),
+    usecases: summarizeRecords(usecasePlan.result.usecases, ['usecaseId', 'title', 'actor']),
+    plugins: summarizeRecords(plugins.result.plugins, ['pluginId', 'provider', 'reason']),
+    mdmDomains: summarizeRecords(mdm.result.mdmDomains, ['domainId', 'title']),
+    horizontalModules: summarizeRecords(horizontals.result.horizontalModules, ['horizontalModuleId', 'reason']),
+    agents: summarizeRecords((agentsPlan.result as unknown as Record<string, unknown>).agents as unknown[] | undefined, ['agentId', 'id', 'title', 'reason']),
+  };
+
   return `## Planned step args
 ${args}
 
-## Initial metrics dashboard requested
-${initialMetricsRequested}
-
-## Final solution plan
-${JSON.stringify(finalPlan, null, 2)}
-
-## MDM plan
-${JSON.stringify(mdm, null, 2)}
-
-## Horizontals plan
-${JSON.stringify(horizontals, null, 2)}
-
-## Plugin plan
-${JSON.stringify(plugins, null, 2)}
-
-## Persistence index
-${JSON.stringify(persistenceIndex, null, 2)}
-
-## Table definitions
-${JSON.stringify(tableDefinitions, null, 2)}
-
-## Metrics index
-${JSON.stringify(metricsIndex, null, 2)}
-
-## Metric table definitions
-${JSON.stringify(metricTableDefinitions, null, 2)}
-
-## Usecase plan
-${JSON.stringify(usecasePlan, null, 2)}
-
-## Workflow index
-${JSON.stringify(workflowIndex, null, 2)}
-
-## Workflow definitions
-${JSON.stringify(workflowDefinitions, null, 2)}
-
-## Agents plan
-${JSON.stringify(agentsPlan, null, 2)}
+## Page planning snapshot (summaries only; request detail later per page)
+${JSON.stringify(snapshot, null, 2)}
 `;
 }
 
 const systemPrompt = `
 <!-- modelType: codeinstruct -->
+<!-- x-tool-strict: true -->
 
 You are agentPlanPageIndex for the collab.codes "newSolution" flow.
 Plan only the page index. Do not define full page sections or organisms in this step.

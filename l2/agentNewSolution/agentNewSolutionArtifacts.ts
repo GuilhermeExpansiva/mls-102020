@@ -30,7 +30,7 @@ export interface PlanArtifactReference {
   extension: string;
   checksum: string;
   schemaVersion: string;
-  status: 'draft' | 'not-ready' | 'frozen' | 'report';
+  status: 'draft' | 'not-ready' | 'frozen' | 'report' | 'reference';
   agentName: string;
   stepId: number;
   planId: string;
@@ -44,6 +44,9 @@ interface PlanArtifactCandidate {
   moduleName: string;
   data: unknown;
   status?: PlanArtifactReference['status'];
+  // TODO-FINAL-015: when true, the target module already exists; record a manifest reference
+  // entry but do NOT create/overwrite the file.
+  referenceOnly?: boolean;
 }
 
 export function reserveAvailableModuleName(requestedName: unknown, fallbackPrompt: string): string {
@@ -118,12 +121,13 @@ export async function saveNewSolutionPlanArtifacts(
     const saved: PlanArtifactReference[] = [];
     for (const candidate of candidates) {
       const fileInfo = resolvePlanArtifactFileInfo(candidate);
+      const status = candidate.referenceOnly ? 'reference' : (candidate.status || 'draft');
       const artifact = {
         schemaVersion: PLAN_ARTIFACT_SCHEMA_VERSION,
         artifactType: candidate.artifactType,
         artifactId: candidate.artifactId,
         moduleName: candidate.moduleName,
-        status: candidate.status || 'draft',
+        status,
         source: {
           agentName,
           stepId: step.stepId,
@@ -136,7 +140,18 @@ export async function saveNewSolutionPlanArtifacts(
         : buildPlanDefsSource(candidate.exportName, artifact);
       const checksum = checksumString(stableStringify(artifact));
 
-      await saveStorContent(fileInfo, source, false);
+      // TODO-FINAL-015: reference-only candidates (the target module already exists) are recorded
+      // in the manifest but never written, so we don't overwrite an existing module.
+      if (!candidate.referenceOnly) {
+        if (candidate.artifactType === 'project' && isRecord(candidate.data)) {
+          // l5/project.json is the shared project configuration (orgName, designSystems, etc.).
+          // Do a merge instead of overwrite: preserve all existing fields and only add/replace
+          // the modules entry for this moduleName.
+          await mergeAndSaveProjectJson(fileInfo, candidate.data);
+        } else {
+          await saveStorContent(fileInfo, source, false);
+        }
+      }
 
       saved.push({
         artifactType: candidate.artifactType,
@@ -150,7 +165,7 @@ export async function saveNewSolutionPlanArtifacts(
         extension: fileInfo.extension,
         checksum,
         schemaVersion: PLAN_ARTIFACT_SCHEMA_VERSION,
-        status: candidate.status || 'draft',
+        status,
         agentName,
         stepId: step.stepId,
         planId,
@@ -484,6 +499,65 @@ function buildPlanArtifactCandidates(agentName: string, moduleName: string, outp
     }];
   }
 
+  // TODO-FINAL-015: horizontal modules (finance, notifications, ...). Reference the module when
+  // it already exists; otherwise create a draft l5/{id}/module.defs.ts with the intended shape.
+  // Each horizontal module gets its own creation task later; the origin module references it.
+  if (agentName === 'agentPlanHorizontals') {
+    const modules = Array.isArray(result.horizontalModules) ? result.horizontalModules : [];
+    const existingFolders = getExistingModuleFolders();
+    return modules.flatMap((value): PlanArtifactCandidate[] => {
+      const module = getRecord(value);
+      const id = readString(module?.horizontalModuleId);
+      if (!module || !id) return [];
+      const folder = normalizeModuleFolderName(id, id);
+      const referenceOnly = existingFolders.has(folder);
+      return [{
+        artifactType: 'horizontalModule',
+        artifactId: id,
+        exportName: `${toExportIdentifier(id)}ModulePlan`,
+        moduleName: folder,
+        referenceOnly,
+        data: {
+          kind: 'horizontal',
+          moduleId: folder,
+          horizontalModuleId: id,
+          plannedByModule: moduleName,
+          referencesExisting: referenceOnly,
+          module,
+        },
+      }];
+    });
+  }
+
+  // TODO-FINAL-015: MDM domains. Same create-if-missing / reference-if-exists rule as horizontals
+  // (decision: MDM also gets a draft l5/{domainId}/module.defs.ts when no module exists yet).
+  if (agentName === 'agentPlanMDM') {
+    const domains = Array.isArray(result.mdmDomains) ? result.mdmDomains : [];
+    const existingFolders = getExistingModuleFolders();
+    return domains.flatMap((value): PlanArtifactCandidate[] => {
+      const domain = getRecord(value);
+      const id = readString(domain?.domainId);
+      if (!domain || !id) return [];
+      const folder = normalizeModuleFolderName(id, id);
+      const referenceOnly = existingFolders.has(folder);
+      return [{
+        artifactType: 'mdmDomain',
+        artifactId: id,
+        exportName: `${toExportIdentifier(id)}MdmModulePlan`,
+        moduleName: folder,
+        referenceOnly,
+        data: {
+          kind: 'mdm',
+          moduleId: folder,
+          domainId: id,
+          plannedByModule: moduleName,
+          referencesExisting: referenceOnly,
+          domain,
+        },
+      }];
+    });
+  }
+
   if (agentName === 'agentPlanPlugins') {
     const plugins = Array.isArray(result.plugins) ? result.plugins : [];
     return plugins.flatMap((value): PlanArtifactCandidate[] => {
@@ -536,6 +610,11 @@ function resolvePlanArtifactFileInfo(candidate: PlanArtifactCandidate): Pick<mls
   if (candidate.artifactType === 'rules') {
     return { project, level: 5, folder: candidate.moduleName, shortName: 'rules', extension: '.defs.ts' };
   }
+  // TODO-FINAL-015: horizontal/MDM modules registered as l5/{moduleId}/module.defs.ts (drafts when
+  // missing). Reference-only candidates resolve to the same canonical path without being written.
+  if (candidate.artifactType === 'horizontalModule' || candidate.artifactType === 'mdmDomain') {
+    return { project, level: 5, folder: candidate.moduleName, shortName: 'module', extension: '.defs.ts' };
+  }
   if (candidate.artifactType === 'table' || candidate.artifactType === 'metricTable') {
     return { project, level: 1, folder: `${candidate.moduleName}/layer_1_external`, shortName, extension: '.defs.ts' };
   }
@@ -558,16 +637,78 @@ function resolvePlanArtifactFileInfo(candidate: PlanArtifactCandidate): Pick<mls
   return { project, level: 2, folder: `${candidate.moduleName}/trace`, shortName, extension: '.defs.ts' };
 }
 
-async function updatePlanArtifactsManifest(moduleName: string, references: PlanArtifactReference[]): Promise<void> {
-  if (references.length === 0) return;
-
-  const fileInfo = {
+function planArtifactsManifestFileInfo(moduleName: string): Pick<mls.stor.IFileInfo, 'project' | 'level' | 'folder' | 'shortName' | 'extension'> {
+  return {
     project: mls.actualProject || 0,
     level: 2,
     folder: `${moduleName}/trace`,
     shortName: 'plan-artifacts',
     extension: '.json',
   };
+}
+
+/**
+ * TODO-FINAL-010/023: file-based reader for saved plan artifacts of a given type.
+ * Lets getters reconstruct outputs from the saved .defs.ts when the task payload was cleared
+ * with cleaner="input_output". Reads the manifest, then each referenced artifact file, and
+ * returns the inner `data` object of each artifact (idempotent, best-effort, never throws).
+ */
+export async function readSavedPlanArtifactDataList(
+  context: mls.msg.ExecutionContext,
+  artifactType: string,
+): Promise<Record<string, unknown>[]> {
+  try {
+    const moduleName = normalizeModuleFolderName(getInitialModuleName(context), 'module');
+    const manifestFile = mls.stor.files[mls.stor.getKeyToFile(planArtifactsManifestFileInfo(moduleName))];
+    if (!manifestFile) return [];
+    const manifest = parseMaybeJson(await manifestFile.getContent());
+    const references = isRecord(manifest) && Array.isArray(manifest.artifacts) ? manifest.artifacts.filter(isRecord) : [];
+
+    const out: Record<string, unknown>[] = [];
+    for (const reference of references) {
+      if (readString(reference.artifactType) !== artifactType) continue;
+      const data = await readPlanArtifactData(reference);
+      if (data) out.push(data);
+    }
+    return out;
+  } catch (error) {
+    console.warn(`[readSavedPlanArtifactDataList] failed for ${artifactType}`, error);
+    return [];
+  }
+}
+
+async function readPlanArtifactData(reference: Record<string, unknown>): Promise<Record<string, unknown> | null> {
+  const project = typeof reference.project === 'number' ? reference.project : (mls.actualProject || 0);
+  const level = typeof reference.level === 'number' ? reference.level : 2;
+  const folder = readString(reference.folder) ?? '';
+  const shortName = readString(reference.shortName);
+  const extension = readString(reference.extension) || '.defs.ts';
+  if (!shortName) return null;
+
+  const file = mls.stor.files[mls.stor.getKeyToFile({ project, level, folder, shortName, extension })];
+  if (!file) return null;
+
+  const raw = await file.getContent();
+  if (typeof raw !== 'string') return null;
+  const artifact = parsePlanArtifactSource(raw, extension);
+  if (!isRecord(artifact)) return null;
+  return isRecord(artifact.data) ? artifact.data : artifact;
+}
+
+/** Extracts the artifact object from a saved file: raw JSON for .json, or the object literal
+ * inside `export const X = {...} as const;` for .defs.ts. */
+function parsePlanArtifactSource(content: string, extension: string): unknown {
+  if (extension === '.json') return parseMaybeJson(content);
+  const start = content.indexOf('= ');
+  const end = content.lastIndexOf(' as const;');
+  if (start === -1 || end === -1 || end <= start) return null;
+  return parseMaybeJson(content.slice(start + 2, end));
+}
+
+async function updatePlanArtifactsManifest(moduleName: string, references: PlanArtifactReference[]): Promise<void> {
+  if (references.length === 0) return;
+
+  const fileInfo = planArtifactsManifestFileInfo(moduleName);
   const key = mls.stor.getKeyToFile(fileInfo);
   const existingFile = mls.stor.files[key];
   const existing = existingFile ? parseMaybeJson(await existingFile.getContent()) : undefined;
@@ -678,6 +819,39 @@ function getTraceShortName(agentName: string, stepId: number): string {
     .replace(/^-+|-+$/g, '')
     .toLowerCase();
   return `${String(stepId).padStart(3, '0')}-${safeAgentName || 'agent'}`;
+}
+
+/**
+ * Merge-save for l5/project.json: reads the existing file, preserves all top-level
+ * fields (orgName, designSystems, languages, etc.) and only adds/replaces the
+ * modules entry for the incoming moduleName. Never overwrites unrelated modules.
+ */
+async function mergeAndSaveProjectJson(
+  fileInfo: Pick<mls.stor.IFileInfo, 'project' | 'level' | 'folder' | 'shortName' | 'extension'>,
+  newData: Record<string, unknown>,
+): Promise<void> {
+  const key = mls.stor.getKeyToFile(fileInfo);
+  const existingFile = mls.stor.files[key];
+  const existingRaw = existingFile ? await existingFile.getContent() : undefined;
+  const existing = typeof existingRaw === 'string' ? parseMaybeJson(existingRaw) : undefined;
+  const base: Record<string, unknown> = isRecord(existing) ? { ...existing } : {};
+
+  // Build a map of existing modules keyed by moduleName, then overlay incoming modules.
+  const existingModules = Array.isArray(base.modules) ? base.modules.filter(isRecord) : [];
+  const incomingModules = Array.isArray(newData.modules) ? newData.modules.filter(isRecord) : [];
+
+  const moduleMap = new Map<string, Record<string, unknown>>();
+  for (const m of existingModules) {
+    const name = readString(m.moduleName);
+    if (name) moduleMap.set(name, m);
+  }
+  for (const m of incomingModules) {
+    const name = readString(m.moduleName);
+    if (name) moduleMap.set(name, m); // add or replace
+  }
+
+  const merged = { ...base, modules: [...moduleMap.values()] };
+  await saveStorContent(fileInfo, `${JSON.stringify(merged, null, 2)}\n`, false);
 }
 
 async function saveStorContent(

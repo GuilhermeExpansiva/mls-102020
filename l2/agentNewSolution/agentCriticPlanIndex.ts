@@ -258,18 +258,18 @@ function failIndexIntents(
   hookSequential: number,
   traceMsg: string,
 ): mls.msg.AgentIntent[] {
-  const indexParent = findParentStepOfStep(context, indexStep.stepId);
-  return [
+  const intents: mls.msg.AgentIntent[] = [
     createPlannerUpdateStatusIntent(context, indexStep, criticStep, hookSequential, 'failed', traceMsg),
-    createPlannerUpdateStatusIntent(
-      context,
-      (indexParent && indexParent.type === 'agent' ? indexParent : indexStep) as mls.msg.AIAgentStep,
-      indexStep,
-      hookSequential,
-      'failed',
-      traceMsg,
-    ),
   ];
+  // Only fail the index step when its parent is resolvable as an agent step. Reaching up to a
+  // grandparent whose id no longer resolves (e.g. after a manual restart) makes the backend
+  // throw "Parent step not found", which breaks the restart. Skipping is safe: the critic/repair
+  // step is already failed, surfacing the reason.
+  const indexParent = findParentStepOfStep(context, indexStep.stepId);
+  if (indexParent && indexParent.type === 'agent') {
+    intents.push(createPlannerUpdateStatusIntent(context, indexParent as mls.msg.AIAgentStep, indexStep, hookSequential, 'failed', traceMsg));
+  }
+  return intents;
 }
 
 function buildCriticHumanPrompt(
@@ -298,6 +298,7 @@ ${JSON.stringify(config.buildReviewContext(context), null, 2)}
 
 const systemPrompt = `
 <!-- modelType: codepro -->
+<!-- x-tool-strict: true -->
 
 You are agentCriticPlanIndex for the collab.codes "newSolution" flow.
 Criticize ONLY the single plan index provided. Do not review other indices or artifacts.

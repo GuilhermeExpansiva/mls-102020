@@ -201,6 +201,17 @@ Criterio de aceite:
 - Cada chamada de page definition deve ficar bem abaixo de 30000 input tokens.
 - A pagina continua conseguindo produzir BFF commands e sections coerentes.
 
+**EXECUTED** (2026-06-07):
+- `buildHumanPrompt` do page definition agora monta um contexto reduzido por pagina (helper inline) em vez de despejar tudo:
+  - `pageIndexItem` (spec da pagina), `module`, `actor` (so o ator da pagina), `capabilities`/`rules` filtrados por `pageIndexItem`.
+  - `workflows` (index + definitions) filtrados por `flowRefs`; `usecases` por `usecaseHints`; `tables` por `persistenceHints`; `metrics` (index tables + defs + dashboards) por `metricRefs`; `plugins` por `pluginRefs`; `mdm` por `mdmRefs`.
+  - `ontologyEntities`: subconjunto referenciado pelas tabelas/usecases selecionados (+ mdmRefs).
+  - `backendArchitecture`/`controllerRules`/`usecaseEntities` (pequenos) mantidos para coerencia de BFF.
+  - `navigablePages`: lista slim (`pageId,pageName,actor,purpose`) so para `navigationRefs`, em vez do page index completo.
+- NAO envia mais final plan completo, todas as table/metric/workflow definitions, nem o page index inteiro.
+- Helpers `pickRecordsByIds`/`summarizeRecords`/`collectStringRefs` adicionados ao `agentPlanningShared`.
+- Build: `tsc -p tsconfig.frontend.json` ok.
+
 ### TODO-FINAL-007 - Reduzir input do `agentPlanWorkflowDefinition`
 
 Problema:
@@ -212,6 +223,15 @@ Acao:
 
 Criterio de aceite:
 - Cada workflow definition recebe contexto especifico ao workflow selector.
+
+**EXECUTED** (2026-06-07):
+- `buildHumanPrompt` do workflow definition agora envia contexto reduzido por workflow:
+  - `workflowIndexItem` (spec), `module`, `actors`/`capabilities`/`rules` filtrados pelos refs do item.
+  - `tables` por `persistenceRefs`, `usecases` por `usecaseRefs`, `metricTableDefinitions` por `metricRefs`.
+  - `ontologyEntities` subconjunto referenciado por `relatedEntities` + tabelas/usecases selecionados.
+  - `backendArchitecture`/`controllerRules`/`usecaseEntities` mantidos (pequenos).
+- NAO envia mais o workflow index inteiro, final plan completo, usecase plan completo, nem todas as table/metric definitions.
+- Build: `tsc -p tsconfig.frontend.json` ok.
 
 ### TODO-FINAL-008 - Reduzir input do `agentValidateSolutionCoverage`
 
@@ -227,6 +247,13 @@ Acao:
 
 Criterio de aceite:
 - A validacao continua encontrando erros estruturais sem depender de contexto completo bruto.
+
+**EXECUTED** (2026-06-07):
+- `buildCoverageSnapshot` monta um snapshot compacto: `counts`, `ids` por tipo de artefato, e arrays resumidos (pages com actor/flowRefs/bffCommands resumidos; workflows com executionMode/refs/workflowScope; usecases/tables/metricTables/dashboards/plugins/mdm/agents summarizados).
+- `deterministicIssues` precomputadas no cliente: page.actor desconhecido, page<->index mismatch, workflow persistence/usecase/metric refs danglings, dashboard actor desconhecido — passados prontos para a LLM confirmar/estender.
+- O prompt envia apenas snapshot + issues + guidance, nao mais todos os artefatos completos.
+- Coerente com TODO-FINAL-023/024: a coverage e relatorio tecnico nao-bloqueante; os checks pesados ja rodaram nos checkpoints por indice.
+- Build: `tsc -p tsconfig.frontend.json` ok.
 
 ### TODO-FINAL-009 - Reduzir input do `agentPlanPageIndex`
 
@@ -245,6 +272,14 @@ Acao:
 
 Criterio de aceite:
 - O page index continua gerando todas as paginas necessarias, mas sem contexto detalhado de materializacao.
+
+**EXECUTED** (2026-06-07):
+- `buildHumanPrompt` do page index agora envia um snapshot de planejamento (summaries):
+  - `module`, `actors`, `capabilities`, `userActions`, `rules` resumidos.
+  - `workflows` resumidos COM `executionMode` (necessario para o bucket de `flowRefs`), `createsTask`, `actors`, `relatedCapabilities`.
+  - `metrics` (enabled + metricTables/dashboards resumidos), `persistenceTables` (id/title/rootEntity), `usecases` (id/title/actor), `plugins` (id/provider/reason), `mdmDomains`, `horizontalModules`, `agents` por id+motivo.
+- Removidos os dumps completos de table/metric/workflow definitions (detalhe nao necessario para planejar paginas).
+- Build: `tsc -p tsconfig.frontend.json` ok.
 
 ### TODO-FINAL-010 - Limpar input/payload remanescente da task
 
@@ -354,6 +389,14 @@ Acao:
 Criterio de aceite:
 - Todas as paginas retornam `defsPlan.saveAsDefs=true`, `fileName` e `exportName`.
 
+**OBSOLETO / SUPERSEDED por TODO-FINAL-014** (verificado 2026-06-07):
+- O objetivo (pagina vira `.defs.ts` com export e caminho estaveis, uniforme com tabelas/metricas/workflows) ja esta atendido, mas pela rota decidida no TODO-FINAL-014: o writer (`agentNewSolutionArtifacts.buildPlanArtifactCandidates` + `resolvePlanArtifactFileInfo`) resolve tudo a partir de `artifactType="page"`, `moduleName` e `pageId`:
+  - caminho fisico: `l2/{moduleName}/{pageId}.defs.ts`;
+  - export estavel: `{pageId}PagePlan` (via `toExportIdentifier`).
+- Portanto `agentPlanPageDefinition` NAO retorna `defsPlan` e nao precisa: o artefato `.defs.ts` que aparece no workspace (`export const <pageId>PagePlan = {...} as const`) e produzido pelo writer, nao por um campo da LLM.
+- Decisao: NAO estender o schema da pagina com `defsPlan`. Adicionar isso reintroduziria caminho/export decididos pela LLM, contrariando a decisao do TODO-FINAL-014 ("o writer ignora `defsPlan.fileName`; o caminho final e resolvido por `artifactType`/`moduleName`/`artifactId`"). O criterio de aceite original fica considerado coberto pelo writer.
+- Observacao: tabelas/metricas/workflows ainda RETORNAM `defsPlan` (a LLM gera), mas o writer tambem o ignora para definir o caminho fisico (so usa `exportName` quando presente). A pagina simplesmente nao gera esse campo — comportamento consistente com o writer.
+
 ### TODO-FINAL-014 - Normalizar caminhos `defsPlan` atuais
 
 Problema:
@@ -390,6 +433,23 @@ Acao:
 Criterio de aceite:
 - Flush nao ignora horizontais/MDM nem inventa estrutura fora da arquitetura.
 
+
+Resposta: deve ser consultado os módulos existentes, ex "financeiro", e nos artefatos .defs.ts referenciar o módulo , ou se, não existir , criar um <moduleid>module.defs.ts com os detalhes que o módulo deve ter. Para cada módulo horizontal, será criado posteriormente uma task para criação deles. Provavelmente após a criação , o módulo origem , ex 'petshop' deverá ser atualizado. 
+
+**EXECUTED** (2026-06-07):
+- Decisao confirmada com o usuario: horizontais E dominios MDM seguem a mesma regra "referenciar se existe, criar draft se nao existe".
+- Writer (`agentNewSolutionArtifacts`):
+  - `buildPlanArtifactCandidates` passou a tratar `agentPlanHorizontals` (artifactType `horizontalModule`) e `agentPlanMDM` (artifactType `mdmDomain`). Para cada item, verifica `getExistingModuleFolders()`: se a pasta `{id}` ja existe -> `referenceOnly=true`; senao -> cria draft.
+  - `resolvePlanArtifactFileInfo`: `horizontalModule`/`mdmDomain` -> `l5/{id}/module.defs.ts` (shortName `module`), caminho canonico de registro de modulo.
+  - Novo `referenceOnly` em `PlanArtifactCandidate` + status `reference` em `PlanArtifactReference`: quando `referenceOnly`, o writer NAO grava/sobrescreve o arquivo, apenas registra a entrada no manifesto com status `reference` apontando para `l5/{id}/module.defs.ts`.
+  - Conteudo do draft (`data`): `kind` (`horizontal`/`mdm`), `moduleId`, `plannedByModule` (modulo origem, ex petShop), `referencesExisting`, e o item de plano (`module`/`domain`).
+- `agentPlanHorizontals` e `agentPlanMDM` agora chamam `saveNewSolutionPlanArtifacts` no `afterPromptStep` (status completed).
+- Separacao de manifesto: o manifesto e gravado sob o modulo origem (`getInitialModuleName`, ex petShop) e as entradas apontam para os modulos horizontais/MDM. Assim o modulo origem registra o que referencia/cria, coerente com "o modulo origem devera ser atualizado".
+- Escopo: a criacao efetiva de cada modulo horizontal/MDM continua sendo uma task futura propria (drafts aqui sao o ponto de partida). Flush nao inventa estrutura fora de `l5/{id}/module.defs.ts` e nunca sobrescreve modulo existente.
+- Build: `tsc -p tsconfig.frontend.json` ok em mls-base.
+
+**FIX (run 2026-06-08)**: `agentPlanHorizontals` falhava a task inteira com "horizontalModule was accepted, but horizontalModules output is empty" quando uma decisao aceitava um horizontal fora do catalogo (finance/notifications/documents) — o modelo nao tinha como plana-lo, falha garantida. Esse gate virou advisory (`console.warn`, nao-fatal), coerente com a direcao nao-bloqueante (TODO-FINAL-023/024) e com o fato de horizontais serem criados em task propria depois. Checagens estruturais duras (id fora do catalogo; needs_input sem questions) e o gate obrigatorio de MDM (mdmDomains nao-vazio) permanecem. Observacao do trace: `x-tool-strict: not used` para horizontals nesse run (provider azureai/gpt-5.2-codex) — informativo, nao e a causa; a validacao ajv contra o schema continua ativa.
+
 ### TODO-FINAL-016 - Separar claramente `plan`, `mat1` e `mat2`
 
 Problema:
@@ -404,6 +464,14 @@ Acao:
 
 Criterio de aceite:
 - Nenhum arquivo `mat1` ou `mat2` e criado nesta etapa.
+
+Resposta: já estamos seguinto esta recomentação.
+
+**EXECUTED / DONE** (verificado 2026-06-07):
+- Fronteira confirmada no codigo: `resolvePlanArtifactFileInfo` so resolve artefatos `plan` (`project`, `module`, `rules`, `table`, `metricTable`, `usecase`, `page`, `pluginConnection`, `pluginDraft`, `workflow`, e agora `horizontalModule`/`mdmDomain` + `indexCheckpoint`/`planHealthReport`/trace). Nenhum caminho `mat1`/`mat2` e gerado pelo writer.
+- `org-materialization` permanece `manual_later` (TODO-FINAL-001) e nao e disparado no fluxo plan-only.
+- Page sections e BFF command shapes ficam no nivel de contrato (plan), nao geram `.ts`/`.html`/`.less`.
+- Nenhuma mudanca de codigo necessaria; criterio "nenhum arquivo mat1/mat2 criado nesta etapa" ja atendido.
 
 ### TODO-FINAL-017 - Criar testes de contrato para agentes de planejamento
 
@@ -547,8 +615,31 @@ Criterio de aceite:
 - Congelamento: indice aprovado e gravado em `l2/{moduleName}/trace/checkpoint-{indexName}.json` com checksum, source (agentName/stepId/planId), healthReport (erros/warnings locais + da critica) e status `frozen` no manifesto (`saveNewSolutionIndexCheckpoint`).
 - Leitor por arquivo criado (`readNewSolutionIndexCheckpoint`) como fallback para getters baseados em manifesto/defs (pre-requisito para limpar payloads).
 - `agentValidateSolutionCoverage` virou relatorio tecnico nao-bloqueante: com `status=ok` o step completa mesmo sem readiness e grava `plan-health-report.json` no trace + manifesto (`saveNewSolutionPlanHealthReport`).
-- NAO EXECUTADO (follow-up, igual ao safe-part do TODO-FINAL-010): a troca de payload por referencia (`cleaner="input_output"`) ainda nao foi ligada; os getters sincronos continuam lendo da task. O fallback por arquivo ja existe, falta migrar os consumidores.
 - Build: `tsc -p tsconfig.frontend.json` ok em mls-base (erros pre-existentes de mls-102030 no backend nao tem relacao).
+
+**EXECUTED - limpeza de payload das paginas** (2026-06-07):
+- Diagnostico confirmado: a pagina ja era salva em `l2/{module}/{pageId}.defs.ts` (agentPlanPageDefinition linha 369), mas o payload permanecia na task por dois motivos: `cleaner="input"` so limpa `interaction.input` (collab-messages tasks.ts:1217-1218), e o pai `parallel_dynamic` preserva os filhos (`shouldPreserveParallelChildren` true). Nao era bug, era o follow-up pendente.
+- Leitor por arquivo/manifesto criado: `readSavedPlanArtifactDataList(context, artifactType)` em `agentNewSolutionArtifacts.ts` le `plan-artifacts.json`, abre cada arquivo referenciado e extrai o `data` do artefato (`.json` direto; `.defs.ts` via parse do literal entre `= ` e ` as const;`).
+- `getPlanPageDefinitionOutputs` virou async com fallback: le primeiro os arquivos salvos (reconstruindo PlannerOutput via `normalizePlanPageDefinitionResult`) e depois sobrescreve por payloads ainda na task (passos nao salvos/falhos); merge por `pageId`. Unico consumidor (`agentValidateSolutionCoverage`) passou a usar `await`.
+- `agentPlanPageDefinition.afterPromptStep` agora usa `cleaner="input_output"` SOMENTE quando `saveNewSolutionPlanArtifacts` retornou referencia (save de fato ocorreu); se o save falhar, mantem `cleaner="input"` para nao perder a pagina da task.
+- ESCOPO inicial: paginas (sintoma relatado).
+- Build: `tsc -p tsconfig.frontend.json` ok em mls-base.
+
+**EXECUTED - extensao para table/metric/workflow definitions** (2026-06-07):
+- Helper generico `getPlannerOutputsWithFileFallback` em `agentPlanningShared.ts`: le os artefatos salvos por `artifactType`, reconstroi `PlannerOutput` via `config.normalizeResult`, e sobrescreve por payloads ainda na task (merge por id), ordenado.
+- Getters convertidos para async com fallback de arquivo:
+  - `getPlanTableDefinitionOutputs` (artifactType `table`)
+  - `getPlanMetricTableDefinitionOutputs` (artifactType `metricTable`)
+  - `getPlanWorkflowDefinitionOutputs` (artifactType `workflow`)
+- O encadeamento sequencial de tabelas/metricas (`createNextTableDefinitionIntent` / `createNextMetricTableDefinitionIntent`) agora e async e computa o `covered` set a partir de arquivos + payloads, entao continua correto mesmo apos a limpeza do payload.
+- afterPromptStep desses 3 agentes usa `cleaner="input_output"` somente quando o save retornou referencia; senao `input` (nao perde o artefato).
+- Todos os call sites dos 3 getters receberam `await` (consumidores em beforePromptStep/afterPromptStep, todos async): metricsIndex, metricTableDefinition, pageIndex, usecaseEntities, pageDefinition, workflowIndex, workflowDefinition, agentPlanAgents, coverage.
+- Build: `tsc -p tsconfig.frontend.json` ok em mls-base.
+
+**NAO EXECUTADO - usecasePlan** (decisao tecnica, 2026-06-07):
+- Diferente das definitions folha, `usecasePlan` e um indice que passa por critic/reparo (TODO-FINAL-024). Seu resultado completo (com `usecaseEntities`) so existe no payload da task ou no `checkpoint-usecasePlan.json` (os artefatos `usecase` salvos sao por-usecase e NAO contem `usecaseEntities`).
+- Limpar o payload exigiria tornar `getPlanUsecaseEntitiesOutput` async com fallback ao checkpoint, o que cascateia para: (a) o helper SINCRONO `getUsecaseIds` em `agentPlanIndexReview.ts` (usado pelos checkpoints de workflow/page via `safe(() => ...)`), e (b) a interface SINCRONA `getCurrentOutput` chamada pelo fluxo critic/reparo recem-criado (3 call sites). Threadear async nesse fluxo novo e ainda sem teste automatizado nao compensa para limpar um unico payload singular.
+- Decisao: manter o payload do usecase por enquanto (`cleaner="input"` no caminho de aprovacao do critic). Reavaliar quando os getters de indice migrarem para leitura por checkpoint de forma coordenada (mesma migracao dos 6 indices).
 
 ### TODO-FINAL-024 - Validar e reparar cada indice com LLM antes das definitions
 
@@ -614,6 +705,27 @@ Criterio de aceite:
   - schema do tool de repair so e registrado quando `agentPlanIndexReview` e carregado; sem ele a extracao cai na validacao do normalize (mais permissiva), sem quebrar.
 - Build: `tsc -p tsconfig.frontend.json` ok em mls-base.
 
+**FIX (run 2026-06-08) - flowRefs bucket determinismo + falha de repair**:
+- Sintoma: `agentRepairPlanIndex` falhava repetidamente o `pageIndex` com "page X flowRefs.taskWorkflows references workflow Y with executionMode=entityLifecycle; expected entityLifecycles". O bucket de um `flowRef` e 100% determinado pelo `executionMode` do workflow, entao era erro deterministico que o LLM reparador nao conseguia consertar, derrubando o indice e a task.
+- Correcao: `validatePageFlowRefsAgainstWorkflowIndex` deixou de lancar erro em bucket errado e passou a AUTO-CORRIGIR — re-bucketiza cada workflow id pelo seu `executionMode` e deduplica, mutando `flowRefs` in place. So lanca erro em workflow id desconhecido. Aplica em geracao do pageIndex, no reparo e no page definition (todos chamam a funcao).
+- Robustez do restart: os caminhos de falha do critic (`failIndexIntents`) e do repair so emitem o `update-status` que falha o STEP do indice quando o pai dele resolve como step `agent`. Antes, alcancar um avo cujo id nao resolve mais (apos restart manual) fazia o backend lancar "Parent step not found", quebrando o restart (409 + recursao em `_processIntentsStream`). Ver TODO-FINAL-029 para a robustez mais profunda no `collab-messages`.
+- Build: `tsc -p tsconfig.frontend.json` ok.
+
+### TODO-FINAL-029 - Robustez de restart de step de critic/repair (collab-messages)
+
+Problema:
+- Ao clicar "restart" num step de critic/repair que falhou, o frontend (`mls-102025`/`aiAgentOrchestration.js`) re-executa o `afterPromptStep`, que pode emitir `update-status` para um step ancestral cujo id nao resolve mais -> backend `intentUpdateStatus` lanca `DomainError: Parent step not found in intentUpdateStatus: <id>`, retorna 409 Conflict em `/exec`, e o `_processIntentsStream` entra em recursao/loop.
+- O guard adicionado no agente (so falha o indice quando o pai resolve) evita o crash vindo do agente, mas a robustez do mecanismo de restart de subarvore critic/repair e do tratamento de pai ausente e do `collab-messages`/frontend.
+
+Acao (collab-messages + mls-102025):
+- `intentUpdateStatus`: tratar pai/step ausente de forma defensiva (ignorar/trace em vez de lancar) durante restart, ou validar antes de aplicar.
+- `restartStep` (aiAgentOrchestration): ao reiniciar um step de critic/repair, reconciliar a subarvore (o indice pai e os checkpoints) em vez de re-emitir intents para ancestrais possivelmente removidos; evitar recursao infinita em `_processIntentsStream` quando o backend responde 409.
+- Considerar: para steps de critic/repair, o restart deveria reiniciar o STEP DO INDICE (re-gerar) em vez do filho critic/repair isolado.
+
+Criterio de aceite:
+- Restart de um critic/repair falho nao gera "Parent step not found", 409 em loop, nem recursao infinita.
+- O usuario consegue reiniciar o planejamento de um indice de forma consistente.
+
 ### TODO-FINAL-025 - Reaproveitar plugins existentes e evitar drafts duplicados em `l2/plugins`
 
 Problema:
@@ -637,6 +749,20 @@ Criterio de aceite:
 - Integracoes equivalentes, como `stripe` e `stripePayments`, nao geram dois plugins globais separados sem justificativa forte.
 - O plano de plugin tenta reaproveitar primeiro e so cria draft novo quando nao houver candidato suficientemente proximo.
 - O usuario ve menos plugins repetidos em `l2/plugins`, e os modulos passam a apontar para um plugin global coerente.
+
+**EXECUTED** (2026-06-07):
+- A causa do duplicado era o match exato por `pluginId`: antes, `buildPluginInventorySync` so reconhecia `existing` quando havia `l2/plugins/{pluginId}/plugin.defs.ts` com id identico; `stripe` e `stripePayments` viravam dois ids distintos -> ambos `create_draft`.
+- Em `agentPlanPlugins.ts`:
+  - Novo `scanExistingPlugins(searchProjects)` varre todos os `l2/plugins/*/plugin.defs.ts` (no projeto atual + dependencias) uma vez, e `isReusableExistingPlugin` exclui drafts criados pelo plano atual.
+  - `buildPluginInventorySync`: quando NAO ha match exato, tenta reuso por brand via `findExistingPluginsByBrand`. Se houver exatamente 1 plugin existente do mesmo brand -> `resolution="existing"`, `pluginDefsFileRef`/`sourceProject` apontando para o plugin existente, e `reusedFromPluginId` registrado. Sem novo draft global.
+  - Matching conservador (evita falso positivo): mesmo primeiro token de brand (`pluginBrandToken`) E pelo menos um lado e o plugin "brand-only" (`normalizePluginKey === brand`). Casa `stripe` <-> `stripePayments`; nao casa `mailChimp` <-> `mailGun`.
+  - Ambiguidade (mais de 1 existente do mesmo brand): nao auto-reaproveita; adiciona `reuseWarnings` e mantem `create_draft` para revisao manual.
+- O reuso e exposto a LLM: `pluginInventory` (com `reuseWarnings` e `reusedFromPluginId` por item) ja vai no prompt; novas regras no systemPrompt instruem "reuse first" e respeitar `reuseWarnings`.
+- A validacao existente (`validatePlanPluginsOutput`) ja forca o output a bater com o inventario (resolution/pluginDefsFileRef/sourceProject), entao o reuso e efetivamente aplicado, nao apenas sugerido.
+- Registro: `console.warn` por reuso; o checkpoint do critic de `pluginPlan` (TODO-FINAL-024) ja grava warning de provider duplicado no `healthReport` congelado.
+- ESCOPO: aplicado ao `pluginPlan`. A "tela/etapa que materializa" (apresentacao de plugins ao usuario) fica fora desta task, junto com materialize (coerente com o escopo do plano).
+- Limitacao conhecida: no reuso por brand, o `pluginId` planejado permanece o solicitado (ex.: `stripePayments`) e a conexao do modulo aponta para o plugin global existente (`stripe`); o objetivo do TODO (nao criar segundo draft global em `l2/plugins`) e atendido, mas o nome da conexao do modulo pode diferir do plugin global. Normalizar tambem o id da conexao seria um passo adicional.
+- Build: `tsc -p tsconfig.frontend.json` ok em mls-base.
 
 ### TODO-FINAL-026 - Adotar `<!-- x-tool-strict: true -->` nos agentes com schema compativel
 
@@ -681,7 +807,104 @@ Criterio de aceite:
 - A taxa de erro de payload incompatível com schema cai de forma perceptivel nos traces.
 - Cada agente fora do strict fica explicitamente identificado com a justificativa tecnica para isso.
 
-## Executed (one at a time, with evidence, no side effects)
+**EXECUTED** (2026-06-07):
+- Mecanismo confirmado em `collab-llm` (`helpers/strictToolSchema.ts` + `layer_2_controllers/proxy.ts`): `<!-- x-tool-strict: true -->` no system prompt e opt-in; o schema do tool e auto-transformado para strict da OpenAI (opcionais viram nullable, `additionalProperties:false` e `required` totais forcados). Incompatibilidade nao quebra: o proxy envia sem strict nativo e registra warning no trace. A validacao ajv contra o schema original sempre roda.
+- Bloqueadores de strict (de `strictToolSchema.ts`): `additionalProperties: true`, `oneOf`/`allOf`/`not`, e objeto com `type:"object"` sem `properties` (inclui mapas via `additionalProperties: <schema>`).
+- Inventario completo dos agentes de `agentNewSolution`:
+  - `strict-ready` (recebeu `<!-- x-tool-strict: true -->`): `agentPlanPersistenceIndex`, `agentPlanTableDefinition`, `agentPlanMetricsIndex`, `agentPlanMetricTableDefinition`, `agentPlanUsecaseEntities`, `agentPlanWorkflowIndex`, `agentPlanWorkflowDefinition`, `agentPlanPageIndex`, `agentPlanPlugins`, `agentPlanMDM`, `agentPlanHorizontals`, `agentPlanAgents`, `agentBlueprintReview`, `agentDiscoverSolutionScope`, `agentRecommendImplementations`, `agentCriticPlanIndex`, `agentRepairPlanIndex`. (`agentPlanPageDefinition` ja tinha — ver ressalva abaixo.)
+  - `not-strict-compatible-for-now` (NAO recebeu, com motivo):
+    - `agentFinalizeSolutionPlan` e `agentSolutionBlueprint`: compartilham `ontologySchema` em `agentSolutionPlanSchemas.ts`, onde `ontology.entities` e mapa dinamico (`additionalProperties: ontologyEntitySchema`, sem `properties`); fechar exigiria conhecer os entity ids em tempo de schema, o que nao e possivel.
+    - `agentValidateSolutionCoverage`: `checklistResults` usa `additionalProperties: true` (mapa dinamico de codigos de checagem).
+    - `agentPlanPageDefinition`: ja tem o comentario, mas o BFF `input`/`output` sao objetos livres (`additionalProperties: true`); na pratica o strict nativo NAO engata (warning no trace) e so a validacao ajv atua. Mantido como estava; para engatar strict seria preciso fechar os shapes de input/output do BFF.
+  - `N/A` (nao usam tool schema de planner): `agentNewSolution` (saida JSON flexible), `agentNewSolutionRequirements` (clarification), `agentNewSolutionPlanner` (wrapper sem LLM).
+- Verificacao: todos os 17 strict-ready tem `additionalProperties:false` em todos os objetos do schema (contagem `type:object == additionalProperties:false`, sem mapas nem combinadores). `agentRepairPlanIndex` usa os schemas de indice (todos fechados) e `agentCriticPlanIndex` usa o schema de critica fechado.
+- Build: `tsc -p tsconfig.frontend.json` ok em mls-base.
+- Risco residual: sem teste end-to-end com provider; a eficacia (queda de erro de payload) so e observavel nos traces de execucao real. A incompatibilidade e nao-fatal por design, entao um falso "strict-ready" so geraria warning, nao quebra.
+
+
+
+### TODO-FINAL-027 - Enriquecer `l4/workflows/*.defs.ts` com metadata explicita de modulos afetados
+
+Problema:
+- Os workflows ficam em `l4/workflows/{workflowId}.defs.ts` como artefatos globais, o que faz sentido por desenho quando um workflow cruza mais de um modulo, por exemplo `petShop`, `financeiro` e `stripe`.
+- Hoje, porem, o workflow global nao deixa claro o suficiente quais modulos, paginas, entidades, plugins e artefatos ele realmente afeta.
+- Isso dificulta o objetivo futuro de ter um agente de manutencao que leia um workflow e consiga decidir com seguranca quais modulos e quais arquivos precisam ser alterados.
+
+Decisao:
+- Manter os workflows em `l4/workflows` como artefatos globais.
+- Nao mover workflow para dentro de um modulo.
+- Enriquecer o proprio `.defs.ts` do workflow com metadata de escopo e impacto, para que a LLM consiga entender a fronteira entre workflow global e artefatos modulares dependentes.
+
+Acao:
+- Adicionar no contrato de `workflowDefinition` campos explicitos para rastrear impacto por modulo, por exemplo:
+  - `moduleRefs` ou equivalente: lista dos modulos participantes
+  - `pageRefsByModule` ou refs de pagina com `moduleId`
+  - `entityRefsByModule` quando a mesma entidade/nome puder aparecer em modulos diferentes
+  - `pluginRefs` e `externalRefs` com indicacao do modulo consumidor quando aplicavel
+  - `writesArtifacts` ou metadata equivalente para mostrar quais artefatos modulares o workflow pode exigir alterar
+- Garantir que `relatedPages`, `persistenceRefs`, `usecaseRefs`, `metricRefs` e outros refs consigam ser reconciliados com um `moduleId` quando o workflow tocar mais de um contexto.
+- Incluir essa metadata nos checkpoints/trace para permitir analise de impacto por agente no futuro.
+- Ajustar prompts e validadores para que a LLM declare explicitamente quando um workflow e:
+  - somente de um modulo
+  - multi-modulo
+  - multi-modulo com integracao externa dominante
+
+Criterio de aceite:
+- Continuamos com `l4/workflows` global, sem perder a capacidade de saber quais modulos o workflow afeta.
+- Um agente futuro de manutencao consegue ler um workflow e identificar com mais precisao quais paginas, plugins, usecases, tabelas e modulos entram no blast radius da mudanca.
+- Workflows que cruzam `petShop`, `financeiro`, `stripe` ou outros contextos ficam semanticamente claros no `.defs.ts`, e nao apenas implicitos no texto livre.
+
+**EXECUTED** (2026-06-07):
+- `agentPlanWorkflowDefinition` ganhou metadata de impacto por modulo no `workflowDefinition` (campos obrigatorios; arrays podem vir vazios; objetos fechados, strict-compatível):
+  - `workflowScope`: enum `singleModule` | `multiModule` | `multiModuleExternal`.
+  - `moduleRefs`: ids de todos os modulos que o workflow toca (inclui o modulo atual).
+  - `pageRefsByModule`: `{ moduleId, pageId }[]` reconciliando `relatedPages` com o modulo dono.
+  - `entityRefsByModule`: `{ moduleId, entity }[]` para desambiguar entidades de mesmo nome em modulos diferentes.
+  - `writesArtifacts`: `{ moduleId, artifactType, artifactId }[]` (artifactType em table/metricTable/usecase/page/pluginConnection/workflow) = artefatos modulares que o workflow pode exigir alterar (blast radius).
+- Schema (tool), `PlanWorkflowDefinitionResult`, normalizers e validacao atualizados; novos helpers `normalizeWorkflowScope`, `normalizePageRefByModule`, `normalizeEntityRefByModule`, `normalizeWritesArtifact`.
+- Validacao de coerencia: `workflowScope=singleModule` exige <=1 modulo em `moduleRefs`; `multiModule`/`multiModuleExternal` exigem >=2.
+- Prompt atualizado com secao "Module-impact metadata" instruindo como classificar escopo e preencher os refs por modulo.
+- Persistencia: como o workflow e salvo como artefato `workflow` com `data={ workflowDefinition, defsPlan }` (TODO-FINAL-011/014), a metadata vai automaticamente para `l4/workflows/{workflowId}.defs.ts` e para o trace — sem mudanca no writer.
+- Decisao mantida: workflows continuam globais em `l4/workflows` (nao movidos para dentro de modulo).
+- Build: `tsc -p tsconfig.frontend.json` ok em mls-base.
+
+### TODO-FINAL-028 - Surfacar erro de payload `type:"result"` no status, titulo e mensagem da task
+
+Problema:
+- Quando um agente do planejamento retorna um payload `type:"result"` (erro de negocio, nao um plano), por exemplo o root `agentNewSolution` recusando um nome de modulo ja existente:
+```
+[
+  {
+    "type": "result",
+    "result": "The module \"barbershopProUsa\" already exists. Please choose a different module name.",
+    "status": "completed",
+    "stepId": 27,
+    "interaction": null,
+    "nextSteps": null
+  }
+]
+```
+- Hoje o `afterPromptStep` do `agentNewSolution` detecta `payload.type === 'result'` e marca o step como `failed`, MAS nao propaga a string de erro: o `createUpdateStatusIntent` e chamado sem `traceMsg`. Resultado: a task falha, porem a explicacao so aparece ao inspecionar o payload manualmente (foi assim que o erro foi descoberto). Nao fica no titulo da task nem na mensagem da task.
+- Isso vale potencialmente para qualquer agente cujo contrato permita retornar `type:"result"` como erro de negocio.
+
+Esperado:
+- Status do step/task = `failed` (ja ocorre).
+- O texto do erro (`payload.result`) deve aparecer:
+  - no `traceMsg` do step,
+  - no titulo da task (ou em campo visivel equivalente),
+  - na mensagem que carrega a task (explicacao do erro para o usuario), sem precisar abrir o payload.
+
+Acao (provavelmente em dois pontos):
+- Agente (`agentNewSolution.afterPromptStep`, e revisar outros agentes que aceitam `type:"result"`): ao detectar `payload.type === 'result'`, passar `payload.result` como `traceMsg` no `update-status` `failed`; avaliar tambem setar titulo/`last_update_log` da task com a mensagem de erro.
+- Backend `collab-messages` (`updateStepStatus`/`updateTaskDetails`): garantir que, em falha, a `traceMsg`/motivo seja persistida e enviada na atualizacao da mensagem da task (`taskTitle`/conteudo), nao apenas o status.
+- Frontend `mls-102025` (collab-messages): renderizar o motivo da falha (traceMsg/result) no titulo/cartao da task e na mensagem, de forma visivel ao usuario.
+
+Decisao em aberto:
+- Para o caso especifico de nome de modulo, hoje `reserveModuleNameFromFolders` ja auto-incrementa para um nome livre; avaliar se o root deveria auto-resolver (renomear) em vez de retornar erro, OU manter o erro mas surfaca-lo bem. Esta TODO trata do surfacing generico de `type:"result"`; a politica de auto-rename do nome de modulo pode ser uma sub-decisao.
+
+Criterio de aceite:
+- Um run que recebe `type:"result"` (ex.: "module already exists") mostra status `failed` E o texto do erro no titulo da task e na mensagem da task, sem necessidade de abrir o payload.
+- Comportamento consistente para qualquer agente que possa retornar `type:"result"` como erro.
 
 ### TODO-FINAL-001 - Encerrar a task de planejamento sem materializar (DONE)
 
@@ -743,10 +966,10 @@ Criterio de aceite:
 4. Implementar gravacao incremental plan-only e limpeza por arquivo salvo: `TODO-FINAL-010` (safe-part), `TODO-FINAL-011`, `TODO-FINAL-012`, `TODO-FINAL-014`, `TODO-FINAL-022` (feito).
 5. Converter grupos independentes para paralelo controlado: `TODO-FINAL-021` (feito).
 6. Criar checkpoints de validacao incremental e critica/reparo por indice antes das definitions: `TODO-FINAL-023`, `TODO-FINAL-024` (feito; falta follow-up de limpeza de payload por referencia).
-7. Corrigir reuso de plugin global antes de criar draft novo: `TODO-FINAL-025`.
-8. Adotar strict tool mode nos agentes compativeis: `TODO-FINAL-026`.
-9. Reduzir tokens nos maiores consumidores: `TODO-FINAL-006`, `TODO-FINAL-007`, `TODO-FINAL-008`, `TODO-FINAL-009`.
-10. Completar mapeamento de artefatos plan: `TODO-FINAL-013`, `TODO-FINAL-015`, `TODO-FINAL-016`.
+7. Corrigir reuso de plugin global antes de criar draft novo: `TODO-FINAL-025` (feito; reuso por brand no pluginPlan, tela de materializacao fora de escopo).
+8. Adotar strict tool mode nos agentes compativeis: `TODO-FINAL-026` (feito; finalize/blueprint/coverage/pageDefinition fora do strict por schema com mapa dinamico/objeto livre).
+9. Reduzir tokens nos maiores consumidores: `TODO-FINAL-006`, `TODO-FINAL-007`, `TODO-FINAL-008`, `TODO-FINAL-009` (feito).
+10. Completar mapeamento/metadata de artefatos plan, incluindo workflow global com refs de modulo: `TODO-FINAL-013` (obsoleto, coberto pelo writer/014), `TODO-FINAL-015` (feito), `TODO-FINAL-016` (feito/ja cumprido), `TODO-FINAL-027` (feito).
 11. Criar testes e politica de trace: `TODO-FINAL-017`, `TODO-FINAL-018`.
 12. Consolidar regras transversais: `TODO-FINAL-019`, `TODO-FINAL-020`.
 
