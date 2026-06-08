@@ -11,9 +11,11 @@ import {
   createPlannerPromptReadyIntent,
   createPlannerVariableToolSchema,
   createPlannerUpdateStatusIntent,
+  collectStringRefs,
   extractPlannerOutput,
   getPlannerOutputsWithFileFallback,
   isRecord,
+  pickRecordsByIds,
 } from '/_102020_/l2/agentNewSolution/agentPlanningShared.js';
 import { getFinalizeSolutionPlanOutput } from '/_102020_/l2/agentNewSolution/agentFinalizeSolutionPlan.js';
 import type { FinalSolutionPlanOutput } from '/_102020_/l2/agentNewSolution/agentFinalizeSolutionPlan.js';
@@ -543,26 +545,50 @@ function buildHumanPrompt(
   tableDefinitions: PlanTableDefinitionOutput[],
   metricTableDefinitions: PlanMetricTableDefinitionOutput[],
 ): string {
+  // TODO-FINAL-007: send only what THIS workflow references, not all workflows/tables/metrics.
+  void workflowIndex; // the selected index item below is enough
+  const fp = finalPlan.result;
+
+  const tableIds = new Set(workflowIndexItem.persistenceRefs);
+  const usecaseIds = new Set(workflowIndexItem.usecaseRefs);
+  const metricIds = new Set(workflowIndexItem.metricRefs);
+  const actorIds = new Set(workflowIndexItem.actors);
+  const ruleIds = new Set(workflowIndexItem.rulesApplied);
+  const capabilityIds = new Set(workflowIndexItem.relatedCapabilities);
+
+  const selectedTables = pickRecordsByIds(tableDefinitions.map(t => t.result.tableDefinition), tableIds, ['tableId']);
+  const selectedUsecases = pickRecordsByIds(usecasePlan.result.usecases, usecaseIds, ['usecaseId']);
+  const selectedMetricTableDefs = pickRecordsByIds(metricTableDefinitions.map(m => m.result.metricTableDefinition), metricIds, ['metricTableId']);
+
+  const entityNames = new Set<string>(workflowIndexItem.relatedEntities);
+  for (const table of selectedTables) collectStringRefs(table, ['rootEntity', 'sourceEntities', 'embeddedEntities'], entityNames);
+  for (const usecase of selectedUsecases) collectStringRefs(usecase, ['inputEntities', 'outputEntities'], entityNames);
+  const ontologySubset: Record<string, unknown> = {};
+  for (const key of Object.keys(fp.ontology.entities)) {
+    if (entityNames.has(key)) ontologySubset[key] = fp.ontology.entities[key];
+  }
+
+  const reduced = {
+    workflowSelector: args,
+    workflowIndexItem,
+    module: fp.module,
+    actors: pickRecordsByIds(fp.actors, actorIds, ['actorId']),
+    capabilities: pickRecordsByIds(fp.capabilities, capabilityIds, ['capabilityId', 'id']),
+    rules: pickRecordsByIds(fp.rules, ruleIds, ['ruleId']),
+    ontologyEntities: ontologySubset,
+    backendArchitecture: usecasePlan.result.backendArchitecture,
+    controllerRules: usecasePlan.result.controllerRules,
+    usecases: selectedUsecases,
+    usecaseEntities: usecasePlan.result.usecaseEntities,
+    tables: selectedTables,
+    metricTableDefinitions: selectedMetricTableDefs,
+  };
+
   return `## Current workflow selector
 ${args}
 
-## Workflow index item
-${JSON.stringify(workflowIndexItem, null, 2)}
-
-## Workflow index
-${JSON.stringify(workflowIndex, null, 2)}
-
-## Final solution plan
-${JSON.stringify(finalPlan, null, 2)}
-
-## Usecase plan
-${JSON.stringify(usecasePlan, null, 2)}
-
-## Table definitions
-${JSON.stringify(tableDefinitions, null, 2)}
-
-## Metric table definitions
-${JSON.stringify(metricTableDefinitions, null, 2)}
+## Reduced workflow context (only what this workflow references)
+${JSON.stringify(reduced, null, 2)}
 `;
 }
 

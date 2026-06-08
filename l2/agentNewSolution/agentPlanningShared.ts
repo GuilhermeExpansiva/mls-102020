@@ -450,6 +450,46 @@ function isRecordValue(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+// TODO-FINAL-006..009: token-reduction helpers. Each definition/index agent only needs the
+// artifacts its selector references, not the full plan. These build reduced, per-item context.
+
+/** Keep only records whose id (any of `keys`) is in `ids`. Non-records are dropped. */
+export function pickRecordsByIds(items: unknown[] | undefined, ids: Set<string>, keys: string[]): unknown[] {
+  if (!Array.isArray(items) || ids.size === 0) return [];
+  return items.filter(item => {
+    if (!isRecordValue(item)) return false;
+    return keys.some(key => {
+      const value = item[key];
+      return typeof value === 'string' && ids.has(value);
+    });
+  });
+}
+
+/** Project records down to a small set of fields (drops everything else). */
+export function summarizeRecords(items: unknown[] | undefined, keys: string[]): unknown[] {
+  if (!Array.isArray(items)) return [];
+  return items.map(item => {
+    if (!isRecordValue(item)) return item;
+    const summary: Record<string, unknown> = {};
+    for (const key of keys) {
+      if (item[key] !== undefined) summary[key] = item[key];
+    }
+    return Object.keys(summary).length > 0 ? summary : item;
+  });
+}
+
+/** Collect non-empty string values from the given fields of a record into a target set. */
+export function collectStringRefs(record: unknown, fields: string[], target: Set<string>): void {
+  if (!isRecordValue(record)) return;
+  for (const field of fields) {
+    const value = record[field];
+    if (typeof value === 'string' && value.trim()) target.add(value);
+    else if (Array.isArray(value)) {
+      for (const item of value) if (typeof item === 'string' && item.trim()) target.add(item);
+    }
+  }
+}
+
 export function getPlanningContextSnapshot(context: mls.msg.ExecutionContext): PlanningContextSnapshot {
   const clarificationAnswer = getRequirementsClarificationAnswer(context);
   return {

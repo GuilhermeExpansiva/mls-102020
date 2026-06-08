@@ -15,6 +15,7 @@ import {
   findStepByPlanId,
   getPlannerOutputWithRepair,
   getPlanningContextSnapshot,
+  summarizeRecords,
 } from '/_102020_/l2/agentNewSolution/agentPlanningShared.js';
 import { getFinalizeSolutionPlanOutput } from '/_102020_/l2/agentNewSolution/agentFinalizeSolutionPlan.js';
 import type { FinalSolutionPlanOutput } from '/_102020_/l2/agentNewSolution/agentFinalizeSolutionPlan.js';
@@ -474,47 +475,38 @@ function buildHumanPrompt(
   workflowDefinitions: PlanWorkflowDefinitionOutput[],
   agentsPlan: PlanAgentsOutput,
 ): string {
+  // TODO-FINAL-009: the page index only needs summaries (ids + reason/title), not full
+  // table/usecase/page-definition/materialization detail. Send a compact planning snapshot.
+  void tableDefinitions; void metricTableDefinitions; void workflowDefinitions; // detail not needed to plan pages
+  const fp = finalPlan.result;
+
+  const snapshot = {
+    initialMetricsRequested,
+    module: fp.module,
+    actors: summarizeRecords(fp.actors, ['actorId', 'title', 'description']),
+    capabilities: summarizeRecords(fp.capabilities, ['capabilityId', 'id', 'title', 'priority']),
+    userActions: summarizeRecords(fp.userActions, ['actionId', 'id', 'title', 'actor', 'capabilityId']),
+    rules: summarizeRecords(fp.rules, ['ruleId', 'title']),
+    // workflows: keep executionMode (needed for flowRefs bucketing) but drop full state machines.
+    workflows: summarizeRecords(workflowIndex.result.workflows, ['workflowId', 'title', 'executionMode', 'createsTask', 'actors', 'relatedCapabilities']),
+    metrics: {
+      enabled: metricsIndex.result.metricsPlan.enabled,
+      metricTables: summarizeRecords(metricsIndex.result.metricTables, ['metricTableId', 'title', 'purpose']),
+      dashboards: summarizeRecords(metricsIndex.result.dashboardPages, ['metricDashboardId', 'title', 'actor', 'accessPolicy']),
+    },
+    persistenceTables: summarizeRecords(persistenceIndex.result.tables, ['tableId', 'title', 'rootEntity']),
+    usecases: summarizeRecords(usecasePlan.result.usecases, ['usecaseId', 'title', 'actor']),
+    plugins: summarizeRecords(plugins.result.plugins, ['pluginId', 'provider', 'reason']),
+    mdmDomains: summarizeRecords(mdm.result.mdmDomains, ['domainId', 'title']),
+    horizontalModules: summarizeRecords(horizontals.result.horizontalModules, ['horizontalModuleId', 'reason']),
+    agents: summarizeRecords((agentsPlan.result as unknown as Record<string, unknown>).agents as unknown[] | undefined, ['agentId', 'id', 'title', 'reason']),
+  };
+
   return `## Planned step args
 ${args}
 
-## Initial metrics dashboard requested
-${initialMetricsRequested}
-
-## Final solution plan
-${JSON.stringify(finalPlan, null, 2)}
-
-## MDM plan
-${JSON.stringify(mdm, null, 2)}
-
-## Horizontals plan
-${JSON.stringify(horizontals, null, 2)}
-
-## Plugin plan
-${JSON.stringify(plugins, null, 2)}
-
-## Persistence index
-${JSON.stringify(persistenceIndex, null, 2)}
-
-## Table definitions
-${JSON.stringify(tableDefinitions, null, 2)}
-
-## Metrics index
-${JSON.stringify(metricsIndex, null, 2)}
-
-## Metric table definitions
-${JSON.stringify(metricTableDefinitions, null, 2)}
-
-## Usecase plan
-${JSON.stringify(usecasePlan, null, 2)}
-
-## Workflow index
-${JSON.stringify(workflowIndex, null, 2)}
-
-## Workflow definitions
-${JSON.stringify(workflowDefinitions, null, 2)}
-
-## Agents plan
-${JSON.stringify(agentsPlan, null, 2)}
+## Page planning snapshot (summaries only; request detail later per page)
+${JSON.stringify(snapshot, null, 2)}
 `;
 }
 

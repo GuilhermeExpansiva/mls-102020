@@ -178,8 +178,13 @@ function validatePlanHorizontalsOutput(output: PlanHorizontalsOutput, context: m
     if (!allowedIds.has(module.horizontalModuleId)) throw new Error(`unknown horizontalModuleId: ${module.horizontalModuleId}`);
   }
   const snapshot = getPlanningContextSnapshot(context);
+  // Non-fatal (advisory) per the non-blocking direction (TODO-FINAL-023/024): an accepted
+  // horizontalModule with an empty plan must NOT fail the whole task. This can legitimately
+  // happen when the accepted decision maps to a horizontal that is not in the catalog
+  // (finance/notifications/documents) — in that case the model cannot plan it and would fail
+  // every run. Horizontals are deferred to their own creation task anyway (TODO-FINAL-015).
   if (output.status === 'ok' && hasAcceptedArtifact(snapshot.implementationDecisions, 'horizontalModule') && output.result.horizontalModules.length === 0) {
-    throw new Error('horizontalModule was accepted, but horizontalModules output is empty');
+    console.warn('[agentPlanHorizontals] a horizontalModule was accepted, but the plan returned no horizontal modules (advisory, not blocking)');
   }
   if (output.status === 'needs_input' && output.questions.length === 0) throw new Error('needs_input horizontal plan must include questions');
 }

@@ -201,6 +201,17 @@ Criterio de aceite:
 - Cada chamada de page definition deve ficar bem abaixo de 30000 input tokens.
 - A pagina continua conseguindo produzir BFF commands e sections coerentes.
 
+**EXECUTED** (2026-06-07):
+- `buildHumanPrompt` do page definition agora monta um contexto reduzido por pagina (helper inline) em vez de despejar tudo:
+  - `pageIndexItem` (spec da pagina), `module`, `actor` (so o ator da pagina), `capabilities`/`rules` filtrados por `pageIndexItem`.
+  - `workflows` (index + definitions) filtrados por `flowRefs`; `usecases` por `usecaseHints`; `tables` por `persistenceHints`; `metrics` (index tables + defs + dashboards) por `metricRefs`; `plugins` por `pluginRefs`; `mdm` por `mdmRefs`.
+  - `ontologyEntities`: subconjunto referenciado pelas tabelas/usecases selecionados (+ mdmRefs).
+  - `backendArchitecture`/`controllerRules`/`usecaseEntities` (pequenos) mantidos para coerencia de BFF.
+  - `navigablePages`: lista slim (`pageId,pageName,actor,purpose`) so para `navigationRefs`, em vez do page index completo.
+- NAO envia mais final plan completo, todas as table/metric/workflow definitions, nem o page index inteiro.
+- Helpers `pickRecordsByIds`/`summarizeRecords`/`collectStringRefs` adicionados ao `agentPlanningShared`.
+- Build: `tsc -p tsconfig.frontend.json` ok.
+
 ### TODO-FINAL-007 - Reduzir input do `agentPlanWorkflowDefinition`
 
 Problema:
@@ -212,6 +223,15 @@ Acao:
 
 Criterio de aceite:
 - Cada workflow definition recebe contexto especifico ao workflow selector.
+
+**EXECUTED** (2026-06-07):
+- `buildHumanPrompt` do workflow definition agora envia contexto reduzido por workflow:
+  - `workflowIndexItem` (spec), `module`, `actors`/`capabilities`/`rules` filtrados pelos refs do item.
+  - `tables` por `persistenceRefs`, `usecases` por `usecaseRefs`, `metricTableDefinitions` por `metricRefs`.
+  - `ontologyEntities` subconjunto referenciado por `relatedEntities` + tabelas/usecases selecionados.
+  - `backendArchitecture`/`controllerRules`/`usecaseEntities` mantidos (pequenos).
+- NAO envia mais o workflow index inteiro, final plan completo, usecase plan completo, nem todas as table/metric definitions.
+- Build: `tsc -p tsconfig.frontend.json` ok.
 
 ### TODO-FINAL-008 - Reduzir input do `agentValidateSolutionCoverage`
 
@@ -227,6 +247,13 @@ Acao:
 
 Criterio de aceite:
 - A validacao continua encontrando erros estruturais sem depender de contexto completo bruto.
+
+**EXECUTED** (2026-06-07):
+- `buildCoverageSnapshot` monta um snapshot compacto: `counts`, `ids` por tipo de artefato, e arrays resumidos (pages com actor/flowRefs/bffCommands resumidos; workflows com executionMode/refs/workflowScope; usecases/tables/metricTables/dashboards/plugins/mdm/agents summarizados).
+- `deterministicIssues` precomputadas no cliente: page.actor desconhecido, page<->index mismatch, workflow persistence/usecase/metric refs danglings, dashboard actor desconhecido — passados prontos para a LLM confirmar/estender.
+- O prompt envia apenas snapshot + issues + guidance, nao mais todos os artefatos completos.
+- Coerente com TODO-FINAL-023/024: a coverage e relatorio tecnico nao-bloqueante; os checks pesados ja rodaram nos checkpoints por indice.
+- Build: `tsc -p tsconfig.frontend.json` ok.
 
 ### TODO-FINAL-009 - Reduzir input do `agentPlanPageIndex`
 
@@ -245,6 +272,14 @@ Acao:
 
 Criterio de aceite:
 - O page index continua gerando todas as paginas necessarias, mas sem contexto detalhado de materializacao.
+
+**EXECUTED** (2026-06-07):
+- `buildHumanPrompt` do page index agora envia um snapshot de planejamento (summaries):
+  - `module`, `actors`, `capabilities`, `userActions`, `rules` resumidos.
+  - `workflows` resumidos COM `executionMode` (necessario para o bucket de `flowRefs`), `createsTask`, `actors`, `relatedCapabilities`.
+  - `metrics` (enabled + metricTables/dashboards resumidos), `persistenceTables` (id/title/rootEntity), `usecases` (id/title/actor), `plugins` (id/provider/reason), `mdmDomains`, `horizontalModules`, `agents` por id+motivo.
+- Removidos os dumps completos de table/metric/workflow definitions (detalhe nao necessario para planejar paginas).
+- Build: `tsc -p tsconfig.frontend.json` ok.
 
 ### TODO-FINAL-010 - Limpar input/payload remanescente da task
 
@@ -412,6 +447,8 @@ Resposta: deve ser consultado os módulos existentes, ex "financeiro", e nos art
 - Separacao de manifesto: o manifesto e gravado sob o modulo origem (`getInitialModuleName`, ex petShop) e as entradas apontam para os modulos horizontais/MDM. Assim o modulo origem registra o que referencia/cria, coerente com "o modulo origem devera ser atualizado".
 - Escopo: a criacao efetiva de cada modulo horizontal/MDM continua sendo uma task futura propria (drafts aqui sao o ponto de partida). Flush nao inventa estrutura fora de `l5/{id}/module.defs.ts` e nunca sobrescreve modulo existente.
 - Build: `tsc -p tsconfig.frontend.json` ok em mls-base.
+
+**FIX (run 2026-06-08)**: `agentPlanHorizontals` falhava a task inteira com "horizontalModule was accepted, but horizontalModules output is empty" quando uma decisao aceitava um horizontal fora do catalogo (finance/notifications/documents) — o modelo nao tinha como plana-lo, falha garantida. Esse gate virou advisory (`console.warn`, nao-fatal), coerente com a direcao nao-bloqueante (TODO-FINAL-023/024) e com o fato de horizontais serem criados em task propria depois. Checagens estruturais duras (id fora do catalogo; needs_input sem questions) e o gate obrigatorio de MDM (mdmDomains nao-vazio) permanecem. Observacao do trace: `x-tool-strict: not used` para horizontals nesse run (provider azureai/gpt-5.2-codex) — informativo, nao e a causa; a validacao ajv contra o schema continua ativa.
 
 ### TODO-FINAL-016 - Separar claramente `plan`, `mat1` e `mat2`
 
@@ -872,7 +909,7 @@ Criterio de aceite:
 6. Criar checkpoints de validacao incremental e critica/reparo por indice antes das definitions: `TODO-FINAL-023`, `TODO-FINAL-024` (feito; falta follow-up de limpeza de payload por referencia).
 7. Corrigir reuso de plugin global antes de criar draft novo: `TODO-FINAL-025` (feito; reuso por brand no pluginPlan, tela de materializacao fora de escopo).
 8. Adotar strict tool mode nos agentes compativeis: `TODO-FINAL-026` (feito; finalize/blueprint/coverage/pageDefinition fora do strict por schema com mapa dinamico/objeto livre).
-9. Reduzir tokens nos maiores consumidores: `TODO-FINAL-006`, `TODO-FINAL-007`, `TODO-FINAL-008`, `TODO-FINAL-009`.
+9. Reduzir tokens nos maiores consumidores: `TODO-FINAL-006`, `TODO-FINAL-007`, `TODO-FINAL-008`, `TODO-FINAL-009` (feito).
 10. Completar mapeamento/metadata de artefatos plan, incluindo workflow global com refs de modulo: `TODO-FINAL-013` (obsoleto, coberto pelo writer/014), `TODO-FINAL-015` (feito), `TODO-FINAL-016` (feito/ja cumprido), `TODO-FINAL-027` (feito).
 11. Criar testes e politica de trace: `TODO-FINAL-017`, `TODO-FINAL-018`.
 12. Consolidar regras transversais: `TODO-FINAL-019`, `TODO-FINAL-020`.

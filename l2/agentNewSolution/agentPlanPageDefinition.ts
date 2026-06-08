@@ -10,8 +10,11 @@ import {
   createPlannerPromptReadyIntent,
   createPlannerVariableToolSchema,
   createPlannerUpdateStatusIntent,
+  collectStringRefs,
   extractPlannerOutput,
   getPlannerOutputs,
+  pickRecordsByIds,
+  summarizeRecords,
 } from '/_102020_/l2/agentNewSolution/agentPlanningShared.js';
 import { getFinalizeSolutionPlanOutput } from '/_102020_/l2/agentNewSolution/agentFinalizeSolutionPlan.js';
 import type { FinalSolutionPlanOutput } from '/_102020_/l2/agentNewSolution/agentFinalizeSolutionPlan.js';
@@ -613,50 +616,73 @@ function buildHumanPrompt(
   workflowDefinitions: PlanWorkflowDefinitionOutput[],
   agentsPlan: PlanAgentsOutput,
 ): string {
+  // TODO-FINAL-006: send only the artifacts THIS page references, not the whole plan.
+  void horizontals; void agentsPlan; void persistenceIndex; // not needed for a single page definition
+  const fp = finalPlan.result;
+
+  const flowIds = new Set<string>([
+    ...pageIndexItem.flowRefs.experienceFlows,
+    ...pageIndexItem.flowRefs.entityLifecycles,
+    ...pageIndexItem.flowRefs.taskWorkflows,
+    ...pageIndexItem.flowRefs.automations,
+  ]);
+  const tableIds = new Set(pageIndexItem.persistenceHints);
+  const usecaseIds = new Set(pageIndexItem.usecaseHints);
+  const metricIds = new Set(pageIndexItem.metricRefs);
+  const pluginIds = new Set(pageIndexItem.pluginRefs);
+  const mdmIds = new Set(pageIndexItem.mdmRefs);
+  const ruleIds = new Set(pageIndexItem.rulesApplied);
+  const capabilityIds = new Set(pageIndexItem.capabilities);
+
+  const tableDefs = tableDefinitions.map(t => t.result.tableDefinition);
+  const selectedTables = pickRecordsByIds(tableDefs, tableIds, ['tableId']);
+  const selectedMetricTableDefs = pickRecordsByIds(metricTableDefinitions.map(m => m.result.metricTableDefinition), metricIds, ['metricTableId']);
+  const selectedMetricIndexTables = pickRecordsByIds(metricsIndex.result.metricTables, metricIds, ['metricTableId']);
+  const selectedDashboards = pickRecordsByIds(metricsIndex.result.dashboardPages, metricIds, ['metricDashboardId']);
+  const selectedUsecases = pickRecordsByIds(usecasePlan.result.usecases, usecaseIds, ['usecaseId']);
+
+  // Ontology entities referenced by the selected tables/usecases/mdm refs.
+  const entityNames = new Set<string>(mdmIds);
+  for (const table of selectedTables) collectStringRefs(table, ['rootEntity', 'sourceEntities', 'embeddedEntities'], entityNames);
+  for (const usecase of selectedUsecases) collectStringRefs(usecase, ['inputEntities', 'outputEntities'], entityNames);
+  const ontologySubset: Record<string, unknown> = {};
+  for (const key of Object.keys(fp.ontology.entities)) {
+    if (entityNames.has(key)) ontologySubset[key] = fp.ontology.entities[key];
+  }
+
+  const reduced = {
+    pageSelector: args,
+    pageIndexItem,
+    module: fp.module,
+    actor: pickRecordsByIds(fp.actors, new Set([pageIndexItem.actor]), ['actorId'])[0] || pageIndexItem.actor,
+    capabilities: pickRecordsByIds(fp.capabilities, capabilityIds, ['capabilityId', 'id']),
+    rules: pickRecordsByIds(fp.rules, ruleIds, ['ruleId']),
+    ontologyEntities: ontologySubset,
+    backendArchitecture: usecasePlan.result.backendArchitecture,
+    controllerRules: usecasePlan.result.controllerRules,
+    usecases: selectedUsecases,
+    usecaseEntities: usecasePlan.result.usecaseEntities,
+    tables: selectedTables,
+    metrics: {
+      indexTables: selectedMetricIndexTables,
+      tableDefinitions: selectedMetricTableDefs,
+      dashboards: selectedDashboards,
+    },
+    workflows: {
+      index: pickRecordsByIds(workflowIndex.result.workflows, flowIds, ['workflowId']),
+      definitions: pickRecordsByIds(workflowDefinitions.map(w => w.result.workflowDefinition), flowIds, ['workflowId']),
+    },
+    plugins: pickRecordsByIds(plugins.result.plugins, pluginIds, ['pluginId']),
+    mdm: pickRecordsByIds(mdm.result.mdmDomains, mdmIds, ['domainId']),
+    // Slim page list for navigationRefs only (id/name/actor/purpose), not the full index.
+    navigablePages: summarizeRecords(pageIndex.result.pages, ['pageId', 'pageName', 'actor', 'purpose']),
+  };
+
   return `## Current page selector
 ${args}
 
-## Page index item (selected)
-${JSON.stringify(pageIndexItem, null, 2)}
-
-## Full page index (for navigation and cross-refs)
-${JSON.stringify(pageIndex, null, 2)}
-
-## Final solution plan
-${JSON.stringify(finalPlan, null, 2)}
-
-## MDM plan
-${JSON.stringify(mdm, null, 2)}
-
-## Horizontals plan
-${JSON.stringify(horizontals, null, 2)}
-
-## Plugin plan
-${JSON.stringify(plugins, null, 2)}
-
-## Persistence index
-${JSON.stringify(persistenceIndex, null, 2)}
-
-## Table definitions
-${JSON.stringify(tableDefinitions, null, 2)}
-
-## Metrics index
-${JSON.stringify(metricsIndex, null, 2)}
-
-## Metric table definitions
-${JSON.stringify(metricTableDefinitions, null, 2)}
-
-## Usecase plan
-${JSON.stringify(usecasePlan, null, 2)}
-
-## Workflow index
-${JSON.stringify(workflowIndex, null, 2)}
-
-## Workflow definitions
-${JSON.stringify(workflowDefinitions, null, 2)}
-
-## Agents plan
-${JSON.stringify(agentsPlan, null, 2)}
+## Reduced page context (only what this page references)
+${JSON.stringify(reduced, null, 2)}
 `;
 }
 

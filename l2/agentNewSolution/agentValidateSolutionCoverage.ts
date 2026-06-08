@@ -12,6 +12,7 @@ import {
   createPlannerUpdateStatusIntent,
   extractPlannerOutput,
   getPlannerOutput,
+  summarizeRecords,
 } from '/_102020_/l2/agentNewSolution/agentPlanningShared.js';
 import { getFinalizeSolutionPlanOutput } from '/_102020_/l2/agentNewSolution/agentFinalizeSolutionPlan.js';
 import type { FinalSolutionPlanOutput } from '/_102020_/l2/agentNewSolution/agentFinalizeSolutionPlan.js';
@@ -386,53 +387,146 @@ function buildHumanPrompt(
   pageDefinitions: PlanPageDefinitionOutput[],
   checklistNote: string,
 ): string {
-  return `## Final solution plan
-${JSON.stringify(finalPlan, null, 2)}
+  // TODO-FINAL-008: send a compact coverage snapshot (ids, counts, cross-ref matrix and
+  // deterministic pre-computed issues) instead of every full artifact. Coverage is now a
+  // non-blocking technical report (TODO-FINAL-023/024); the heavy per-artifact checks already
+  // ran in the per-index checkpoints and critic/repair.
+  const snapshot = buildCoverageSnapshot(
+    finalPlan, mdm, horizontals, plugins, persistenceIndex, tableDefinitions, metricsIndex,
+    metricTableDefinitions, usecasePlan, workflowIndex, workflowDefinitions, agentsPlan, pageIndex, pageDefinitions,
+  );
 
-## MDM plan
-${JSON.stringify(mdm, null, 2)}
+  return `## Coverage snapshot (compact: ids, counts, cross-refs)
+${JSON.stringify(snapshot.snapshot, null, 2)}
 
-## Horizontals plan
-${JSON.stringify(horizontals, null, 2)}
-
-## Plugin plan
-${JSON.stringify(plugins, null, 2)}
-
-## Persistence index
-${JSON.stringify(persistenceIndex, null, 2)}
-
-## Table definitions (all)
-${JSON.stringify(tableDefinitions, null, 2)}
-
-## Metrics index
-${JSON.stringify(metricsIndex, null, 2)}
-
-## Metric table definitions (all)
-${JSON.stringify(metricTableDefinitions, null, 2)}
-
-## Usecase entities plan
-${JSON.stringify(usecasePlan, null, 2)}
-
-## Workflow index
-${JSON.stringify(workflowIndex, null, 2)}
-
-## Workflow definitions (all)
-${JSON.stringify(workflowDefinitions, null, 2)}
-
-## Agents plan
-${JSON.stringify(agentsPlan, null, 2)}
-
-## Page index
-${JSON.stringify(pageIndex, null, 2)}
-
-## Page definitions (all)
-${JSON.stringify(pageDefinitions, null, 2)}
+## Deterministic issues precomputed by code (confirm and extend; do not contradict)
+${JSON.stringify(snapshot.deterministicIssues, null, 2)}
 
 ## Checklist / validation guidance
 ${checklistNote}
 
 Use skills/validation-rules.md, skills/backend-layer-design.md, skills/persistence-table-design.md, skills/metrics-timescaledb.md and skills/output-contracts.md as the primary contract.
 `;
+}
+
+function buildCoverageSnapshot(
+  finalPlan: FinalSolutionPlanOutput,
+  mdm: PlanMDMOutput,
+  horizontals: PlanHorizontalsOutput,
+  plugins: PlanPluginsOutput,
+  persistenceIndex: PlanPersistenceIndexOutput,
+  tableDefinitions: PlanTableDefinitionOutput[],
+  metricsIndex: PlanMetricsIndexOutput,
+  metricTableDefinitions: PlanMetricTableDefinitionOutput[],
+  usecasePlan: PlanUsecaseEntitiesOutput,
+  workflowIndex: PlanWorkflowIndexOutput,
+  workflowDefinitions: PlanWorkflowDefinitionOutput[],
+  agentsPlan: PlanAgentsOutput,
+  pageIndex: PlanPageIndexOutput,
+  pageDefinitions: PlanPageDefinitionOutput[],
+): { snapshot: Record<string, unknown>; deterministicIssues: ValidationIssue[] } {
+  const fp = finalPlan.result;
+
+  const pages = pageDefinitions.map(p => p.result.pageDefinition);
+  const workflows = workflowDefinitions.map(w => w.result.workflowDefinition);
+  const usecases = (usecasePlan.result.usecases as Record<string, unknown>[]).filter(u => u && typeof u === 'object');
+  const tables = tableDefinitions.map(t => t.result.tableDefinition);
+  const metricTables = metricTableDefinitions.map(m => m.result.metricTableDefinition);
+
+  const actorIds = new Set(fp.actors.map(a => (a as Record<string, unknown>).actorId as string).filter(Boolean));
+  const tableIds = new Set<string>([...persistenceIndex.result.tables.map(t => t.tableId), ...tables.map(t => t.tableId as string)].filter(Boolean));
+  const metricIds = new Set<string>([...metricsIndex.result.metricTables.map(t => t.metricTableId), ...metricTables.map(t => t.metricTableId as string)].filter(Boolean));
+  const dashboardIds = new Set(metricsIndex.result.dashboardPages.map(d => (d as Record<string, unknown>).metricDashboardId as string).filter(Boolean));
+  const usecaseIds = new Set(usecases.map(u => u.usecaseId as string).filter(Boolean));
+  const workflowIds = new Set(workflowIndex.result.workflows.map(w => w.workflowId).filter(Boolean));
+  const pageIds = new Set(pageIndex.result.pages.map(p => p.pageId).filter(Boolean));
+
+  const issues: ValidationIssue[] = [];
+  const addIssue = (severity: 'error' | 'warning', code: string, message: string, path: string) =>
+    issues.push({ severity, code, message, path, evidence: [] });
+
+  // Page index vs page definitions consistency.
+  for (const page of pageIndex.result.pages) {
+    if (!pageDefinitions.some(d => d.result.pageDefinition.pageId === page.pageId)) {
+      addIssue('warning', 'page.def.missing', `page ${page.pageId} is in the index but has no definition`, `pageIndex.${page.pageId}`);
+    }
+  }
+  for (const page of pages) {
+    const pid = page.pageId as string;
+    if (pid && !pageIds.has(pid)) addIssue('warning', 'page.index.missing', `page definition ${pid} is not in the page index`, `pageDefinition.${pid}`);
+    if (typeof page.actor === 'string' && actorIds.size > 0 && !actorIds.has(page.actor)) {
+      addIssue('error', 'page.actor.unknown', `page ${pid} actor ${page.actor} is not a final plan actorId`, `pageDefinition.${pid}.actor`);
+    }
+  }
+
+  // Workflow definition refs.
+  for (const wf of workflows) {
+    const wid = wf.workflowId as string;
+    for (const ref of asStrings(wf.persistenceRefs)) {
+      if (tableIds.size > 0 && !tableIds.has(ref)) addIssue('error', 'workflow.persistenceRef.unknown', `workflow ${wid} references unknown table ${ref}`, `workflow.${wid}`);
+    }
+    for (const ref of asStrings(wf.usecaseRefs)) {
+      if (usecaseIds.size > 0 && !usecaseIds.has(ref)) addIssue('warning', 'workflow.usecaseRef.unknown', `workflow ${wid} references unknown usecase ${ref}`, `workflow.${wid}`);
+    }
+    for (const ref of asStrings(wf.metricRefs)) {
+      if (metricIds.size > 0 && !metricIds.has(ref)) addIssue('warning', 'workflow.metricRef.unknown', `workflow ${wid} references unknown metric ${ref}`, `workflow.${wid}`);
+    }
+  }
+
+  // Dashboard actors.
+  metricsIndex.result.dashboardPages.forEach((d, i) => {
+    const rec = d as Record<string, unknown>;
+    if (typeof rec.actor === 'string' && actorIds.size > 0 && !actorIds.has(rec.actor)) {
+      addIssue('error', 'dashboard.actor.unknown', `dashboard ${rec.metricDashboardId} actor ${rec.actor} is not a final plan actorId`, `dashboard[${i}]`);
+    }
+  });
+
+  const snapshot = {
+    module: fp.module,
+    counts: {
+      actors: actorIds.size, capabilities: fp.capabilities.length, rules: fp.rules.length,
+      tables: tableIds.size, metricTables: metricIds.size, dashboards: dashboardIds.size,
+      usecases: usecaseIds.size, workflows: workflowIds.size, pages: pageIds.size,
+      pageDefinitions: pages.length, workflowDefinitions: workflows.length,
+      plugins: plugins.result.plugins.length, mdmDomains: mdm.result.mdmDomains.length,
+      horizontalModules: horizontals.result.horizontalModules.length,
+    },
+    ids: {
+      actors: [...actorIds], tables: [...tableIds], metricTables: [...metricIds],
+      dashboards: [...dashboardIds], usecases: [...usecaseIds], workflows: [...workflowIds], pages: [...pageIds],
+    },
+    actors: summarizeRecords(fp.actors, ['actorId', 'title']),
+    rules: summarizeRecords(fp.rules, ['ruleId', 'title']),
+    controllerRules: usecasePlan.result.controllerRules,
+    pages: pages.map(p => ({
+      pageId: p.pageId, actor: p.actor,
+      capabilities: p.capabilities, flowRefs: p.flowRefs,
+      pageInputs: summarizeRecords(asArray(p.pageInputs), ['name', 'required']),
+      bffCommands: summarizeRecords(asArray((p as unknown as Record<string, unknown>).bffCommands), ['commandName', 'usecaseRefs', 'writesTables', 'readsTables']),
+    })),
+    workflows: workflows.map(w => ({
+      workflowId: w.workflowId, executionMode: w.executionMode, createsTask: w.createsTask,
+      workflowScope: (w as Record<string, unknown>).workflowScope, moduleRefs: (w as Record<string, unknown>).moduleRefs,
+      persistenceRefs: w.persistenceRefs, usecaseRefs: w.usecaseRefs, metricRefs: w.metricRefs,
+    })),
+    usecases: summarizeRecords(usecases, ['usecaseId', 'actor', 'readsTables', 'writesTables']),
+    tables: summarizeRecords(tables, ['tableId', 'ownership', 'tableKind']),
+    metricTables: summarizeRecords(metricTables, ['metricTableId', 'storageEngine']),
+    dashboards: summarizeRecords(metricsIndex.result.dashboardPages, ['metricDashboardId', 'actor']),
+    plugins: summarizeRecords(plugins.result.plugins, ['pluginId', 'resolution']),
+    mdmDomains: summarizeRecords(mdm.result.mdmDomains, ['domainId']),
+    agents: summarizeRecords((agentsPlan.result as unknown as Record<string, unknown>).agents as unknown[] | undefined, ['agentId', 'id']),
+  };
+
+  return { snapshot, deterministicIssues: issues };
+}
+
+function asStrings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+}
+
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
 }
 
 const systemPrompt = `
