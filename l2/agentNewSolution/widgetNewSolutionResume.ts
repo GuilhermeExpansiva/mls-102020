@@ -61,7 +61,7 @@ interface HealthReport {
 
 /// **collab_i18n_start**
 const message_en = {
-  title: 'Final data',
+  title: 'Final planning summary',
   prompt: 'Initial prompt',
   decisions: 'Decisions',
   openDetails: 'Open details',
@@ -85,7 +85,7 @@ const message_en = {
   taskOpened: 'task opened',
 };
 const message_ptbr: typeof message_en = {
-  title: 'Dados finais',
+  title: 'Resumo final do planejamento',
   prompt: 'Prompt inicial',
   decisions: 'Decisões',
   openDetails: 'Pontos em aberto',

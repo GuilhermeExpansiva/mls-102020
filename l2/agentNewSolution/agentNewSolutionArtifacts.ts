@@ -574,6 +574,22 @@ function getInitialModuleName(context: mls.msg.ExecutionContext): string {
   return result?.moduleName || normalizeModuleFolderName(undefined, result?.userPrompt || 'module');
 }
 
+/**
+ * The module being created in the CURRENT task, or null when the root agentNewSolution has not
+ * produced a plan yet. Unlike getInitialModuleName, this never falls back to a derived name — so
+ * callers can safely exclude the in-progress module from the "already existing modules" list shown
+ * to the flow's own agents (the root reserves l5/{module}/module.defs.ts + trace at the very start,
+ * which would otherwise make downstream steps treat the new module as a pre-existing one).
+ */
+export function getPlannedModuleName(context: mls.msg.ExecutionContext): string | null {
+  if (!context.task) return null;
+  const agentStep = getAgentStepByAgentName(context.task, 'agentNewSolution') as mls.msg.AIAgentStep | null;
+  const payload = agentStep?.interaction?.payload?.[0] as mls.msg.AIFlexibleResultStep | undefined;
+  if (!payload || payload.type !== 'flexible' || !isRecord(payload.result)) return null;
+  const name = readString(payload.result.moduleName);
+  return name ? normalizeModuleFolderName(name, 'module') : null;
+}
+
 function getPayloadModuleName(payload: unknown): string | undefined {
   const value = parseMaybeJson(payload);
   const direct = getModuleNameFromPlannerResult(value);

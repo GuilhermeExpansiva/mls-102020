@@ -4,6 +4,7 @@ import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import { getAgentStepByAgentName } from '/_102027_/l2/aiAgentHelper.js';
 import {
   getExistingModuleFolders,
+  getPlannedModuleName,
   reserveNewSolutionModuleArtifacts,
   saveNewSolutionAgentTracePayload,
   saveTraceMemorySeed,
@@ -66,7 +67,10 @@ async function beforePromptImplicit(
   const normalizedPrompt = (userPrompt || '').trim();
   if (normalizedPrompt.length < 5) throw new Error('invalid prompt');
 
-  const folders = Array.from(getExistingModuleFolders());
+  // Exclude the module being created in THIS task (set on a retry) so the root never sees its own
+  // reserved folder as a pre-existing module.
+  const planned = getPlannedModuleName(context);
+  const folders = Array.from(getExistingModuleFolders()).filter(folder => folder !== planned);
 
   const addMessageAI: mls.msg.AgentIntentAddMessageAI = {
     type: 'add-message-ai',
@@ -192,13 +196,18 @@ function buildPlannedTree(initialPlan: InitialNewSolutionPlan): PlannedAgentStep
       selectorField: 'tableId',
       argsField: 'tableId',
     }),
-    plannedAgent('plan-metrics-index', 'agentPlanMetricsIndex', title('plan-metrics-index'), ['plan-table-definition'], 'sequential'),
+    // Indices depend on the previous INDEX, not on the previous DEFINITION: a definition step only
+    // fleshes out detail (columns/hypertable) for its own artifact and produces nothing the next
+    // index consumes (the index agents only read summaries already present in the prior index —
+    // see the `void tableDefinitions` notes in agentPlanMetricsIndex/UsecaseEntities/PageIndex).
+    // This lets each definition run in parallel with the downstream indices instead of blocking them.
+    plannedAgent('plan-metrics-index', 'agentPlanMetricsIndex', title('plan-metrics-index'), ['plan-persistence-index'], 'sequential'),
     plannedAgent('plan-metric-table-definition', 'agentPlanMetricTableDefinition', title('plan-metric-table-definition'), ['plan-metrics-index'], 'parallel_dynamic', {
       sourcePlanId: 'plan-metrics-index',
       selectorField: 'metricTableId',
       argsField: 'metricTableId',
     }),
-    plannedAgent('plan-usecase-entities', 'agentPlanUsecaseEntities', title('plan-usecase-entities'), ['plan-table-definition', 'plan-metric-table-definition'], 'sequential'),
+    plannedAgent('plan-usecase-entities', 'agentPlanUsecaseEntities', title('plan-usecase-entities'), ['plan-persistence-index', 'plan-metrics-index'], 'sequential'),
     plannedAgent('plan-workflow-index', 'agentPlanWorkflowIndex', title('plan-workflow-index'), ['plan-usecase-entities'], 'sequential'),
     plannedAgent('plan-workflow-definition', 'agentPlanWorkflowDefinition', title('plan-workflow-definition'), ['plan-workflow-index'], 'parallel_dynamic', {
       sourcePlanId: 'plan-workflow-index',
@@ -206,7 +215,7 @@ function buildPlannedTree(initialPlan: InitialNewSolutionPlan): PlannedAgentStep
       argsField: 'workflowId',
     }),
     plannedAgent('plan-agents', 'agentPlanAgents', title('plan-agents'), ['plan-plugins', 'plan-usecase-entities', 'plan-workflow-definition'], 'sequential'),
-    plannedAgent('plan-page-index', 'agentPlanPageIndex', title('plan-page-index'), ['plan-metric-table-definition', 'plan-workflow-definition', 'plan-agents'], 'sequential'),
+    plannedAgent('plan-page-index', 'agentPlanPageIndex', title('plan-page-index'), ['plan-metrics-index', 'plan-workflow-index', 'plan-agents'], 'sequential'),
     plannedAgent('plan-page-definition', 'agentPlanPageDefinition', title('plan-page-definition'), ['plan-page-index'], 'parallel_dynamic', {
       sourcePlanId: 'plan-page-index',
       selectorField: 'pageId',
@@ -281,10 +290,15 @@ function plannedClarification(
   };
 }
 
+// System steps whose title must be fixed (never the LLM-generated one), so their names stay stable.
+const FORCED_TITLE_PLAN_IDS = new Set<NewSolutionPlanId>(['org-materialization', 'final-resume']);
+
 function getLocalizedTitle(initialPlan: InitialNewSolutionPlan, planId: NewSolutionPlanId): string {
-  const title = initialPlan.titles?.[planId];
-  if (typeof title === 'string' && title.trim().length > 0 && title.trim().length < 140) {
-    return title.trim();
+  if (!FORCED_TITLE_PLAN_IDS.has(planId)) {
+    const title = initialPlan.titles?.[planId];
+    if (typeof title === 'string' && title.trim().length > 0 && title.trim().length < 140) {
+      return title.trim();
+    }
   }
   const lang = (initialPlan.userLanguage || '').toLowerCase().trim();
   const fallback = lang.startsWith('pt') ? fallbackTitlesPt : fallbackTitlesEn;
@@ -294,7 +308,7 @@ function getLocalizedTitle(initialPlan: InitialNewSolutionPlan, planId: NewSolut
 const fallbackTitlesEn: Record<NewSolutionPlanId, string> = {
   'org-requirements': 'Requirements',
   'org-planner': 'Planner',
-  'org-materialization': 'Final data',
+  'org-materialization': 'Reviewing plan',
   'req-discover-scope': 'Discover solution scope',
   'req-clarification-answer': 'Answer initial clarification',
   'req-recommend-implementations': 'Recommend implementations',
@@ -316,13 +330,13 @@ const fallbackTitlesEn: Record<NewSolutionPlanId, string> = {
   'plan-page-index': 'Plan page index',
   'plan-page-definition': 'Plan page definitions',
   'plan-validate-solution-coverage': 'Validate solution coverage',
-  'final-resume': 'Final data',
+  'final-resume': 'Final planning summary',
 };
 
 const fallbackTitlesPt: Record<NewSolutionPlanId, string> = {
   'org-requirements': 'Requisitos',
   'org-planner': 'Planner',
-  'org-materialization': 'Dados finais',
+  'org-materialization': 'Revendo plano',
   'req-discover-scope': 'Descobrir escopo da solucao',
   'req-clarification-answer': 'Responder clarificacao inicial',
   'req-recommend-implementations': 'Recomendar implementacoes',
@@ -344,7 +358,7 @@ const fallbackTitlesPt: Record<NewSolutionPlanId, string> = {
   'plan-page-index': 'Planejar indice de paginas',
   'plan-page-definition': 'Planejar definicoes de paginas',
   'plan-validate-solution-coverage': 'Validar cobertura da solucao',
-  'final-resume': 'Dados finais',
+  'final-resume': 'Resumo final do planejamento',
 };
 
 const systemPrompt = `

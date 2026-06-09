@@ -282,9 +282,12 @@ async function afterPromptStep(
           break;
         }
       }
-      // Fallback using the root step's own reported parent (raw structure)
-      if (parentStepIdForRoot === undefined) {
-        parentStepIdForRoot = (rootStep as any).parentStepId || 0;
+      // Fallback: the root agentNewSolution is a top-level step, so no other step lists it as a
+      // child. intentUpdateStatus requires an agent parent — the root itself is an agent step, so
+      // self-parent (rootStep.stepId), exactly like agentNewSolution's own update-status. Never 0
+      // (parentStepId 0 does not resolve to a step -> "Parent step not found in intentUpdateStatus").
+      if (parentStepIdForRoot === undefined || parentStepIdForRoot === 0) {
+        parentStepIdForRoot = rootStep.stepId;
       }
 
       updateIntents.push({

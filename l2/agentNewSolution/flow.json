@@ -19,7 +19,7 @@
   "treeOverview": [
     "org-requirements (agente; filhos clarification/discovery)",
     "org-planner (agente; filhos = todo o passo plan-*)",
-    "org-materialization (agente agentNewSolutionFinal, manual_later; filho clarification 'final-resume' = tela 'Dados finais')"
+    "org-materialization ('Revendo plano'; agente agentNewSolutionFinal, manual_later; filho clarification 'final-resume' = tela 'Resumo final do planejamento')"
   ],
   "steps": [
     {
@@ -193,9 +193,9 @@
       "agentName": "agentPlanMetricsIndex",
       "type": "agent",
       "executionMode": "sequential",
-      "dependsOn": ["plan-table-definition"],
-      "goal": "Indice de metricas: tabelas TimescaleDB (hypertable) + dashboards.",
-      "input": ["finalize plan (snapshot)", "plan-persistence-index", "plan-table-definition (resumo)"],
+      "dependsOn": ["plan-persistence-index"],
+      "goal": "Indice de metricas: tabelas TimescaleDB (hypertable) + dashboards. Depende do INDICE de persistencia (nao das definicoes de tabela): usa apenas o resumo (tableId/tableName/rootEntity) que o indice ja tem, entao roda em paralelo com plan-table-definition.",
+      "input": ["finalize plan (snapshot)", "plan-persistence-index (resumo de tabelas)"],
       "output": { "result": "metricsIndex { metricTables[], dashboards[] }", "savedArtifact": "checkpoint apos aprovacao" },
       "criticRepair": { "index": "metricsIndex", "checkpoint": "l2/{module}/trace/checkpoint-metricsIndex.json" }
     },
@@ -218,9 +218,9 @@
       "agentName": "agentPlanUsecaseEntities",
       "type": "agent",
       "executionMode": "sequential",
-      "dependsOn": ["plan-table-definition", "plan-metric-table-definition"],
-      "goal": "Planejar entidades e casos de uso do layer_3_usecases (writes, lifecycle, BFF, updates de metrica).",
-      "input": ["finalize plan", "plan-persistence-index", "tabelas", "tabelas de metrica"],
+      "dependsOn": ["plan-persistence-index", "plan-metrics-index"],
+      "goal": "Planejar entidades e casos de uso do layer_3_usecases (writes, lifecycle, BFF, updates de metrica). Depende dos INDICES (persistencia + metricas), nao das definicoes (column/hypertable detail not needed) — roda em paralelo com plan-table-definition / plan-metric-table-definition.",
+      "input": ["finalize plan", "plan-persistence-index (resumo)", "plan-metrics-index (resumo)"],
       "output": {
         "result": "PlanUsecaseEntitiesResult { usecases[], backendArchitecture, controllerRules }",
         "savedArtifact": "l1/{module}/layer_3_usecases/{usecaseId}.defs.ts  (um por usecase)"
@@ -267,7 +267,7 @@
       "agentName": "agentPlanPageIndex",
       "type": "agent",
       "executionMode": "sequential",
-      "dependsOn": ["plan-metric-table-definition", "plan-workflow-definition", "plan-agents"],
+      "dependsOn": ["plan-metrics-index", "plan-workflow-index", "plan-agents"],
       "goal": "Indice de paginas a detalhar (atores, flowRefs coerentes por executionMode, dashboards de metrica).",
       "input": ["planning snapshot: actors, capabilities, userActions, workflows (resumo c/ executionMode), metrics, tables, usecases, plugins, mdm, horizontals, agents"],
       "output": { "result": "pageIndex { pages[] (pageId, actor, flowRefs, ...) }", "savedArtifact": "checkpoint apos aprovacao" },
@@ -311,7 +311,7 @@
       "type": "agent",
       "executionMode": "manual_later",
       "dependsOn": ["plan-validate-solution-coverage"],
-      "goal": "Wrapper sem LLM (igual agentNewSolutionPlanner). Ao completar, libera o filho clarification 'final-resume' que renderiza a tela 'Dados finais' (widget-new-solution-resume-102020).",
+      "goal": "Step 'Revendo plano'. Wrapper sem LLM (igual agentNewSolutionPlanner). Ao completar, libera o filho clarification 'final-resume' que renderiza a tela 'Resumo final do planejamento' (widget-new-solution-resume-102020).",
       "input": ["l5/{module}/process.defs.ts (run newSolution)", "l2/{module}/trace/plan-health-report.json (fallback)"],
       "output": { "result": "tela de resumo + acoes (Encerrar)", "savedArtifact": "atualiza l5/{module}/process.defs.ts (finishedAt + status dos proximos passos)" },
       "notes": "A tela mostra prompt inicial, decisions, pontos em aberto, health report (erros/warnings) e proximos passos (horizontais a criar + plugins draft) com checkbox. 'Encerrar': abre uma task por proximo passo marcado (mention @@agente por tipo, default em branco), limpa traces (l2/{module}/trace/*), completa o step e limpa inputs/outputs restantes. Materializacao real e apenas um item futuro de proximos passos."
@@ -322,7 +322,7 @@
       "type": "clarification",
       "executionMode": "sequential",
       "dependsOn": ["org-materialization"],
-      "goal": "Step clarification 'Dados finais'. beforeClarificationStep instancia o web component widget-new-solution-resume-102020 e passa { taskId, moduleId, stepId, parentStepId, hookSequential, senderId, threadId, messageId }.",
+      "goal": "Step clarification 'Resumo final do planejamento'. beforeClarificationStep instancia o web component widget-new-solution-resume-102020 e passa { taskId, moduleId, stepId, parentStepId, hookSequential, senderId, threadId, messageId }.",
       "input": ["process.defs.ts", "plan-health-report.json"],
       "output": { "result": "resume-finish (clearTraces, proximos passos selecionados)", "savedArtifact": "l5/{module}/process.defs.ts" }
     }
