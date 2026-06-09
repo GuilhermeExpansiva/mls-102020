@@ -46,6 +46,27 @@ This list is the **only** source of interface names you may import or reference.
 
 ---
 
+## MANDATORY SECOND STEP — inventory navigationRefs
+
+Read \`navigationRefs\` from \`##User data\` completely before writing any code.
+
+Separate by direction and build this list:
+\`\`\`
+OUTBOUND: productServiceDetailPage   trigger: "Repetir compra ou agendar serviço"
+OUTBOUND: catalogPage                trigger: "Explorar catálogo"
+INBOUND:  homePage                   (no code generated — informational only)
+\`\`\`
+
+Rules:
+- \`direction: "outbound"\` → record pageId and trigger text verbatim — **these REQUIRE generated code (Section 7 below)**
+- \`direction: "inbound"\` → informational only, skip entirely
+- If \`navigationRefs\` is absent or empty → outbound list is empty and Section 7 produces nothing
+
+**If the outbound list is non-empty, the navigation handler methods (Section 7) and their i18n keys (Section 3) are REQUIRED output.
+A class that has outbound navigationRefs but is missing handler methods or i18n keys is INCOMPLETE — it will cause TypeScript errors in the render layer.**
+
+---
+
 ## BFF route key convention
 
 Every \`execBff\` call uses:
@@ -65,34 +86,6 @@ Every \`execBff\` call uses:
 
 ---
 
-## Navigation handlers
-
-Process only \`direction: "outbound"\` refs — inbound refs are informational (the page already receives
-incoming navigation via \`consumeExpectedNavigationLoad()\` and requires no extra code).
-
-For **each outbound** navigationRef, generate one handler:
-
-\`\`\`typescript
-handleNavigateTo{PageIdPascal}Click(params?: Record<string, unknown>): void {
-  if ((window as any).mls) {
-    console.log('[mls mock] navigate to {targetPageId}', params);
-    return;
-  }
-  setState('navigation.request', { pageId: '{targetPageId}', params: params ?? {} });
-}
-\`\`\`
-
-Rules:
-- \`{PageIdPascal}\` = \`pageId\` with first letter uppercased (e.g. \`productServiceDetailPage\` → \`ProductServiceDetailPage\`)
-- The method is **synchronous** (no async, no await, no runBlockingUiAction)
-- It writes to the **global** key \`'navigation.request'\` — do NOT add this key to \`_stateKeys\`
-- The \`params\` argument lets the render layer pass context data (item ids, filters) when triggering navigation
-
-Add one i18n key per outbound ref (used by the render layer as button/link label):
-- key: \`navigateTo{PageIdPascal}\`
-- value: the human-readable \`trigger\` text from the navigationRef (e.g. \`trigger: "Selecionar item"\` → \`'Selecionar item'\`)
-
----
 
 ## CRITICAL: MLS mock pattern
 
@@ -227,13 +220,19 @@ const message_pt = {
   pageTitle: '{page name readable}',
   loaded: 'Dados carregados',
   couldNotLoad: 'Nao foi possivel carregar',
-  // one loading label per query:        loading{CommandPascal}: '...'
-  // one idle label per command:         {commandName}Label: '...'        ← button label when idle
-  // one loading label per command:      {commandName}Loading: '...'      ← button label while running
-  // one error label per command:        couldNot{CommandPascal}: '...'
-  // one label per outbound navRef:      navigateTo{PageIdPascal}: '...'  ← link/button trigger text
+  // one loading label per query:    loading{CommandPascal}: '...'
+  // one idle label per command:     {commandName}Label: '...'
+  // one loading label per command:  {commandName}Loading: '...'
+  // one error label per command:    couldNot{CommandPascal}: '...'
+  // ── FOR EACH OUTBOUND ENTRY from MANDATORY SECOND STEP — one key per entry ──
+  // navigateTo{PageIdPascal}: '{trigger text verbatim from navigationRef}'
+  //
+  // EXAMPLE — if outbound list has "productServiceDetailPage / Repetir compra ou agendar serviço":
+  //   navigateToProductServiceDetailPage: 'Repetir compra ou agendar serviço'
+  //
+  // Do NOT omit these keys. The render layer uses them as button labels.
 };
-const message_en = { /* same keys in English */ };
+const message_en = { /* same keys, in English — including every navigateTo* key */ };
 type MessageType = typeof message_en;
 const messages: { [key: string]: MessageType } = { en: message_en, pt: message_pt };
 /// **collab_i18n_end**
@@ -322,9 +321,52 @@ export class {Prefix}{PageNamePascal}Base extends CollabLitElement {
 
   // ── load methods (one per query command) ──
   // ── action methods + handle* wrappers (one per command kind) ──
-  // ── navigation handlers (one per outbound navigationRef) ──
 }
 \`\`\`
+
+### 7. Navigation handler methods (REQUIRED when outbound list is non-empty)
+
+For **every** entry in the outbound list from MANDATORY SECOND STEP, add one method to the class.
+If the outbound list is empty, this section produces nothing.
+
+\`\`\`typescript
+// Template — repeat once per outbound entry:
+handleNavigateTo{PageIdPascal}Click(params?: Record<string, unknown>): void {
+  if ((window as any).mls) {
+    console.log('[mls mock] navigate to {pageId}', params);
+    return;
+  }
+  setState('navigation.request', { pageId: '{pageId}', params: params ?? {} });
+}
+\`\`\`
+
+Substitution rules:
+- \`{pageId}\` = the pageId string verbatim (e.g. \`productServiceDetailPage\`)
+- \`{PageIdPascal}\` = pageId with the first letter uppercased (e.g. \`ProductServiceDetailPage\`)
+- The method is **synchronous** — no \`async\`, no \`await\`, no \`runBlockingUiAction\`
+- \`'navigation.request'\` is a **global** state key — do NOT add it to \`_stateKeys\`
+- \`params\` lets the render layer forward item context (ids, filters) when triggering navigation
+
+---
+
+## PRE-OUTPUT VERIFICATION CHECKLIST
+
+Before writing the final output, verify each of the following. Fix anything that fails.
+
+**A. Contracts**
+- [ ] Every command that has an Input interface in ##Contracts has it imported AND used as the params type
+- [ ] Every command that has an Output interface in ##Contracts has it imported
+
+**B. Navigation (check per outbound entry from MANDATORY SECOND STEP)**
+- [ ] \`message_pt\` contains key \`navigateTo{PageIdPascal}\` with the trigger text in Portuguese
+- [ ] \`message_en\` contains key \`navigateTo{PageIdPascal}\` with the trigger text in English
+- [ ] The class body contains method \`handleNavigateTo{PageIdPascal}Click\`
+- [ ] That method calls \`setState('navigation.request', ...)\` (not \`href\`, not a router)
+
+If ANY of the navigation checks fail → add the missing code before outputting.
+
+**C. loadInitialData**
+- [ ] Calls \`await this.load{CommandPascal}(...)\` for **every** query command — not just the first
 
 ---
 
