@@ -1,4 +1,4 @@
-/// <mls fileReference="_102020_/l2/agentMaterializeSolution/agentMaterializeTables.ts" enhancement="_102027_/l2/enhancementAgent.ts"/>
+/// <mls fileReference="_102020_/l2/agentMaterializeSolution/agentL1MaterializeTables.ts" enhancement="_102027_/l2/enhancementAgent.ts"/>
 
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import { createStorFile } from '/_102027_/l2/libStor.js';
@@ -13,7 +13,7 @@ interface TableStepArgs {
 
 export function createAgent(): IAgentAsync {
     return {
-        agentName: "agentMaterializeTables",
+        agentName: "agentL1MaterializeTables",
         agentProject: 102020,
         agentFolder: "agentMaterializeSolution",
         agentDescription: "Generate TableDefinition persistence files from .defs.ts table definitions",
@@ -31,11 +31,19 @@ async function beforePromptImplicit(
     userPrompt: string,
 ): Promise<mls.msg.AgentIntent[]> {
 
-    const data = JSON.parse(userPrompt) as { moduleName: string };
-    const { moduleName } = data;
+    const data = JSON.parse(userPrompt) as { moduleName: string; tableId?: string };
+    const { moduleName, tableId } = data;
 
-    const items = await getTableStepArgs(moduleName);
-    if (items.length === 0) throw new Error(`No .defs.ts files found in layer_1_external for module: ${moduleName}`);
+    const allItems = await getTableStepArgs(moduleName);
+    const items = tableId
+        ? allItems.filter((item) => item.tableId === tableId)
+        : allItems;
+
+    if (items.length === 0) throw new Error(
+        tableId
+            ? `Table "${tableId}" not found in layer_1_external for module: ${moduleName}`
+            : `No .defs.ts files found in layer_1_external for module: ${moduleName}`
+    );
 
     const inputs: mls.msg.IAMessageInputType[] = [
         { type: "system", content: systemPrompt }

@@ -1,4 +1,4 @@
-/// <mls fileReference="_102020_/l2/agentMaterializeSolution/agentUseCases.ts" enhancement="_102027_/l2/enhancementAgent.ts"/>
+/// <mls fileReference="_102020_/l2/agentMaterializeSolution/agentL1MaterializeUseCases.ts" enhancement="_102027_/l2/enhancementAgent.ts"/>
 
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import { waitModelIdle } from '/_102027_/l2/libModel.js';
@@ -14,7 +14,7 @@ interface UsecaseStepArgs {
 
 export function createAgent(): IAgentAsync {
     return {
-        agentName: "agentUseCases",
+        agentName: "agentL1MaterializeUseCases",
         agentProject: 102020,
         agentFolder: "agentMaterializeSolution",
         agentDescription: "Generate usecase implementations from .defs.ts definitions",
