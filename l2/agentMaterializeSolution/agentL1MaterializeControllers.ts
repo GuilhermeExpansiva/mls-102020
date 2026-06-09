@@ -182,7 +182,6 @@ async function getPageStepArgs(moduleName: string): Promise<ControllerStepArgs[]
         f.level === 2 &&
         f.folder === moduleName &&
         f.extension === '.defs.ts' &&
-        f.shortName.endsWith('Page') &&
         f.project === mls.actualProject
     );
 
