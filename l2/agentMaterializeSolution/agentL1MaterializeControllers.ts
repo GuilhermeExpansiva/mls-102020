@@ -1,4 +1,4 @@
-/// <mls fileReference="_102020_/l2/agentMaterializeSolution/agentMaterializeControllers.ts" enhancement="_102027_/l2/enhancementAgent.ts"/>
+/// <mls fileReference="_102020_/l2/agentMaterializeSolution/agentL1MaterializeControllers.ts" enhancement="_102027_/l2/enhancementAgent.ts"/>
 
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import { createStorFile } from '/_102027_/l2/libStor.js';
@@ -36,7 +36,7 @@ interface RouterEntry {
 
 export function createAgent(): IAgentAsync {
     return {
-        agentName: "agentMaterializeControllers",
+        agentName: "agentL1MaterializeControllers",
         agentProject: 102020,
         agentFolder: "agentMaterializeSolution",
         agentDescription: "Generate layer_2_controllers from page .defs.ts BFF commands",
@@ -53,11 +53,19 @@ async function beforePromptImplicit(
     userPrompt: string,
 ): Promise<mls.msg.AgentIntent[]> {
 
-    const data = JSON.parse(userPrompt) as { moduleName: string };
-    const { moduleName } = data;
+    const data = JSON.parse(userPrompt) as { moduleName: string; pageId?: string };
+    const { moduleName, pageId } = data;
 
-    const items = await getPageStepArgs(moduleName);
-    if (items.length === 0) throw new Error(`No Page.defs.ts files found in l2/${moduleName} for module: ${moduleName}`);
+    const allItems = await getPageStepArgs(moduleName);
+    const items = pageId
+        ? allItems.filter((item) => item.pageId === pageId)
+        : allItems;
+
+    if (items.length === 0) throw new Error(
+        pageId
+            ? `Page "${pageId}" not found in l2/${moduleName} for module: ${moduleName}`
+            : `No Page.defs.ts files found in l2/${moduleName} for module: ${moduleName}`
+    );
 
     const inputs: mls.msg.IAMessageInputType[] = [
         { type: "system", content: systemPrompt }
@@ -182,7 +190,6 @@ async function getPageStepArgs(moduleName: string): Promise<ControllerStepArgs[]
         f.level === 2 &&
         f.folder === moduleName &&
         f.extension === '.defs.ts' &&
-        f.shortName.endsWith('Page') &&
         f.project === mls.actualProject
     );
 
