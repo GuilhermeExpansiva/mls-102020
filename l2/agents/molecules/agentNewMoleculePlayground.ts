@@ -136,7 +136,7 @@ async function afterPromptStep(
         status
     };
 
-    if (intents.length > 0) return intents;
+    if (intents.length > 0) return [...intents, updateStatus];
     return [updateStatus];
 
 }
