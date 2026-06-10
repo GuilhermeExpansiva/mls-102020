@@ -9,6 +9,19 @@ import { addModuleNav, addModuleRoute } from '/_102020_/l2/newModule/astModuleFr
 import { addNav, addPage } from '/_102020_/l2/newModule/astIndex.js';
 import { getConfigProject } from '/_102027_/l2/libProjectConfig.js';
 
+// ─── mutex ────────────────────────────────────────────────────────────────────
+
+const _lockQueue: Map<string, Promise<void>> = new Map();
+
+async function withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const prev = _lockQueue.get(key) ?? Promise.resolve();
+  let resolve!: () => void;
+  _lockQueue.set(key, new Promise<void>(r => { resolve = r; }));
+  await prev;
+  try { return await fn(); }
+  finally { resolve(); }
+}
+
 export function createAgent(): IAgentAsync {
   return {
     agentName: "agentL2MaterializePageLit",
@@ -143,8 +156,9 @@ async function processOutput(context: mls.msg.ExecutionContext, output: any, age
   const tag = convertFileNameToTag(info);
   const srcHtml = `<${tag}></${tag}>`;
   await orch.createStorFile(output.outputPath.replace('.ts', '.html'), srcHtml);
-  await addModuleRoutes(context, info.shortName, tag);
-  await addIndexPage(context, info.shortName, tag);
+  const moduleName = context.task?.iaCompressed?.longMemory['moduleName'] as string;
+  await withLock(`module:${moduleName}`, () => addModuleRoutes(context, info.shortName, tag));
+  await withLock(`index:${moduleName}`, () => addIndexPage(context, info.shortName, tag));
 
   const stepOri = context.task ? (findPreviousAgentStep(context.task, parentStep.stepId))?.stepId : parentStep.stepId;
 
