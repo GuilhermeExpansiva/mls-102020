@@ -405,6 +405,28 @@ export function repairPlanIndexToolName(indexName: string): string {
 }
 
 /**
+ * Resolves the INDEX step for a critic/repair child. The hooks' parentStep is trusted only when
+ * it really is the index step (same agentName); otherwise the step is found by the source agent
+ * name. Defense for orchestration variants where afterPromptStep hooks carried the step itself
+ * as parent (server-side scheduler) — that nested review steps under each other and deadlocked
+ * the approval loop (task5 metricsIndex incident, 2026-06-11).
+ */
+export function resolveIndexStepForReview(
+  context: mls.msg.ExecutionContext,
+  parentStep: mls.msg.AIAgentStep,
+  sourceAgentName: string,
+): mls.msg.AIAgentStep {
+  if (parentStep && parentStep.type === 'agent' && parentStep.agentName === sourceAgentName) return parentStep;
+  if (!context.task) return parentStep;
+  const found = getAgentStepByAgentName(context.task, sourceAgentName) as mls.msg.AIAgentStep | null;
+  if (found && found.type === 'agent') {
+    console.warn(`[resolveIndexStepForReview] hook parentStep (${parentStep?.stepId}/${parentStep?.agentName}) is not the index step; resolved ${sourceAgentName} -> step ${found.stepId}`);
+    return found;
+  }
+  return parentStep;
+}
+
+/**
  * Creates the critic step as a direct child of the index step.
  * The index step must stay non-terminal (in_progress) while critic/repair children run,
  * so downstream steps that depend on the index planId remain locked until approval.
@@ -473,7 +495,14 @@ export function findLatestPlanIndexReviewStep(
     if (step.type !== 'agent') continue;
     const agentStep = step as mls.msg.AIAgentStep;
     if (agentStep.agentName !== agentName) continue;
-    if (onlyCompleted && agentStep.status !== 'completed') continue;
+    if (onlyCompleted && agentStep.status !== 'completed') {
+      // A repair/critic may be held in_progress by the orchestrator's delayed-completion rule
+      // even though its payload is final — accept it when the payload exists (task5 incident:
+      // critics revalidated the ORIGINAL index because repairs never reached 'completed').
+      // Failed steps are never accepted: their payload was rejected by validation.
+      const hasPayload = !!agentStep.interaction?.payload?.length;
+      if (agentStep.status === 'failed' || !hasPayload) continue;
+    }
     try {
       const args = parsePlanIndexReviewArgs(agentStep.prompt);
       if (args.indexName !== indexName) continue;

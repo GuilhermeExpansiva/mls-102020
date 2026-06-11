@@ -23,8 +23,10 @@ import {
   createPlannerPromptReadyIntent,
   createPlannerUpdateStatusIntent,
   extractPlannerOutput,
+  findLatestPlanIndexReviewStep,
   findParentStepOfStep,
   parsePlanIndexReviewArgs,
+  resolveIndexStepForReview,
 } from '/_102020_/l2/agentNewSolution/agentPlanningShared.js';
 import {
   PLAN_INDEX_CRITIQUE_TOOL_NAME,
@@ -68,7 +70,9 @@ async function beforePromptStep(
 
   const reviewArgs = parsePlanIndexReviewArgs(args || step.prompt);
   const config = getPlanIndexReviewConfig(reviewArgs.indexName);
-  const indexStep = parentStep; // critic steps are direct children of the index step
+  // Critic steps are designed as direct children of the index step, but the hook's parentStep
+  // is not always the real parent (task5 incident) — resolve the index step defensively.
+  const indexStep = resolveIndexStepForReview(context, parentStep, config.sourceAgentName);
 
   let output: PlannerOutput<unknown>;
   let localFindings: PlanIndexLocalFindings;
@@ -92,6 +96,14 @@ async function beforePromptStep(
 
   // deterministic local errors go straight to repair, no critic LLM needed.
   if (localFindings.errors.length > 0) {
+    // Circuit breaker (task5 incident): from attempt 2 on, a repair MUST be visible to this
+    // critic (completed, or in_progress with payload). If none is, every further round would
+    // revalidate the same unrepaired index — fail fast with the real cause instead of burning
+    // the whole repair budget on LLM calls that change nothing.
+    if (reviewArgs.attempt > 1 && !findLatestPlanIndexReviewStep(context, REPAIR_PLAN_INDEX_AGENT_NAME, reviewArgs.indexName, true)) {
+      return failIndexIntents(context, indexStep, step, hookSequential,
+        `critic attempt ${reviewArgs.attempt} still sees the unrepaired ${reviewArgs.indexName} (no repair payload visible — orchestration issue, see task5 incident); aborting the repair loop early`);
+    }
     // T-017: when every local error has a mechanical repair (id normalization / referential
     // integrity), grant extra attempts — they do not consume the semantic critic budget.
     const maxAttempts = maxAttemptsForLocalErrors(localFindings.errors, MAX_PLAN_INDEX_CRITIC_ATTEMPTS);
@@ -144,7 +156,7 @@ async function afterPromptStep(
 
   const reviewArgs = parsePlanIndexReviewArgs(step.prompt);
   const config = getPlanIndexReviewConfig(reviewArgs.indexName);
-  const indexStep = parentStep;
+  const indexStep = resolveIndexStepForReview(context, parentStep, config.sourceAgentName);
 
   await saveNewSolutionAgentTracePayload(context, agent.agentName, step);
 
