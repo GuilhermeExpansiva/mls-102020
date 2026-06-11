@@ -307,6 +307,29 @@ export function createParallelDynamicAgentStepIntent(
   };
 }
 
+// Platform baseline skill — capabilities the platform already provides (auth/RBAC, i18n,
+// multi-tenant, file storage, LLM proxy, ...). Injected into the decision agents' system prompt so
+// they reference these instead of (re)planning modules/horizontals for them. Read once from
+// l2/agentNewSolution/skills/platform.md in the agent project (102020); cached for the session.
+let _platformSkillCache: string | null = null;
+export async function readPlatformSkill(): Promise<string> {
+  if (_platformSkillCache !== null) return _platformSkillCache;
+  try {
+    const key = mls.stor.getKeyToFile({ project: 102020, level: 2, folder: 'agentNewSolution/skills', shortName: 'platform', extension: '.md' });
+    const file = mls.stor.files[key];
+    const raw = file ? await file.getContent() : '';
+    _platformSkillCache = typeof raw === 'string' ? raw : '';
+  } catch {
+    _platformSkillCache = '';
+  }
+  return _platformSkillCache;
+}
+
+/** Appends the platform baseline to a system prompt (no-op when the skill file is missing). */
+export function withPlatformSkill(systemPrompt: string, platformSkill: string): string {
+  return platformSkill ? `${systemPrompt}\n\n${platformSkill}` : systemPrompt;
+}
+
 //#region T-006: parallel_dynamic fan-out reconciliation (E-007/E-008)
 
 export const MAX_FAN_OUT_RECONCILE_ROUNDS = 2;

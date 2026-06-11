@@ -13,6 +13,8 @@ import {
   getPlannerOutput,
   getPlanningContextSnapshot,
   hasAcceptedNowArtifact,
+  readPlatformSkill,
+  withPlatformSkill,
 } from '/_102020_/l2/agentNewSolution/agentPlanningShared.js';
 import { saveNewSolutionAgentTracePayload } from '/_102020_/l2/agentNewSolution/agentNewSolutionArtifacts.js';
 import { solutionBlueprintResultSchema } from '/_102020_/l2/agentNewSolution/agentSolutionPlanSchemas.js';
@@ -78,13 +80,14 @@ async function beforePromptStep(
   if (!context.task) throw new Error(`[${agent.agentName}](beforePromptStep) task invalid`);
 
   const snapshot = getPlanningContextSnapshot(context);
+  const platformSkill = await readPlatformSkill();
   return [
     createPlannerPromptReadyIntent(
       context,
       parentStep,
       hookSequential,
       args,
-      systemPrompt.split('{{toolName}}').join(SOLUTION_BLUEPRINT_TOOL_NAME),
+      withPlatformSkill(systemPrompt.split('{{toolName}}').join(SOLUTION_BLUEPRINT_TOOL_NAME), platformSkill),
       buildHumanPrompt(args, snapshot),
       solutionBlueprintToolSchema,
       SOLUTION_BLUEPRINT_TOOL_NAME

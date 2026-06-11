@@ -16,6 +16,8 @@ import {
   getPlannerOutput,
   getPlanningContextSnapshot,
   hasAcceptedArtifact,
+  readPlatformSkill,
+  withPlatformSkill,
 } from '/_102020_/l2/agentNewSolution/agentPlanningShared.js';
 import { saveNewSolutionAgentTracePayload, saveNewSolutionPlanArtifacts } from '/_102020_/l2/agentNewSolution/agentNewSolutionArtifacts.js';
 import { getFinalizeSolutionPlanOutput } from '/_102020_/l2/agentNewSolution/agentFinalizeSolutionPlan.js';
@@ -92,13 +94,14 @@ async function beforePromptStep(
 
   const finalPlan = getFinalizeSolutionPlanOutput(context);
   const snapshot = getPlanningContextSnapshot(context);
+  const platformSkill = await readPlatformSkill();
   return [
     createPlannerPromptReadyIntent(
       context,
       parentStep,
       hookSequential,
       args,
-      systemPrompt.split('{{toolName}}').join(PLAN_HORIZONTALS_TOOL_NAME),
+      withPlatformSkill(systemPrompt.split('{{toolName}}').join(PLAN_HORIZONTALS_TOOL_NAME), platformSkill),
       buildHumanPrompt(args, finalPlan, snapshot),
       planHorizontalsToolSchema,
       PLAN_HORIZONTALS_TOOL_NAME

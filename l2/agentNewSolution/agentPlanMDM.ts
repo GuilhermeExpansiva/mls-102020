@@ -11,6 +11,8 @@ import {
   createPlannerUpdateStatusIntent,
   extractPlannerOutput,
   getPlannerOutput,
+  readPlatformSkill,
+  withPlatformSkill,
 } from '/_102020_/l2/agentNewSolution/agentPlanningShared.js';
 import { saveNewSolutionAgentTracePayload, saveNewSolutionPlanArtifacts } from '/_102020_/l2/agentNewSolution/agentNewSolutionArtifacts.js';
 import { getFinalizeSolutionPlanOutput } from '/_102020_/l2/agentNewSolution/agentFinalizeSolutionPlan.js';
@@ -143,13 +145,14 @@ async function beforePromptStep(
 
   const finalPlan = getFinalizeSolutionPlanOutput(context);
   const mdmInventory = buildMdmInventory(); // T-003
+  const platformSkill = await readPlatformSkill();
   return [
     createPlannerPromptReadyIntent(
       context,
       parentStep,
       hookSequential,
       args,
-      systemPrompt.split('{{toolName}}').join(PLAN_MDM_TOOL_NAME),
+      withPlatformSkill(systemPrompt.split('{{toolName}}').join(PLAN_MDM_TOOL_NAME), platformSkill),
       buildHumanPrompt(args, finalPlan, mdmInventory),
       planMdmToolSchema,
       PLAN_MDM_TOOL_NAME
