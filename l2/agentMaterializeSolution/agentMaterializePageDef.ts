@@ -360,9 +360,9 @@ async function afterPromptStep(
         const importPath = `/_${project}_/l1/${moduleName}/layer_2_controllers/${pageId}.js`;
         const handlerNames: string[] = [];
         for (const cmd of commands) {
-          const handlerName = `${cmd.commandName}Handler`;
+          const handlerName = `${pageId}${cmd.commandName.charAt(0).toUpperCase()}${cmd.commandName.slice(1)}Handler`;
           handlerNames.push(handlerName);
-          src = addRoute(src, `${moduleName}.${cmd.commandName}`, handlerName);
+          src = addRoute(src, `${moduleName}.${pageId}.${cmd.commandName}`, handlerName);
         }
         src = addImport(src, { kind: 'value', names: handlerNames, from: importPath });
         await writeStorFile(routerRef, src);

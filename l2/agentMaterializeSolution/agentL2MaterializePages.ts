@@ -172,7 +172,7 @@ async function afterPromptStep(
     return [updateStatus];
   }
 
-  return [...newSteps];
+  return [...newSteps, updateStatus];
 }
 
 // ─── system prompt ────────────────────────────────────────────────────────────
