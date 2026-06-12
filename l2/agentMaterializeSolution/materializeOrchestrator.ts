@@ -7,7 +7,6 @@ import { createModelAnyFile } from '/_102027_/l2/libModel.js';
 
 const cacheMaterializeOrchestrator = new Map<string, MaterializeOrchestrator>();
 const buildCache = new Map<string, Record<string, any>>();
-let esbuildReady: Promise<void> | null = null;
 
 export function getMaterializeOrchestrator(defPath: string): MaterializeOrchestrator {
     if (!cacheMaterializeOrchestrator.has(defPath)) {
@@ -24,15 +23,17 @@ export function getMaterializeOrchestrator(defPath: string): MaterializeOrchestr
 
 
 
-async function getEsbuild() {
-    const url = 'https://cdn.jsdelivr.net/npm/esbuild-wasm@0.25.4/esm/browser.js'
-    const esbuild = await import(url);
-    if (!esbuildReady) {
-        esbuildReady = esbuild.initialize({
+export async function getEsbuild() {
+    const w = window as any;
+    const url = 'https://cdn.jsdelivr.net/npm/esbuild-wasm@0.25.4/esm/browser.js';
+    if (!w.__esbuildInstance) w.__esbuildInstance = import(url);
+    const esbuild = await w.__esbuildInstance;
+    if (!w.__esbuildReady) {
+        w.__esbuildReady = esbuild.initialize({
             wasmURL: 'https://cdn.jsdelivr.net/npm/esbuild-wasm@0.25.4/esbuild.wasm',
         });
     }
-    await esbuildReady;
+    await w.__esbuildReady;
     return esbuild;
 }
 
@@ -120,15 +121,23 @@ export class MaterializeOrchestrator {
 
     public async getSkill(path: string): Promise<string> {
 
-        let module: any;
         if (path.startsWith('/')) path = path.slice(1);
         const f = mls.stor.convertFileReferenceToFile(path);
         if (!f) return '';
 
+        // .md skills — read raw content and process template references
+        if (path.endsWith('.md')) {
+            const ref = mls.stor.convertFileReferenceToFile(path);
+            const key = mls.stor.getKeyToFile(ref);
+            const sf = mls.stor.files[key];
+            if (!sf) return '';
+            const content = await sf.getContent() as string;
+            return await this.processTemplate(content);
+        }
+
+        let module: any;
         try {
-
             module = await collabImport(f as any);
-
         } catch (err) {
             module = await this.getModuleByBuild(path);
         }
