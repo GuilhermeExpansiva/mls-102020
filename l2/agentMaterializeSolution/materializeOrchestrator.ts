@@ -7,7 +7,6 @@ import { createModelAnyFile } from '/_102027_/l2/libModel.js';
 
 const cacheMaterializeOrchestrator = new Map<string, MaterializeOrchestrator>();
 const buildCache = new Map<string, Record<string, any>>();
-let esbuildReady: Promise<void> | null = null;
 
 export function getMaterializeOrchestrator(defPath: string): MaterializeOrchestrator {
     if (!cacheMaterializeOrchestrator.has(defPath)) {
@@ -24,15 +23,17 @@ export function getMaterializeOrchestrator(defPath: string): MaterializeOrchestr
 
 
 
-async function getEsbuild() {
-    const url = 'https://cdn.jsdelivr.net/npm/esbuild-wasm@0.25.4/esm/browser.js'
-    const esbuild = await import(url);
-    if (!esbuildReady) {
-        esbuildReady = esbuild.initialize({
+export async function getEsbuild() {
+    const w = window as any;
+    const url = 'https://cdn.jsdelivr.net/npm/esbuild-wasm@0.25.4/esm/browser.js';
+    if (!w.__esbuildInstance) w.__esbuildInstance = import(url);
+    const esbuild = await w.__esbuildInstance;
+    if (!w.__esbuildReady) {
+        w.__esbuildReady = esbuild.initialize({
             wasmURL: 'https://cdn.jsdelivr.net/npm/esbuild-wasm@0.25.4/esbuild.wasm',
         });
     }
-    await esbuildReady;
+    await w.__esbuildReady;
     return esbuild;
 }
 

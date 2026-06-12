@@ -3,7 +3,7 @@
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import { createStorFile, IReqCreateStorFile } from '/_102027_/l2/libStor.js';
 import { convertFileNameToTag } from '/_102027_/l2/utils.js';
-import { getMaterializeOrchestrator } from '/_102020_/l2/agentMaterializeSolution/materializeOrchestrator.js';
+import { getMaterializeOrchestrator, getEsbuild } from '/_102020_/l2/agentMaterializeSolution/materializeOrchestrator.js';
 import { addModuleNav, addModuleRoute } from '/_102020_/l2/agentMaterializeSolution/ast/astModuleFront.js';
 import { addNav, addPage } from '/_102020_/l2/agentMaterializeSolution/ast/astIndex.js';
 import { getConfigProject } from '/_102027_/l2/libProjectConfig.js';
@@ -78,6 +78,49 @@ interface SkillContext {
   genomeKey?: string;
 }
 
+async function getModule(project: number, moduleName: string): Promise<any> {
+  const modRef = `_${project}_/l2/${moduleName}/module.ts`;
+  try {
+    const mod = await collabImport(mls.stor.convertFileReferenceToFile(modRef) as any) as any;
+    return mod;
+  } catch (e) {
+    return await getModuleByBuild(modRef);
+  }
+}
+
+async function getModuleByBuild(path: string) {
+
+  console.info('Needed esbuild processTemplate:' + path);
+
+  const f = mls.stor.convertFileReferenceToFile(path);
+  if (!f) return null;
+
+  const key = mls.stor.getKeyToFile(f);
+  const sf = mls.stor.files[key];
+  if (!sf) return null;
+
+  const src = await sf.getContent() as string;
+
+  const esbuild = await getEsbuild();
+  const result = await esbuild.transform(src, {
+    loader: 'ts',
+    format: 'esm',
+    target: 'esnext',
+  });
+
+  const blob = new Blob([result.code], { type: 'text/javascript' });
+  const blobUrl = URL.createObjectURL(blob);
+
+  try {
+    const mod = await import(blobUrl);
+
+    return mod;
+  } finally {
+
+  }
+}
+
+
 async function resolveSkills(input: AgentInput, project: number): Promise<SkillContext> {
   const { pathDefs, moduleName, type } = input;
   const pageId = getPageId(pathDefs);
@@ -86,7 +129,7 @@ async function resolveSkills(input: AgentInput, project: number): Promise<SkillC
   const user = await orch.getVar(pathDefs, 'skill');
 
   const modRef = `_${project}_/l2/${moduleName}/module.ts`;
-  const mod = await collabImport(mls.stor.convertFileReferenceToFile(modRef) as any) as any;
+  const mod = await getModule(project, moduleName) as any;
   if (!mod) throw new Error(`[agentMaterializeDef] could not import module.ts: ${modRef}`);
 
   const info = { path: pathDefs, project, moduleName, id: type };
