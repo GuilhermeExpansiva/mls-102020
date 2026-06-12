@@ -67,7 +67,7 @@ async function findModulesWithDefs(project: number): Promise<string[]> {
 
 function buildModuleTs(project: number, moduleName: string): string {
   return `/// <mls fileReference="_${project}_/l2/${moduleName}/module.ts" enhancement="_blank" />
-import type { AuraModuleFrontendDefinition, IPaths, IGenomeConfig } from '/_102029_/l2/contracts/bootstrap.js';
+import type { AuraModuleFrontendDefinition, IPaths, ISkill, IGenomeConfig } from '/_102029_/l2/contracts/bootstrap.js';
 
 export const moduleGenome: Record<string, IGenomeConfig> = {
   'web/desktop/page11': {
@@ -77,10 +77,28 @@ export const moduleGenome: Record<string, IGenomeConfig> = {
   }
 } as const;
 
-export const skills: IPaths = {
+export const shared: IPaths = {
   web: {
     sharedPath: '/_${project}_/l2/${moduleName}/web/shared',
     sharedSkill: '/_102020_/l2/agentMaterializeSolution/skills/genPageShared.ts'
+  }
+}
+
+export const skills: ISkill = {
+  layer1: {
+    skillPath:  [],
+  },
+  layer2: {
+    skillPath:  [],
+  },
+  layer3: {
+    skillPath:  [],
+  },
+  layer4: {
+    skillPath:  [],
+  },
+  contract: {
+    skillPath: ["_102020_/l2/agentMaterializeSolution/skills/genContract.ts"],
   }
 }
 
@@ -268,7 +286,7 @@ async function afterPromptStep(
       interaction: null,
       status: 'waiting_human_input' as const,
       nextSteps: [],
-      agentName: 'agentL2MaterializePages',
+      agentName: 'agentMaterializePages',
       prompt: JSON.stringify({ moduleName }),
       rags: [],
     },

@@ -158,37 +158,37 @@ function buildPageDefsFile(fileRef: string, pageSpecJson: string, sharedRef: str
 function buildContractPipeline(project: number, moduleName: string, pageId: string): object[] {
   return [{
     id: 'contract',
-    agent: 'agentL2MaterializeContract',
+    type: 'contract',
+    agent: 'agentMaterializeDef',
     defsPath: `_${project}_/l1/${moduleName}/layer_2_controllers/${pageId}.defs.ts`,
-    skillPath: '_102020_/l2/agentMaterializeSolution/skills/genContract.ts',
     moduleName,
     outputPath: `_${project}_/l2/${moduleName}/web/contracts/${pageId}.ts`,
     dependsOn: [],
-    specUpdatedAt: new Date().toISOString(),
   }];
 }
 
 function buildSharedPipeline(project: number, moduleName: string, pageId: string): object[] {
   return [{
     id: 'shared',
-    agent: 'agentL2MaterializeSharedPage',
+    type: 'shared',
+    agent: 'agentMaterializeDef',
     defsPath: `_${project}_/l2/${moduleName}/web/shared/${pageId}.defs.ts`,
     moduleName,
     outputPath: `_${project}_/l2/${moduleName}/web/shared/${pageId}.ts`,
     dependsOn: [],
-    specUpdatedAt: new Date().toISOString(),
   }];
 }
 
 function buildPagePipeline(project: number, moduleName: string, pageId: string): object[] {
   return [{
     id: 'page',
-    agent: 'agentL2MaterializePageLit',
+    type: 'page',
+    agent: 'agentMaterializeDef',
     defsPath: `_${project}_/l2/${moduleName}/web/desktop/page11/${pageId}.defs.ts`,
     moduleName,
+    genomeKey: 'web/desktop/page11',
     outputPath: `_${project}_/l2/${moduleName}/web/desktop/page11/${pageId}.ts`,
     dependsOn: [],
-    specUpdatedAt: new Date().toISOString(),
   }];
 }
 
@@ -293,8 +293,8 @@ async function afterPromptStep(
     const contractDefsRef = `_${project}_/l1/${moduleName}/layer_2_controllers/${pageId}.defs.ts`;
     const sharedDefsRef   = `_${project}_/l2/${moduleName}/web/shared/${pageId}.defs.ts`;
     const pageDefsRef     = `_${project}_/l2/${moduleName}/web/desktop/page11/${pageId}.defs.ts`;
-    const contractsRef    = `_${project}_/l2/${moduleName}/web/contracts/${pageId}.ts`;
-    const sharedRef       = `_${project}_/l2/${moduleName}/web/shared/${pageId}.ts`;
+    const contractsRef    = `_${project}_/l1/${moduleName}/layer_2_controllers/${pageId}.defs.ts`;
+    const sharedRef       = `_${project}_/l2/${moduleName}/web/shared/${pageId}.defs.ts`;
 
     // ─── create 3 mat1 defs, each with its own pipeline ──────────────────────
     await writeStorFile(
