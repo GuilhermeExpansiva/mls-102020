@@ -165,29 +165,28 @@ async function afterPromptStep(
 
   if (tasks.length === 0) return [updateStatus];
 
-  const newSteps: mls.msg.AgentIntentAddStep[] = tasks.map(task => {
-    const fileId = task.defsPath.split('/').pop()?.replace(/\.defs\.ts$/, '') ?? '';
-    return {
-      type: 'add-step' as const,
-      messageId: context.message.orderAt,
+  const dispatch: mls.msg.AgentIntentAddMessageAI = {
+    type: 'add-message-ai',
+    request: {
+      action: 'addMessageAI',
+      agentName: 'agentMaterializeLayer',
+      inputAI: [{ type: 'system', content: '<!-- system prompt provided by agentMaterializeLayer.beforePromptStep -->' }],
+      taskTitle: `materialize-l1-layers:project-${project}`,
       threadId: context.message.threadId,
-      taskId: context.task?.PK || '',
-      parentStepId: parentStep.stepId,
-      stepTitle: `${task.layer}:${fileId}`,
-      step: {
-        type: 'agent' as const,
-        stepId: 0,
-        interaction: null,
-        status: 'waiting_human_input' as const,
-        nextSteps: [],
-        agentName: 'agentMaterializeLayer',
-        prompt: JSON.stringify({ pathDefs: task.defsPath, moduleName: task.moduleName, layer: task.layer }),
-        rags: [],
-      },
-    };
-  });
+      userMessage: '',
+      longTermMemory: {},
+    },
+    executionMode: {
+      type: 'parallel',
+      args: tasks.map(task => JSON.stringify({
+        pathDefs: task.defsPath,
+        moduleName: task.moduleName,
+        layer: task.layer,
+      })),
+    },
+  };
 
-  return [...newSteps, updateStatus];
+  return [dispatch, updateStatus];
 }
 
 // ─── system prompt ────────────────────────────────────────────────────────────
