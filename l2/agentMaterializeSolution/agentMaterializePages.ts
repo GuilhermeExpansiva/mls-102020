@@ -179,7 +179,7 @@ async function afterPromptStep(
 // ─── system prompt ────────────────────────────────────────────────────────────
 
 const systemPrompt = `
-<!-- modelType: nano -->
+<!-- modelType: codeinstruct -->
 
 Return the same content passed.
 
