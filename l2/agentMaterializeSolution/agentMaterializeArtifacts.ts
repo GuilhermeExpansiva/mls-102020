@@ -6,6 +6,7 @@ import type {
   ProjectJson,
   ScannedDefsFile,
   L1LayerFolder,
+  ParsedMlsPath,
 } from '/_102020_/l2/agentMaterializeSolution/agentMaterializePlan.js';
 
 declare const mls: any;
@@ -226,6 +227,131 @@ export async function createDefsFile(
     return readBack.includes('export const pipeline');
   } catch (err) {
     console.warn('[agentMaterializeArtifacts] createDefsFile failed', err);
+    return false;
+  }
+}
+
+// ─── Fase 2: Generation helpers ──────────────────────────────────────────────
+
+/** Extract the `pipeline` array from a .defs.ts content string. */
+export function parsePipelineFromContent(content: string): PipelineItem[] | null {
+  try {
+    const match = content.match(/export\s+const\s+pipeline\s*=\s*([\s\S]*?)\s+as\s+const\s*;/);
+    if (!match) return null;
+    return JSON.parse(match[1]) as PipelineItem[];
+  } catch {
+    return null;
+  }
+}
+
+/** Extract the `definition` template literal value from a .defs.ts content string. */
+export function parseDefinitionFromContent(content: string): string {
+  const match = content.match(/export\s+const\s+definition\s*=\s*`([\s\S]*?)`;/);
+  return match ? match[1].trim() : content;
+}
+
+/** Returns the updatedAt timestamp (ms) of a file, or null if unavailable. */
+export function getFileModified(
+  project: number,
+  level: number,
+  folder: string,
+  shortName: string,
+  extension: string,
+): number | null {
+  try {
+    const key = mls.stor.getKeyToFile({ project, level, folder, shortName, extension });
+    const file = (mls.stor.files as Record<string, mls.stor.IFileInfo>)[key];
+    if (!file || file.status === 'deleted') return null;
+    return file.updatedAt ? Date.parse(file.updatedAt) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Read any file by its full MLS path string. */
+export async function getContentByMlsPath(mlsPath: string): Promise<string | null> {
+  try {
+    const info = mls.stor.convertFileReferenceToFile(mlsPath);
+    const key = mls.stor.getKeyToFile(info);
+    const file = (mls.stor.files as Record<string, any>)[key];
+    if (!file || file.status === 'deleted') return null;
+    return String(await file.getContent());
+  } catch {
+    return null;
+  }
+}
+
+/** Parse a MLS path like `_102043_/l2/cafeFlow/web/contracts/page.defs.ts`. */
+export function parseMlsPath(mlsPath: string): ParsedMlsPath | null {
+  const match = mlsPath.match(/^_(\d+)_\/l(\d+)\/(.+)$/);
+  if (!match) return null;
+  const project = parseInt(match[1], 10);
+  const level   = parseInt(match[2], 10);
+  const rest    = match[3];
+  const lastSlash = rest.lastIndexOf('/');
+  const folder    = lastSlash >= 0 ? rest.slice(0, lastSlash) : '';
+  const filename  = lastSlash >= 0 ? rest.slice(lastSlash + 1) : rest;
+  let shortName: string, extension: string;
+  if (filename.endsWith('.defs.ts')) {
+    shortName = filename.slice(0, -'.defs.ts'.length);
+    extension = '.defs.ts';
+  } else {
+    const dot = filename.lastIndexOf('.');
+    shortName = dot >= 0 ? filename.slice(0, dot) : filename;
+    extension = dot >= 0 ? filename.slice(dot) : '';
+  }
+  return { project, level, folder, shortName, extension };
+}
+
+/**
+ * Scan all l2 .defs.ts in sub-folders of a module that contain a pipeline export.
+ * Excludes top-level source files (folder === moduleName).
+ */
+export async function scanL2DefsWithPipeline(
+  project: number,
+  moduleName: string,
+): Promise<Array<{ project: number; level: number; folder: string; shortName: string; pipeline: PipelineItem[] }>> {
+  const result: Array<{ project: number; level: number; folder: string; shortName: string; pipeline: PipelineItem[] }> = [];
+  try {
+    const prefix = moduleName + '/';
+    for (const f of Object.values(mls.stor.files as Record<string, any>)) {
+      if (f.project !== project) continue;
+      if (f.level !== 2) continue;
+      if (f.extension !== '.defs.ts') continue;
+      if (f.status === 'deleted') continue;
+      const folder = f.folder as string;
+      if (folder === moduleName) continue;
+      if (!folder.startsWith(prefix)) continue;
+      const content = String(await f.getContent());
+      const pipeline = parsePipelineFromContent(content);
+      if (!pipeline || pipeline.length === 0) continue;
+      result.push({ project, level: 2, folder, shortName: f.shortName as string, pipeline });
+    }
+  } catch (err) {
+    console.warn('[agentMaterializeArtifacts] scanL2DefsWithPipeline failed', err);
+  }
+  return result;
+}
+
+/** Save (create or overwrite) a generated .ts file. */
+export async function saveGeneratedTs(
+  project: number,
+  level: number,
+  folder: string,
+  shortName: string,
+  content: string,
+): Promise<boolean> {
+  try {
+    const fileInfo = { project, level, folder, shortName, extension: '.ts' };
+    const key = mls.stor.getKeyToFile(fileInfo);
+    let file = (mls.stor.files as Record<string, any>)[key];
+    if (!file) {
+      file = await createStorFile({ ...fileInfo, source: content }, false, false, false);
+    }
+    await mls.stor.localStor.setContent(file, { contentType: 'string', content });
+    return true;
+  } catch (err) {
+    console.warn('[agentMaterializeArtifacts] saveGeneratedTs failed', err);
     return false;
   }
 }

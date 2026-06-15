@@ -2,13 +2,18 @@
 
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import {
+  readProjectJson,
+  scanL2DefsWithPipeline,
+  getFileModified,
+  getContentByMlsPath,
   toMlsPath,
-  getFileContent,
-  createDefsFile,
-  listDepLayerPaths,
-  extractToolCallArgs,
 } from '/_102020_/l2/agentMaterializeSolution/agentMaterializeArtifacts.js';
-import type { PipelineItem } from '/_102020_/l2/agentMaterializeSolution/agentMaterializePlan.js';
+import type {
+  GenStepArgs,
+  L2FileType,
+  PipelineItem,
+  ProjectJson,
+} from '/_102020_/l2/agentMaterializeSolution/agentMaterializePlan.js';
 
 declare const mls: any;
 
@@ -17,235 +22,225 @@ export function createAgent(): IAgentAsync {
     agentName: 'agentMaterializeL2',
     agentProject: 102020,
     agentFolder: 'agentMaterializeSolution',
-    agentDescription: 'Create L2 sub-files and L1 controller .defs.ts from a L2 page definition',
-    visibility: 'private',
-    beforePromptStep,
+    agentDescription: 'Generate L2 .ts files from .defs.ts pipeline definitions',
+    visibility: 'public',
+    beforePromptImplicit,
     afterPromptStep,
   };
 }
 
-const TOOL_NAME = 'submitL2Files';
+// ─── Candidate: a .defs.ts that needs .ts generation ─────────────────────────
 
-interface StepArgs {
-  planId: string;
-  moduleName: string;
+interface Candidate {
+  folder: string;
   shortName: string;
+  pipeline: PipelineItem[];
 }
 
-/**
- * The LLM extracts definitions verbatim from the source and determines
- * which layer_3_usecases .ts files the controller depends on.
- * outputPath and all other dependsFiles are computed deterministically in afterPromptStep.
- * dependsOn is always [] in this first version.
- */
-interface ToolOutput {
-  /** Extracted from bffCommands — the BFF endpoint definitions */
-  controllerDefinition: Record<string, unknown>;
-  /** Extracted from bffCommands — the contract/interface aspect for the frontend */
-  contractDefinition: Record<string, unknown>;
-  /** Extracted from bffCommands + navigationRefs */
-  sharedDefinition: Record<string, unknown>;
-  /** Extracted from pageDefinition (sections + organisms) */
-  pageDefinition: Record<string, unknown>;
-  /** layer_3_usecases .ts paths the controller actually calls (from usecaseRefs in bffCommands) */
-  controllerDependsFiles: string[];
-}
+// ─── Bootstrap ────────────────────────────────────────────────────────────────
 
-const toolSchema = {
-  type: 'function',
-  function: {
-    name: TOOL_NAME,
-    description: 'Submit the definitions (extracted from source) and controller dependsFiles for the 4 derived files.',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['controllerDefinition', 'contractDefinition', 'sharedDefinition', 'pageDefinition', 'controllerDependsFiles'],
-      properties: {
-        controllerDefinition: {
-          type: 'object',
-          description: 'Original bffCommands data from the source — copied verbatim, not summarized',
-        },
-        contractDefinition: {
-          type: 'object',
-          description: 'Original bffCommands contract/interface data — copied verbatim',
-        },
-        sharedDefinition: {
-          type: 'object',
-          description: 'Original bffCommands + navigationRefs data — copied verbatim',
-        },
-        pageDefinition: {
-          type: 'object',
-          description: 'Original pageDefinition sections/organisms data — copied verbatim',
-        },
-        controllerDependsFiles: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'layer_3_usecases .ts paths (not .defs.ts) that this controller calls — extracted from usecaseRefs in bffCommands',
-        },
-      },
-    },
-  },
-} as const;
-
-// ─── beforePromptStep ─────────────────────────────────────────────────────────
-
-async function beforePromptStep(
-  _agent: IAgentMeta,
+async function beforePromptImplicit(
+  agent: IAgentMeta,
   context: mls.msg.ExecutionContext,
-  parentStep: mls.msg.AIAgentStep,
-  _step: mls.msg.AIAgentStep,
-  hookSequential: number,
-  args?: string,
+  _userPrompt: string,
 ): Promise<mls.msg.AgentIntent[]> {
-  if (!args) throw new Error('[agentMaterializeL2] missing args');
-
-  const { moduleName, shortName }: StepArgs = JSON.parse(args);
   const project = mls.actualProject || 0;
+  const projectJson = await readProjectJson();
+  if (!projectJson?.modules?.length) {
+    throw new Error('[agentMaterializeL2] l5/project.json not found or empty');
+  }
 
-  const content = await getFileContent(project, 2, moduleName, shortName, '.defs.ts');
-  if (!content) throw new Error(`[agentMaterializeL2] not found: l2/${moduleName}/${shortName}.defs.ts`);
+  const summaries = [];
+  for (const mod of projectJson.modules) {
+    const candidates = await findCandidates(project, mod.moduleName);
+    summaries.push({ moduleName: mod.moduleName, count: candidates.length });
+  }
 
-  // Available layer_3_usecases as .ts paths (LLM picks which ones the controller uses)
-  const usecaseDefsPaths = listDepLayerPaths(project, moduleName, 'layer_3_usecases');
-  const usecaseTsPaths = usecaseDefsPaths.map(p => p.replace(/\.defs\.ts$/, '.ts'));
-
-  const intent: mls.msg.AgentIntentPromptReady = {
-    type: 'prompt_ready',
-    args,
-    messageId: context.message.orderAt,
-    threadId: context.message.threadId,
-    taskId: context.task?.PK || '',
-    hookSequential,
-    parentStepId: parentStep.stepId,
-    systemPrompt: buildSystemPrompt(project, moduleName, shortName),
-    humanPrompt: buildHumanPrompt(
-      toMlsPath(project, 2, moduleName, shortName, '.defs.ts'),
-      content,
-      usecaseTsPaths,
-    ),
-    tools: [toolSchema as unknown as mls.msg.LLMTool],
-    toolChoice: { type: 'function', function: { name: TOOL_NAME } },
+  const addMessageAI: mls.msg.AgentIntentAddMessageAI = {
+    type: 'add-message-ai',
+    request: {
+      action: 'addMessageAI',
+      agentName: agent.agentName,
+      inputAI: [
+        { type: 'system', content: systemPrompt },
+        { type: 'human', content: buildHumanPrompt(summaries) },
+      ],
+      taskTitle: 'materialize-l2',
+      threadId: context.message.threadId,
+      userMessage: context.message.content,
+      longTermMemory: { taskName: 'materialize-l2', flowName: 'materialize-l2' },
+    },
   };
 
-  return [intent];
+  return [addMessageAI];
 }
 
-// ─── afterPromptStep ──────────────────────────────────────────────────────────
+// ─── After LLM confirms — create generation steps ────────────────────────────
 
 async function afterPromptStep(
   _agent: IAgentMeta,
   context: mls.msg.ExecutionContext,
-  parentStep: mls.msg.AIAgentStep,
+  _parentStep: mls.msg.AIAgentStep,
   step: mls.msg.AIAgentStep,
   hookSequential: number,
 ): Promise<mls.msg.AgentIntent[]> {
-  const { moduleName, shortName }: StepArgs = JSON.parse(step.prompt || '{}');
-  const project = mls.actualProject || 0;
+  try {
+    const payload = step.interaction?.payload?.[0] as any;
+    if (!payload) throw new Error('[agentMaterializeL2] missing payload');
 
-  const raw = step.interaction?.payload?.[0] as any;
-  const out = extractToolCallArgs<ToolOutput>(raw, TOOL_NAME);
+    if (payload.type === 'result') {
+      return [mkFail(context, _parentStep, step, hookSequential, String(payload.result))];
+    }
+    if (payload.type !== 'flexible' || payload.result?.status === 'failed') {
+      const msg = payload.result?.notes?.join('; ') || 'scan confirmation failed';
+      return [mkFail(context, _parentStep, step, hookSequential, msg)];
+    }
 
-  if (!out) {
-    return [mkStatus(context, parentStep, step, hookSequential, 'failed', 'missing tool output')];
+    const project = mls.actualProject || 0;
+    const projectJson = await readProjectJson();
+    if (!projectJson) throw new Error('[agentMaterializeL2] project.json unavailable');
+
+    const intents: mls.msg.AgentIntentAddStep[] = [];
+
+    for (const mod of projectJson.modules) {
+      const { moduleName } = mod;
+      const moduleTsPath = toMlsPath(project, 2, moduleName, 'module', '.ts');
+      const moduleTsContent = await getContentByMlsPath(moduleTsPath) ?? '';
+      const candidates = await findCandidates(project, moduleName);
+
+      for (const c of candidates) {
+        const fileType = detectFileType(c.folder, moduleName);
+        if (!fileType) continue;
+        const skillPaths = resolveSkillPaths(fileType, moduleTsContent, projectJson);
+        const planId = `gen-l2-${safe(moduleName)}-${safe(c.shortName)}-${fileType}`;
+        const defPath = toMlsPath(project, 2, c.folder, c.shortName, '.defs.ts');
+        const args: GenStepArgs = {
+          planId,
+          defPath,
+          pipelineItem: c.pipeline[0],
+          skillPaths,
+          fileType,
+        };
+        intents.push(mkStep(context, step, planId, `Gen ${fileType}: ${moduleName}/${c.shortName}`, args));
+      }
+    }
+
+    return intents;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return [mkFail(context, _parentStep, step, hookSequential, msg)];
   }
-
-  // ── Deterministic output paths ──────────────────────────────────────────────
-  const base = `_${project}_`;
-  const controllerOutputPath = `${base}/l1/${moduleName}/layer_2_controllers/${shortName}.ts`;
-  const contractOutputPath   = `${base}/l2/${moduleName}/web/contracts/${shortName}.ts`;
-  const sharedOutputPath     = `${base}/l2/${moduleName}/web/shared/${shortName}.ts`;
-  const pageOutputPath       = `${base}/l2/${moduleName}/web/desktop/page11/${shortName}.ts`;
-
-  // ── Deterministic dependsFiles per file ─────────────────────────────────────
-  // controller → layer_3_usecases it calls (LLM-determined, backend only)
-  // contract   → [] (frontend is isolated from backend)
-  // shared     → contract .ts only
-  // page       → shared .ts + contract .ts
-  const contractDependsFiles: string[] = [];
-  const sharedDependsFiles   = [contractOutputPath];
-  const pageDependsFiles     = [sharedOutputPath, contractOutputPath];
-
-  const errors: string[] = [];
-
-  // 1. L1 controller
-  const ok1 = await createDefsFile(
-    project, 1, `${moduleName}/layer_2_controllers`, shortName,
-    out.controllerDefinition,
-    [mkItem(`${shortName}__layer_2_controllers`, 'layer_2_controllers',
-      controllerOutputPath, project, 1, `${moduleName}/layer_2_controllers`, shortName,
-      out.controllerDependsFiles || [], [])],
-  );
-  if (!ok1) errors.push('controller');
-
-  // 2. L2 contract
-  const ok2 = await createDefsFile(
-    project, 2, `${moduleName}/web/contracts`, shortName,
-    out.contractDefinition,
-    [mkItem(`${shortName}__l2_contract`, 'l2_contract',
-      contractOutputPath, project, 2, `${moduleName}/web/contracts`, shortName,
-      contractDependsFiles, [])],
-  );
-  if (!ok2) errors.push('contract');
-
-  // 3. L2 shared
-  const ok3 = await createDefsFile(
-    project, 2, `${moduleName}/web/shared`, shortName,
-    out.sharedDefinition,
-    [mkItem(`${shortName}__l2_shared`, 'l2_shared',
-      sharedOutputPath, project, 2, `${moduleName}/web/shared`, shortName,
-      sharedDependsFiles, [])],
-  );
-  if (!ok3) errors.push('shared');
-
-  // 4. L2 page — path: l2/{module}/web/desktop/page11/{shortName}.defs.ts
-  const ok4 = await createDefsFile(
-    project, 2, `${moduleName}/web/desktop/page11`, shortName,
-    out.pageDefinition,
-    [mkItem(`${shortName}__l2_page`, 'l2_page',
-      pageOutputPath, project, 2, `${moduleName}/web/desktop/page11`, shortName,
-      pageDependsFiles, [])],
-  );
-  if (!ok4) errors.push('page');
-
-  const failed = errors.length > 0;
-  return [mkStatus(
-    context, parentStep, step, hookSequential,
-    failed ? 'failed' : 'completed',
-    failed ? `failed to create: ${errors.join(', ')}` : undefined,
-  )];
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Candidate detection ──────────────────────────────────────────────────────
 
-function mkItem(
-  id: string,
-  type: string,
-  outputPath: string,
-  project: number,
-  level: number,
-  folder: string,
-  shortName: string,
-  dependsFiles: string[],
-  dependsOn: string[],
-): PipelineItem {
+async function findCandidates(project: number, moduleName: string): Promise<Candidate[]> {
+  const all = await scanL2DefsWithPipeline(project, moduleName);
+  return all.filter(({ folder, shortName }) => {
+    const defMod = getFileModified(project, 2, folder, shortName, '.defs.ts');
+    const tsMod  = getFileModified(project, 2, folder, shortName, '.ts');
+    if (tsMod === null) return true;        // no .ts yet
+    if (defMod === null) return false;      // can't determine — skip
+    return defMod > tsMod;                  // .defs.ts is newer
+  });
+}
+
+// ─── File type detection ──────────────────────────────────────────────────────
+
+function detectFileType(folder: string, moduleName: string): L2FileType | null {
+  const rel = folder.slice(moduleName.length + 1); // strip "cafeFlow/"
+  if (rel.startsWith('web/contracts')) return 'contract';
+  if (rel.startsWith('web/shared'))    return 'shared';
+  if (rel.startsWith('web/desktop'))   return 'page';
+  return null;
+}
+
+// ─── Skill resolution ─────────────────────────────────────────────────────────
+
+function resolveSkillPaths(
+  fileType: L2FileType,
+  moduleTsContent: string,
+  projectJson: ProjectJson,
+): string[] {
+  if (fileType === 'contract') return extractContractSkillPaths(moduleTsContent);
+  if (fileType === 'shared')   return extractSharedSkillPath(moduleTsContent);
+  if (fileType === 'page') {
+    const genome = extractGenomeConfig(moduleTsContent, 'web/desktop/page11');
+    const paths: string[] = [];
+    if (genome.layout) {
+      const lp = projectJson.layouts?.[genome.layout]?.skillPath ?? [];
+      paths.push(...lp);
+    }
+    if (genome.designSystem) {
+      const dp = projectJson.designSystems?.[genome.designSystem]?.skillPath ?? [];
+      paths.push(...dp);
+    }
+    return paths;
+  }
+  return [];
+}
+
+function extractContractSkillPaths(content: string): string[] {
+  const match = content.match(/\bcontract\s*:\s*\{[^}]*skillPath\s*:\s*\[([\s\S]*?)\]/);
+  if (!match) return [];
+  return (match[1].match(/['"`]([^'"`]+)['"`]/g) ?? []).map(s => s.slice(1, -1));
+}
+
+function extractSharedSkillPath(content: string): string[] {
+  const match = content.match(/sharedSkill\s*:\s*['"`]([^'"`]+)['"`]/);
+  return match ? [match[1]] : [];
+}
+
+function extractGenomeConfig(
+  content: string,
+  subfolder: string,
+): { layout?: string; designSystem?: string } {
+  const escaped = subfolder.replace(/\//g, '\\/');
+  const re = new RegExp(`['"\`]${escaped}['"\`]\\s*:\\s*\\{([^}]+)\\}`);
+  const match = content.match(re);
+  if (!match) return {};
+  const block = match[1];
+  const layout       = block.match(/\blayout\s*:\s*['"`]([^'"`]+)['"`]/)?.[1];
+  const designSystem = block.match(/\bdesignSystem\s*:\s*['"`]([^'"`]+)['"`]/)?.[1];
+  return { layout, designSystem };
+}
+
+// ─── Builders ─────────────────────────────────────────────────────────────────
+
+function mkStep(
+  context: mls.msg.ExecutionContext,
+  rootStep: mls.msg.AIAgentStep,
+  planId: string,
+  title: string,
+  args: GenStepArgs,
+): mls.msg.AgentIntentAddStep {
   return {
-    id,
-    type,
-    outputPath,
-    defPath: toMlsPath(project, level, folder, shortName, '.defs.ts'),
-    dependsFiles,
-    dependsOn,
-    agent: 'agentMaterializeDef',
+    type: 'add-step',
+    messageId: context.message.orderAt,
+    threadId: context.message.threadId,
+    taskId: context.task?.PK || '',
+    parentStepId: rootStep.stepId,
+    step: {
+      type: 'agent',
+      stepId: 0,
+      interaction: null,
+      stepTitle: title,
+      status: 'waiting_human_input',
+      nextSteps: [],
+      agentName: 'agentMaterializeGen',
+      prompt: JSON.stringify(args),
+      rags: [],
+      planning: { planId, dependsOn: [], executionMode: 'parallel_static', executionHost: 'client' },
+    } as any,
   };
 }
 
-function mkStatus(
+function mkFail(
   context: mls.msg.ExecutionContext,
   parentStep: mls.msg.AIAgentStep,
   step: mls.msg.AIAgentStep,
   hookSequential: number,
-  status: mls.msg.AIStepStatus,
-  traceMsg?: string,
+  traceMsg: string,
 ): mls.msg.AgentIntentUpdateStatus {
   return {
     type: 'update-status',
@@ -253,61 +248,40 @@ function mkStatus(
     messageId: context.message.orderAt,
     threadId: context.message.threadId,
     taskId: context.task?.PK || '',
-    parentStepId: parentStep.stepId,
+    parentStepId: parentStep?.stepId ?? step.stepId,
     stepId: step.stepId,
-    status,
+    status: 'failed',
     traceMsg,
-    cleaner: status === 'completed' ? 'input_output' : undefined,
   };
+}
+
+function safe(s: string): string {
+  return s.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
 }
 
 // ─── Prompts ──────────────────────────────────────────────────────────────────
 
-function buildSystemPrompt(project: number, moduleName: string, shortName: string): string {
-  return `<!-- modelType: codeinstruct -->
+const systemPrompt = `<!-- modelType: codepro -->
 
-You extract and organize data from a L2 page .defs.ts to produce definitions for 4 derived files.
+You confirm the L2 generation scan.
 
-IMPORTANT: Copy data verbatim from the source — do NOT summarize or invent content.
+If files were found, return:
+{"type":"flexible","result":{"status":"ok","notes":[]}}
 
-Files to produce:
-1. controllerDefinition — L1 BFF controller (_${project}_/l1/${moduleName}/layer_2_controllers/${shortName}.defs.ts)
-   Content: the bffCommands array from the source, copied verbatim
+If nothing to generate, return:
+{"type":"result","result":"No L2 files need generation"}
 
-2. contractDefinition — L2 BFF contract (_${project}_/l2/${moduleName}/web/contracts/${shortName}.defs.ts)
-   Content: the bffCommands from the source (contract/interface aspect), copied verbatim
-
-3. sharedDefinition — L2 shared (_${project}_/l2/${moduleName}/web/shared/${shortName}.defs.ts)
-   Content: ALL bffCommands + navigationRefs from the source, copied verbatim
-
-4. pageDefinition — L2 page (_${project}_/l2/${moduleName}/web/desktop/page11/${shortName}.defs.ts)
-   Content: the pageDefinition (sections + organisms) from the source, copied verbatim
-
-Additionally provide:
-- controllerDependsFiles: the layer_3_usecases .ts paths (not .defs.ts) that this controller calls
-  Look at usecaseRefs inside each bffCommand and find the matching path from the available list
-
-Call ${TOOL_NAME} with the result.`;
-}
+Return valid JSON only.`;
 
 function buildHumanPrompt(
-  pageDefPath: string,
-  content: string,
-  usecaseTsPaths: string[],
+  summaries: Array<{ moduleName: string; count: number }>,
 ): string {
-  return [
-    `## Source page definition`,
-    `Path: ${pageDefPath}`,
-    ``,
-    `## Content`,
-    '```typescript',
-    content,
-    '```',
-    ``,
-    `## Available layer_3_usecases .ts files`,
-    usecaseTsPaths.length ? usecaseTsPaths.join('\n') : '(none)',
-    ``,
-    `Extract the 4 definitions verbatim from the source content.`,
-    `For controllerDependsFiles: look at usecaseRefs in each bffCommand and match to the available list above.`,
-  ].join('\n');
+  const lines = ['# L2 Generation Scan', ''];
+  for (const s of summaries) {
+    lines.push(`Module: ${s.moduleName} — ${s.count} file(s) need generation`);
+  }
+  const total = summaries.reduce((n, s) => n + s.count, 0);
+  lines.push('', `Total: ${total} file(s) to generate.`);
+  lines.push('Confirm and return your response.');
+  return lines.join('\n');
 }

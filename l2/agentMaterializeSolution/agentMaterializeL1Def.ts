@@ -1,4 +1,4 @@
-/// <mls fileReference="_102020_/l2/agentMaterializeSolution/agentMaterializeL1.ts" enhancement="_102027_/l2/enhancementAgent"/>
+/// <mls fileReference="_102020_/l2/agentMaterializeSolution/agentMaterializeL1Def.ts" enhancement="_102027_/l2/enhancementAgent"/>
 
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import {
@@ -14,7 +14,7 @@ declare const mls: any;
 
 export function createAgent(): IAgentAsync {
   return {
-    agentName: 'agentMaterializeL1',
+    agentName: 'agentMaterializeL1Def',
     agentProject: 102020,
     agentFolder: 'agentMaterializeSolution',
     agentDescription: 'Add export const pipeline to an existing L1 .defs.ts file',
@@ -73,14 +73,14 @@ async function beforePromptStep(
   hookSequential: number,
   args?: string,
 ): Promise<mls.msg.AgentIntent[]> {
-  if (!args) throw new Error('[agentMaterializeL1] missing args');
+  if (!args) throw new Error('[agentMaterializeL1Def] missing args');
 
   const { moduleName, shortName, layerFolder }: StepArgs = JSON.parse(args);
   const project = mls.actualProject || 0;
   const folder = `${moduleName}/${layerFolder}`;
 
   const content = await getFileContent(project, 1, folder, shortName, '.defs.ts');
-  if (!content) throw new Error(`[agentMaterializeL1] file not found: ${folder}/${shortName}.defs.ts`);
+  if (!content) throw new Error(`[agentMaterializeL1Def] file not found: ${folder}/${shortName}.defs.ts`);
 
   // Already processed — skip
   if (content.includes('export const pipeline')) {

@@ -7,7 +7,7 @@ import {
   scanL2PageDefsFiles,
 } from '/_102020_/l2/agentMaterializeSolution/agentMaterializeArtifacts.js';
 
-declare const mls: any;
+import { createStorFile, IReqCreateStorFile } from '/_102027_/l2/libStor.js';
 
 export function createAgent(): IAgentAsync {
   return {
@@ -61,6 +61,10 @@ async function beforePromptImplicit(
       l2Files: l2.map(f => f.shortName),
     };
   });
+
+  for (const moduleName of projectJson.modules.map(m => m.moduleName)) {
+    await ensureSingletons(project, moduleName);
+  }
 
   const addMessageAI: mls.msg.AgentIntentAddMessageAI = {
     type: 'add-message-ai',
@@ -116,14 +120,14 @@ async function afterPromptStep(
         const layerFolder = file.folder.split('/').pop() || '';
         const planId = `mat-l1-${safe(moduleName)}-${safe(file.shortName)}-${safe(layerFolder)}`;
         const args: L1StepArgs = { planId, moduleName, shortName: file.shortName, layerFolder };
-        intents.push(mkStep(context, step, planId, `L1 pipeline: ${moduleName}/${layerFolder}/${file.shortName}`, 'agentMaterializeL1', args));
+        intents.push(mkStep(context, step, planId, `L1 pipeline: ${moduleName}/${layerFolder}/${file.shortName}`, 'agentMaterializeL1Def', args));
       }
 
       // One step per L2 page .defs.ts file (create sub-files)
       for (const file of scanL2PageDefsFiles(project, moduleName)) {
         const planId = `mat-l2-${safe(moduleName)}-${safe(file.shortName)}`;
         const args: L2StepArgs = { planId, moduleName, shortName: file.shortName };
-        intents.push(mkStep(context, step, planId, `L2 files: ${moduleName}/${file.shortName}`, 'agentMaterializeL2', args));
+        intents.push(mkStep(context, step, planId, `L2 files: ${moduleName}/${file.shortName}`, 'agentMaterializeL2Def', args));
       }
     }
 
@@ -188,6 +192,124 @@ function mkFail(
 function safe(name: string): string {
   return name.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
 }
+
+// ─── ensure singletons ────────────────────────────────────────────────────────
+
+async function ensureFile(ref: string, src: string): Promise<void> {
+  const info = mls.stor.convertFileReferenceToFile(ref);
+  const key = mls.stor.getKeyToFile(info);
+  if (mls.stor.files[key]) return;
+  const param: IReqCreateStorFile = { ...info, source: src };
+  await createStorFile(param, true, true, true);
+}
+
+async function ensureSingletons(project: number, moduleName: string): Promise<void> {
+  await ensureFile(`_${project}_/l2/${moduleName}/module.ts`,                          buildModuleTs(project, moduleName));
+  await ensureFile(`_${project}_/l2/${moduleName}/index.ts`,                           buildIndexTs(project, moduleName));
+  await ensureFile(`_${project}_/l1/${moduleName}/layer_2_controllers/router.ts`,      buildRouterTs(project, moduleName));
+  await ensureFile(`_${project}_/l1/${moduleName}/layer_1_external/persistence.ts`,    buildPersistenceTs(project, moduleName));
+}
+
+// ─── templates ────────────────────────────────────────────────────────────────
+
+function buildModuleTs(project: number, moduleName: string): string {
+  return `/// <mls fileReference="_${project}_/l2/${moduleName}/module.ts" enhancement="_blank" />
+import type { AuraModuleFrontendDefinition, IPaths, ISkill, IGenomeConfig } from '/_102029_/l2/contracts/bootstrap.js';
+
+export const moduleGenome: Record<string, IGenomeConfig> = {
+  'web/desktop/page11': {
+    designSystem: 'default',
+    device: 'desktop',
+    layout: 'standard',
+  }
+} as const;
+
+export const shared: IPaths = {
+  web: {
+    sharedPath: '/_${project}_/l2/${moduleName}/web/shared',
+    sharedSkill: '/_102020_/l2/agentMaterializeSolution/skills/genPageShared.ts'
+  }
+}
+
+export const skills: ISkill = {
+  definition:{
+    skillPath:  ['_102034_'],
+  },
+  architecture: {
+    skillPath:  ['_102021_/l2/skills/architecture.md'],
+  },
+  layer1: {
+    skillPath:  ['_102021_/l2/skills/layer_1.md'],
+  },
+  layer2: {
+    skillPath:  ['_102021_/l2/skills/layer_2.md'],
+  },
+  layer3: {
+    skillPath:  ['_102021_/l2/skills/layer_3.md'],
+  },
+  layer4: {
+    skillPath:  ['_102021_/l2/skills/layer_4.md'],
+  },
+  contract: {
+    skillPath: ["_102020_/l2/agentMaterializeSolution/skills/genContract.ts"],
+  }
+}
+
+export const moduleStates = {} as const;
+
+export const moduleShellPreferences = {
+  layout: {
+    asideMode: { desktop: 'inline', mobile: 'fullscreen' },
+  },
+} as const;
+
+export const moduleFrontendDefinition: AuraModuleFrontendDefinition = {
+  pageTitle: '${moduleName}',
+  device: 'desktop',
+  navigation: [],
+  routes: [],
+};
+`;
+}
+
+function buildIndexTs(project: number, moduleName: string): string {
+  return `/// <mls fileReference="_${project}_/l2/${moduleName}/index.ts" enhancement="_blank" />
+import { bootstrapCollabApp } from '/_102033_/l2/core/bootstrap.js';
+
+void bootstrapCollabApp({
+  projectId: '${project}',
+  appId: '${moduleName}',
+  title: 'Collab Test · ${moduleName}',
+  shellMode: 'spa',
+  navigation: [
+    { label: 'Monitor', href: '/monitor' },
+  ],
+  pages: [],
+});
+`;
+}
+
+function buildRouterTs(project: number, moduleName: string): string {
+  const fnName = `create${moduleName.charAt(0).toUpperCase()}${moduleName.slice(1)}Router`;
+  return `/// <mls fileReference="_${project}_/l1/${moduleName}/layer_2_controllers/router.ts" enhancement="_blank" />
+import type { BffHandler } from '/_102034_/l1/server/layer_2_controllers/contracts.js';
+
+export function ${fnName}(): Map<string, BffHandler> {
+  return new Map<string, BffHandler>([
+  ]);
+}
+`;
+}
+
+function buildPersistenceTs(project: number, moduleName: string): string {
+  return `/// <mls fileReference="_${project}_/l1/${moduleName}/layer_1_external/persistence.ts" enhancement="_blank" />
+import type { TableDefinition } from '/_102034_/l1/server/layer_1_external/persistence/contracts.js';
+
+export const tableDefinitions: TableDefinition[] = [
+];
+`;
+}
+
 
 // ─── Prompts ──────────────────────────────────────────────────────────────────
 
