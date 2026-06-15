@@ -1,0 +1,193 @@
+/// <mls fileReference="_102020_/l2/agentMaterializeSolution/agentMaterializeAssemble.ts" enhancement="_102027_/l2/enhancementAgent"/>
+
+import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
+import { getAllSteps } from '/_102027_/l2/aiAgentHelper.js';
+import {
+  scanModuleDefsFiles,
+  computeOutputPath,
+  makeItemId,
+  saveMaterializePipeline,
+} from '/_102020_/l2/agentMaterializeSolution/agentMaterializeArtifacts.js';
+import type {
+  PipelineItem,
+  PipelineItemType,
+  ScannedDefFile,
+} from '/_102020_/l2/agentMaterializeSolution/agentMaterializePlan.js';
+import type { ResolveOutput } from '/_102020_/l2/agentMaterializeSolution/agentMaterializeResolveDeps.js';
+
+declare const mls: any;
+
+export function createAgent(): IAgentAsync {
+  return {
+    agentName: 'agentMaterializeAssemble',
+    agentProject: 102020,
+    agentFolder: 'agentMaterializeSolution',
+    agentDescription: 'Assemble materialize.pipeline.json from resolved dependencies',
+    visibility: 'private',
+    beforePromptStep,
+  };
+}
+
+interface AssembleArgs {
+  planId: string;
+  moduleName: string;
+}
+
+// beforePromptStep does all the work without an LLM call.
+// Returns update-status directly — no afterPromptStep needed.
+async function beforePromptStep(
+  agent: IAgentMeta,
+  context: mls.msg.ExecutionContext,
+  parentStep: mls.msg.AIAgentStep,
+  step: mls.msg.AIAgentStep,
+  hookSequential: number,
+  args?: string,
+): Promise<mls.msg.AgentIntent[]> {
+  let status: mls.msg.AIStepStatus = 'completed';
+  let traceMsg: string | undefined;
+
+  try {
+    if (!args) throw new Error('[agentMaterializeAssemble] missing args');
+    const { moduleName }: AssembleArgs = JSON.parse(args);
+    const project = mls.actualProject || 0;
+
+    // 1. Collect resolve-deps outputs for this module from sibling steps
+    const allSteps = getAllSteps(context.task);
+    const resolvedMap = collectResolvedDeps(allSteps, moduleName);
+
+    // 2. Scan all .defs.ts for this module
+    const scanned = scanModuleDefsFiles(project, moduleName);
+
+    // 3. Build pipeline items
+    const items = buildPipelineItems(project, moduleName, scanned, resolvedMap);
+
+    // 4. Save pipeline with read-back verify
+    const saved = await saveMaterializePipeline(moduleName, items);
+    if (!saved) throw new Error(`[agentMaterializeAssemble] failed to write pipeline for ${moduleName}`);
+
+    traceMsg = `pipeline saved: ${items.length} items for module ${moduleName}`;
+  } catch (error) {
+    status = 'failed';
+    traceMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[agentMaterializeAssemble] ${traceMsg}`);
+  }
+
+  const updateStatus: mls.msg.AgentIntentUpdateStatus = {
+    type: 'update-status',
+    hookSequential,
+    messageId: context.message.orderAt,
+    threadId: context.message.threadId,
+    taskId: context.task?.PK || '',
+    parentStepId: parentStep.stepId,
+    stepId: step.stepId,
+    status,
+    traceMsg,
+  };
+
+  return [updateStatus];
+}
+
+// ─── Resolve deps collector ────────────────────────────────────────────────────
+
+function collectResolvedDeps(
+  allSteps: mls.msg.AIPayload[],
+  moduleName: string,
+): Map<string, string[]> {
+  const result = new Map<string, string[]>();
+
+  for (const s of allSteps) {
+    const agentStep = s as any;
+    if (agentStep.agentName !== 'agentMaterializeResolveDeps') continue;
+    if (agentStep.status !== 'completed') continue;
+
+    let promptArgs: { moduleName?: string; shortName?: string } | null = null;
+    try { promptArgs = JSON.parse(agentStep.prompt || '{}'); } catch { continue; }
+    if (!promptArgs || promptArgs.moduleName !== moduleName) continue;
+
+    const payload = agentStep.interaction?.payload?.[0] as ResolveOutput | undefined;
+    if (!payload || !Array.isArray(payload.dependsFiles)) continue;
+
+    result.set(promptArgs.shortName || '', payload.dependsFiles);
+  }
+
+  return result;
+}
+
+// ─── Pipeline builder ─────────────────────────────────────────────────────────
+
+function buildPipelineItems(
+  project: number,
+  moduleName: string,
+  scanned: ScannedDefFile[],
+  resolvedMap: Map<string, string[]>,
+): PipelineItem[] {
+  const items: PipelineItem[] = [];
+
+  for (const file of scanned) {
+    if (file.type === 'l2_layer2contracts') {
+      items.push(makeItem(project, moduleName, file.shortName, file.filePath, 'l2_layer2contracts', [], []));
+      continue;
+    }
+
+    if (file.type === 'l2_page') {
+      // One source .defs.ts → 3 separate pipeline items.
+      // contract has no dependsOn siblings (only its own defPath as context).
+      // page and shared depend on contract being generated first.
+      const contractId = makeItemId(file.shortName, 'l2_contract');
+      items.push(makeItem(project, moduleName, file.shortName, file.filePath, 'l2_contract', [file.filePath], []));
+      items.push(makeItem(project, moduleName, file.shortName, file.filePath, 'l2_shared',   [file.filePath], [contractId]));
+      items.push(makeItem(project, moduleName, file.shortName, file.filePath, 'l2_page',     [file.filePath], [contractId]));
+      continue;
+    }
+
+    // L1 item — dependency files come from the resolve-deps LLM step
+    const l1Type = file.type as PipelineItemType;
+    const dependsFiles = resolvedMap.get(file.shortName) || [];
+    const dependsOn = dependsFiles.map(defPathToItemId).filter(Boolean);
+    items.push(makeItem(project, moduleName, file.shortName, file.filePath, l1Type, dependsFiles, dependsOn));
+  }
+
+  return items;
+}
+
+function makeItem(
+  project: number,
+  moduleName: string,
+  shortName: string,
+  defPath: string,
+  type: PipelineItemType,
+  dependsFiles: string[],
+  dependsOn: string[],
+): PipelineItem {
+  return {
+    id: makeItemId(shortName, type),
+    type,
+    layer: type.startsWith('l2') ? 'l2' : 'l1',
+    moduleName,
+    defPath,
+    outputPath: computeOutputPath(project, moduleName, shortName, type),
+    dependsFiles,
+    dependsOn,
+    agent: 'agentMaterializeDef',
+  };
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// "102043/l1/cafeFlow/layer_4_entities/pedidoEntity.defs.ts" → "pedidoEntity__layer_4_entities"
+function defPathToItemId(defPath: string): string {
+  const clean = defPath.replace(/\.defs\.ts$/, '');
+  const parts = clean.split('/');
+  const shortName = parts[parts.length - 1];
+  const layerFolder = parts[parts.length - 2];
+
+  const typeMap: Record<string, PipelineItemType> = {
+    layer_1_external:    'layer_1_external',
+    layer_4_entities:    'layer_4_entities',
+    layer_3_usecases:    'layer_3_usecases',
+    layer_2_controllers: 'layer_2_controllers',
+  };
+  const type = typeMap[layerFolder];
+  if (!type || !shortName) return '';
+  return makeItemId(shortName, type);
+}

@@ -1,185 +1,71 @@
-/// <mls fileReference="_102020_/l2/agentMaterializeSolution/agentMaterialize.ts" enhancement="_102027_/l2/enhancementAgent.ts"/>
+/// <mls fileReference="_102020_/l2/agentMaterializeSolution/agentMaterialize.ts" enhancement="_102027_/l2/enhancementAgent"/>
 
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
-import { createStorFile, IReqCreateStorFile } from '/_102027_/l2/libStor.js';
+import {
+  readProjectJson,
+  scanModuleDefsFiles,
+} from '/_102020_/l2/agentMaterializeSolution/agentMaterializeArtifacts.js';
+import type { ScannedDefFile } from '/_102020_/l2/agentMaterializeSolution/agentMaterializePlan.js';
+
+declare const mls: any;
 
 export function createAgent(): IAgentAsync {
   return {
     agentName: 'agentMaterialize',
     agentProject: 102020,
     agentFolder: 'agentMaterializeSolution',
-    agentDescription: 'Read project.json, discover modules with defs, create singletons and trigger page scanning',
+    agentDescription: 'Build materialize pipeline for all modules in a project',
     visibility: 'public',
     beforePromptImplicit,
-    beforePromptStep,
     afterPromptStep,
   };
 }
 
-// ─── project.json ─────────────────────────────────────────────────────────────
+const TOOL_NAME = 'submitMaterializeBootstrap';
 
-interface ProjectModule {
+interface BootstrapModuleResult {
   moduleName: string;
+  l1FileCount: number;
+  l2FileCount: number;
+  status: 'ok' | 'empty' | 'missing';
 }
 
-interface ProjectConfig {
-  modules?: ProjectModule[];
+interface BootstrapOutput {
+  status: 'ok' | 'failed';
+  modules: BootstrapModuleResult[];
+  notes: string[];
 }
 
-async function readProjectConfig(project: number): Promise<ProjectConfig> {
-  const ref = `_${project}_/l5/project.json`;
-  const info = mls.stor.convertFileReferenceToFile(ref);
-  const key = mls.stor.getKeyToFile(info);
-  const sf = mls.stor.files[key];
-  if (!sf) throw new Error(`[agentMaterialize] project.json not found: ${ref}`);
-  const content = await sf.getContent();
-  return JSON.parse(typeof content === 'string' ? content : JSON.stringify(content)) as ProjectConfig;
-}
-
-function scanModuleDefsFiles(moduleName: string, project: number): string[] {
-  const paths: string[] = [];
-  for (const key of Object.keys(mls.stor.files)) {
-    const file = mls.stor.files[key];
-    if (
-      file.level === 2 &&
-      file.extension === '.defs.ts' &&
-      file.folder === moduleName &&
-      file.project === project &&
-      !['module', 'index'].includes(file.shortName)
-    ) {
-      paths.push(`_${file.project}_/l2/${file.folder}/${file.shortName}${file.extension}`);
-    }
-  }
-  return paths;
-}
-
-async function findModulesWithDefs(project: number): Promise<string[]> {
-  const config = await readProjectConfig(project);
-  const result: string[] = [];
-  for (const mod of config.modules ?? []) {
-    const defs = scanModuleDefsFiles(mod.moduleName, project);
-    if (defs.length > 0) result.push(mod.moduleName);
-  }
-  return result;
-}
-
-// ─── templates ────────────────────────────────────────────────────────────────
-
-function buildModuleTs(project: number, moduleName: string): string {
-  return `/// <mls fileReference="_${project}_/l2/${moduleName}/module.ts" enhancement="_blank" />
-import type { AuraModuleFrontendDefinition, IPaths, ISkill, IGenomeConfig } from '/_102029_/l2/contracts/bootstrap.js';
-
-export const moduleGenome: Record<string, IGenomeConfig> = {
-  'web/desktop/page11': {
-    designSystem: 'default',
-    device: 'desktop',
-    layout: 'standard',
-  }
-} as const;
-
-export const shared: IPaths = {
-  web: {
-    sharedPath: '/_${project}_/l2/${moduleName}/web/shared',
-    sharedSkill: '/_102020_/l2/agentMaterializeSolution/skills/genPageShared.ts'
-  }
-}
-
-export const skills: ISkill = {
-  definition:{
-    skillPath:  ['_102034_'],
-  },
-  architecture: {
-    skillPath:  ['_102021_/l2/skills/architecture.md'],
-  },layer1: {
-    skillPath:  ['_102021_/l2/skills/layer_1.md'],
-  },
-  layer2: {
-    skillPath:  ['_102021_/l2/skills/layer_2.md'],
-  },
-  layer3: {
-    skillPath:  ['_102021_/l2/skills/layer_3.md'],
-  },
-  layer4: {
-    skillPath:  ['_102021_/l2/skills/layer_4.md'],
-  },
-  contract: {
-    skillPath: ["_102020_/l2/agentMaterializeSolution/skills/genContract.ts"],
-  }
-}
-
-export const moduleStates = {} as const;
-
-export const moduleShellPreferences = {
-  layout: {
-    asideMode: { desktop: 'inline', mobile: 'fullscreen' },
+const bootstrapToolSchema = {
+  type: 'function',
+  function: {
+    name: TOOL_NAME,
+    description: 'Confirm the materialize bootstrap scan result.',
+    parameters: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['status', 'modules', 'notes'],
+      properties: {
+        status: { enum: ['ok', 'failed'] },
+        modules: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['moduleName', 'l1FileCount', 'l2FileCount', 'status'],
+            properties: {
+              moduleName: { type: 'string' },
+              l1FileCount: { type: 'number' },
+              l2FileCount: { type: 'number' },
+              status: { enum: ['ok', 'empty', 'missing'] },
+            },
+          },
+        },
+        notes: { type: 'array', items: { type: 'string' } },
+      },
+    },
   },
 } as const;
-
-export const moduleFrontendDefinition: AuraModuleFrontendDefinition = {
-  pageTitle: '${moduleName}',
-  device: 'desktop',
-  navigation: [],
-  routes: [],
-};
-`;
-}
-
-function buildIndexTs(project: number, moduleName: string): string {
-  return `/// <mls fileReference="_${project}_/l2/${moduleName}/index.ts" enhancement="_blank" />
-import { bootstrapCollabApp } from '/_102033_/l2/core/bootstrap.js';
-
-void bootstrapCollabApp({
-  projectId: '${project}',
-  appId: '${moduleName}',
-  title: 'Collab Test · ${moduleName}',
-  shellMode: 'spa',
-  navigation: [
-    { label: 'Monitor', href: '/monitor' },
-  ],
-  pages: [],
-});
-`;
-}
-
-function buildRouterTs(project: number, moduleName: string): string {
-  const fnName = `create${moduleName.charAt(0).toUpperCase()}${moduleName.slice(1)}Router`;
-  return `/// <mls fileReference="_${project}_/l1/${moduleName}/layer_2_controllers/router.ts" enhancement="_blank" />
-import type { BffHandler } from '/_102034_/l1/server/layer_2_controllers/contracts.js';
-
-export function ${fnName}(): Map<string, BffHandler> {
-  return new Map<string, BffHandler>([
-  ]);
-}
-`;
-}
-
-function buildPersistenceTs(project: number, moduleName: string): string {
-  return `/// <mls fileReference="_${project}_/l1/${moduleName}/layer_1_external/persistence.ts" enhancement="_blank" />
-import type { TableDefinition } from '/_102034_/l1/server/layer_1_external/persistence/contracts.js';
-
-export const tableDefinitions: TableDefinition[] = [
-];
-`;
-}
-
-// ─── ensure singletons ────────────────────────────────────────────────────────
-
-async function ensureFile(ref: string, src: string): Promise<void> {
-  const info = mls.stor.convertFileReferenceToFile(ref);
-  const key = mls.stor.getKeyToFile(info);
-  if (mls.stor.files[key]) return;
-  const param: IReqCreateStorFile = { ...info, source: src };
-  await createStorFile(param, true, true, true);
-}
-
-async function ensureSingletons(project: number, moduleName: string): Promise<void> {
-  await ensureFile(`_${project}_/l2/${moduleName}/module.ts`,                          buildModuleTs(project, moduleName));
-  await ensureFile(`_${project}_/l2/${moduleName}/index.ts`,                           buildIndexTs(project, moduleName));
-  await ensureFile(`_${project}_/l1/${moduleName}/layer_2_controllers/router.ts`,      buildRouterTs(project, moduleName));
-  await ensureFile(`_${project}_/l1/${moduleName}/layer_1_external/persistence.ts`,    buildPersistenceTs(project, moduleName));
-}
-
-// ─── beforePromptImplicit ─────────────────────────────────────────────────────
 
 async function beforePromptImplicit(
   agent: IAgentMeta,
@@ -187,14 +73,24 @@ async function beforePromptImplicit(
   userPrompt: string,
 ): Promise<mls.msg.AgentIntent[]> {
   const project = mls.actualProject || 0;
-  const modulesWithDefs = await findModulesWithDefs(project);
+  const projectJson = await readProjectJson();
 
-  if (modulesWithDefs.length === 0)
-    throw new Error(`[agentMaterialize] no modules with .defs.ts found in project ${project}`);
-
-  for (const moduleName of modulesWithDefs) {
-    await ensureSingletons(project, moduleName);
+  if (!projectJson || !Array.isArray(projectJson.modules) || projectJson.modules.length === 0) {
+    throw new Error(
+      `[agentMaterialize] l5/project.json not found or has no modules in project ${project}`,
+    );
   }
+
+  const moduleSummaries = projectJson.modules.map(mod => {
+    const scanned = scanModuleDefsFiles(project, mod.moduleName);
+    const l1 = scanned.filter(f => f.layer === 'l1');
+    const l2 = scanned.filter(f => f.layer === 'l2');
+    return {
+      moduleName: mod.moduleName,
+      l1Files: l1.map(f => `${f.type}/${f.shortName}`),
+      l2Files: l2.map(f => `${f.type}/${f.shortName}`),
+    };
+  });
 
   const addMessageAI: mls.msg.AgentIntentAddMessageAI = {
     type: 'add-message-ai',
@@ -202,55 +98,21 @@ async function beforePromptImplicit(
       action: 'addMessageAI',
       agentName: agent.agentName,
       inputAI: [
-        { type: 'system', content: systemPrompt },
-        { type: 'human', content: JSON.stringify({ project, modulesWithDefs }) },
+        { type: 'system', content: buildSystemPrompt() },
+        { type: 'human', content: buildBootstrapHumanPrompt(moduleSummaries) },
       ],
-      taskTitle: `materialize:project-${project}`,
+      taskTitle: 'materializePipeline',
       threadId: context.message.threadId,
-      userMessage: userPrompt || `@@${agent.agentName} project:${project}`,
-      longTermMemory: { modulesJson: JSON.stringify(modulesWithDefs) },
+      userMessage: context.message.content,
+      longTermMemory: {
+        taskName: 'materializePipeline',
+        flowName: 'materialize',
+      },
     },
   };
 
   return [addMessageAI];
 }
-
-// ─── beforePromptStep ─────────────────────────────────────────────────────────
-
-async function beforePromptStep(
-  agent: IAgentMeta,
-  context: mls.msg.ExecutionContext,
-  parentStep: mls.msg.AIAgentStep,
-  _step: mls.msg.AIAgentStep,
-  hookSequential: number,
-  args?: string,
-): Promise<mls.msg.AgentIntent[]> {
-  const project = mls.actualProject || 0;
-  const modulesWithDefs = await findModulesWithDefs(project);
-
-  if (modulesWithDefs.length === 0)
-    throw new Error(`[agentMaterialize] no modules with .defs.ts found in project ${project}`);
-
-  for (const moduleName of modulesWithDefs) {
-    await ensureSingletons(project, moduleName);
-  }
-
-  const promptReady: mls.msg.AgentIntentPromptReady = {
-    type: 'prompt_ready',
-    args: args || '',
-    messageId: context.message.orderAt,
-    threadId: context.message.threadId,
-    taskId: context.task?.PK || '',
-    hookSequential,
-    parentStepId: parentStep.stepId,
-    humanPrompt: JSON.stringify({ project, modulesWithDefs }),
-    systemPrompt,
-  };
-
-  return [promptReady];
-}
-
-// ─── afterPromptStep ──────────────────────────────────────────────────────────
 
 async function afterPromptStep(
   agent: IAgentMeta,
@@ -259,72 +121,174 @@ async function afterPromptStep(
   step: mls.msg.AIAgentStep,
   hookSequential: number,
 ): Promise<mls.msg.AgentIntent[]> {
-  if (!agent || !context || !step) throw new Error(`(${agent.agentName})[afterPromptStep] invalid params`);
+  try {
+    const payload = step.interaction?.payload?.[0] as any;
+    if (!payload) throw new Error('[agentMaterialize] missing payload');
 
-  const modulesJson = context.task?.iaCompressed?.longMemory['modulesJson'] as string | undefined;
-  if (!modulesJson) throw new Error('[agentMaterialize] missing modulesJson in longMemory');
+    const output = extractBootstrapOutput(payload);
+    if (output.status === 'failed') {
+      return [createUpdateStatus(context, parentStep, step, hookSequential, 'failed', 'bootstrap returned failed')];
+    }
 
-  const modulesWithDefs = JSON.parse(modulesJson) as string[];
+    const project = mls.actualProject || 0;
+    const projectJson = await readProjectJson();
+    if (!projectJson) throw new Error('[agentMaterialize] project.json unavailable in afterPromptStep');
 
-  const updateStatus: mls.msg.AgentIntentUpdateStatus = {
+    const addStepIntents: mls.msg.AgentIntentAddStep[] = [];
+
+    for (const mod of projectJson.modules) {
+      const { moduleName } = mod;
+      const scanned = scanModuleDefsFiles(project, moduleName);
+
+      // L1 non-external files need LLM dependency resolution
+      const l1NonExternal = scanned.filter(
+        f => f.layer === 'l1' && f.type !== 'layer_1_external',
+      );
+
+      const resolvePlanIds: string[] = [];
+      for (const file of l1NonExternal) {
+        const planId = `mat-resolve-${toSafeId(moduleName)}-${toSafeId(file.shortName)}`;
+        resolvePlanIds.push(planId);
+        addStepIntents.push(buildResolveStep(context, step, planId, moduleName, file));
+      }
+
+      // One assemble step per module — waits for all its resolve deps
+      const assemblePlanId = `mat-assemble-${toSafeId(moduleName)}`;
+      addStepIntents.push(buildAssembleStep(context, step, assemblePlanId, moduleName, resolvePlanIds));
+    }
+
+    return addStepIntents;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return [createUpdateStatus(context, parentStep, step, hookSequential, 'failed', msg)];
+  }
+}
+
+// ─── Step builders ─────────────────────────────────────────────────────────────
+
+function buildResolveStep(
+  context: mls.msg.ExecutionContext,
+  rootStep: mls.msg.AIAgentStep,
+  planId: string,
+  moduleName: string,
+  file: ScannedDefFile,
+): mls.msg.AgentIntentAddStep {
+  return {
+    type: 'add-step',
+    messageId: context.message.orderAt,
+    threadId: context.message.threadId,
+    taskId: context.task?.PK || '',
+    parentStepId: rootStep.stepId,
+    step: {
+      type: 'agent',
+      stepId: 0,
+      interaction: null,
+      stepTitle: `Resolve deps: ${moduleName}/${file.shortName}`,
+      status: 'waiting_dependency',
+      nextSteps: [],
+      agentName: 'agentMaterializeResolveDeps',
+      prompt: JSON.stringify({ planId, moduleName, shortName: file.shortName, type: file.type }),
+      rags: [],
+      planning: {
+        planId,
+        dependsOn: [],
+        executionMode: 'parallel_static',
+        executionHost: 'client',
+      },
+    } as any,
+  };
+}
+
+function buildAssembleStep(
+  context: mls.msg.ExecutionContext,
+  rootStep: mls.msg.AIAgentStep,
+  planId: string,
+  moduleName: string,
+  dependsOn: string[],
+): mls.msg.AgentIntentAddStep {
+  return {
+    type: 'add-step',
+    messageId: context.message.orderAt,
+    threadId: context.message.threadId,
+    taskId: context.task?.PK || '',
+    parentStepId: rootStep.stepId,
+    step: {
+      type: 'agent',
+      stepId: 0,
+      interaction: null,
+      stepTitle: `Assemble pipeline: ${moduleName}`,
+      status: 'waiting_dependency',
+      nextSteps: [],
+      agentName: 'agentMaterializeAssemble',
+      prompt: JSON.stringify({ planId, moduleName }),
+      rags: [],
+      planning: {
+        planId,
+        dependsOn,
+        executionMode: 'sequential',
+        executionHost: 'client',
+      },
+    } as any,
+  };
+}
+
+// ─── Prompt builders ───────────────────────────────────────────────────────────
+
+function buildSystemPrompt(): string {
+  return [
+    'You are the materialize bootstrap agent.',
+    'You receive a scan of all .defs.ts files found in a project and confirm each module is ready for pipeline generation.',
+    `Call ${TOOL_NAME} with your assessment.`,
+    'Mark a module as "ok" if it has files, "empty" if no defs were found, or "missing" if it is in project.json but completely absent.',
+  ].join(' ');
+}
+
+function buildBootstrapHumanPrompt(
+  summaries: Array<{ moduleName: string; l1Files: string[]; l2Files: string[] }>,
+): string {
+  const lines: string[] = ['# Materialize Bootstrap Scan', ''];
+  for (const s of summaries) {
+    lines.push(`## Module: ${s.moduleName}`);
+    lines.push(`L1 (${s.l1Files.length} files): ${s.l1Files.join(', ') || '(none)'}`);
+    lines.push(`L2 (${s.l2Files.length} files): ${s.l2Files.join(', ') || '(none)'}`);
+    lines.push('');
+  }
+  lines.push('Confirm the status of each module and report any anomalies in notes.');
+  return lines.join('\n');
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function extractBootstrapOutput(payload: any): BootstrapOutput {
+  const result = payload?.result ?? payload;
+  if (result && typeof result === 'object' && !Array.isArray(result)) return result as BootstrapOutput;
+  if (typeof result === 'string') {
+    try { return JSON.parse(result); } catch { /* fall through */ }
+  }
+  return { status: 'failed', modules: [], notes: ['could not parse payload'] };
+}
+
+function toSafeId(name: string): string {
+  return name.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
+}
+
+function createUpdateStatus(
+  context: mls.msg.ExecutionContext,
+  parentStep: mls.msg.AIAgentStep,
+  step: mls.msg.AIAgentStep,
+  hookSequential: number,
+  status: mls.msg.AIStepStatus,
+  traceMsg?: string,
+): mls.msg.AgentIntentUpdateStatus {
+  return {
     type: 'update-status',
     hookSequential,
     messageId: context.message.orderAt,
     threadId: context.message.threadId,
     taskId: context.task?.PK || '',
-    parentStepId: parentStep.stepId,
+    parentStepId: parentStep?.stepId ?? step.stepId,
     stepId: step.stepId,
-    cleaner: 'input_output',
-    status: 'completed',
+    status,
+    traceMsg,
   };
-
-  const newSteps: mls.msg.AgentIntentAddStep[] = modulesWithDefs.map(moduleName => ({
-    type: 'add-step' as const,
-    messageId: context.message.orderAt,
-    threadId: context.message.threadId,
-    taskId: context.task?.PK || '',
-    parentStepId: parentStep.stepId,
-    stepTitle: `scan-pages:${moduleName}`,
-    step: {
-      type: 'agent' as const,
-      stepId: 0,
-      interaction: null,
-      status: 'waiting_human_input' as const,
-      nextSteps: [],
-      agentName: 'agentMaterializePages',
-      prompt: JSON.stringify({ moduleName }),
-      rags: [],
-    },
-  }));
-
-  return [...newSteps, updateStatus];
 }
-
-// ─── system prompt ────────────────────────────────────────────────────────────
-
-const systemPrompt = `
-<!-- modelType: codeinstruct -->
-
-Echo back the content passed.
-
-## Output format
-Return ONLY valid JSON, no markdown fences, no prose.
-
-{
-  "type": "flexible",
-  "result": {
-    "project": <echo project>,
-    "modulesWithDefs": ["<echo each module name>"]
-  }
-}
-`;
-
-//#region OutputSection
-export type AgentOutput = {
-  type: 'flexible';
-  result: {
-    project: number;
-    modulesWithDefs: string[];
-  };
-};
-//#endregion
