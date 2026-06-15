@@ -152,17 +152,17 @@ async function afterPromptStep(
   // ── Deterministic output paths ──────────────────────────────────────────────
   const base = `_${project}_`;
   const controllerOutputPath = `${base}/l1/${moduleName}/layer_2_controllers/${shortName}.ts`;
-  const contractOutputPath   = `${base}/l2/${moduleName}/web/desktop/page11/${shortName}.contract.ts`;
-  const sharedOutputPath     = `${base}/l2/${moduleName}/web/desktop/page11/${shortName}.shared.ts`;
+  const contractOutputPath   = `${base}/l2/${moduleName}/web/contracts/${shortName}.ts`;
+  const sharedOutputPath     = `${base}/l2/${moduleName}/web/shared/${shortName}.ts`;
   const pageOutputPath       = `${base}/l2/${moduleName}/web/desktop/page11/${shortName}.ts`;
 
   // ── Deterministic dependsFiles per file ─────────────────────────────────────
-  // controller → layer_3_usecases it calls (LLM-determined)
-  // contract   → controller .ts
-  // shared     → contract .ts + controller .ts
+  // controller → layer_3_usecases it calls (LLM-determined, backend only)
+  // contract   → [] (frontend is isolated from backend)
+  // shared     → contract .ts only
   // page       → shared .ts + contract .ts
-  const contractDependsFiles = [controllerOutputPath];
-  const sharedDependsFiles   = [contractOutputPath, controllerOutputPath];
+  const contractDependsFiles: string[] = [];
+  const sharedDependsFiles   = [contractOutputPath];
   const pageDependsFiles     = [sharedOutputPath, contractOutputPath];
 
   const errors: string[] = [];
