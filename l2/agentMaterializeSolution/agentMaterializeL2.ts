@@ -1,4 +1,4 @@
-/// <mls fileReference="_102020_/l2/agentMaterializeSolution/agentMaterializeSolution/agentMaterializeL2.ts" enhancement="_102027_/l2/enhancementAgent"/>
+/// <mls fileReference="_102020_/l2/agentMaterializeSolution/agentMaterializeL2.ts" enhancement="_102027_/l2/enhancementAgent"/>
 
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import {
@@ -29,63 +29,58 @@ const TOOL_NAME = 'submitL2Files';
 interface StepArgs {
   planId: string;
   moduleName: string;
-  shortName: string; // page shortName, e.g. "painelCozinha"
+  shortName: string;
 }
 
-interface FileSpec {
-  definition: Record<string, unknown>; // JSON object for the definition block
-  outputPath: string;                   // _project_/l../... .ts path
-  dependsFiles: string[];
-  dependsOn: string[];
-}
-
+/**
+ * The LLM extracts definitions verbatim from the source and determines
+ * which layer_3_usecases .ts files the controller depends on.
+ * outputPath and all other dependsFiles are computed deterministically in afterPromptStep.
+ * dependsOn is always [] in this first version.
+ */
 interface ToolOutput {
-  controllerSpec: FileSpec; // l1/{module}/layer_2_controllers/{page}.defs.ts
-  contractSpec: FileSpec;   // l2/{module}/web/contracts/{page}.defs.ts
-  sharedSpec: FileSpec;     // l2/{module}/web/shared/{page}.defs.ts
-  pageSpec: FileSpec;       // l2/{module}/web/desktop/{page}/{page}.defs.ts
+  /** Extracted from bffCommands — the BFF endpoint definitions */
+  controllerDefinition: Record<string, unknown>;
+  /** Extracted from bffCommands — the contract/interface aspect for the frontend */
+  contractDefinition: Record<string, unknown>;
+  /** Extracted from bffCommands + navigationRefs */
+  sharedDefinition: Record<string, unknown>;
+  /** Extracted from pageDefinition (sections + organisms) */
+  pageDefinition: Record<string, unknown>;
+  /** layer_3_usecases .ts paths the controller actually calls (from usecaseRefs in bffCommands) */
+  controllerDependsFiles: string[];
 }
 
 const toolSchema = {
   type: 'function',
   function: {
     name: TOOL_NAME,
-    description: 'Submit the definitions and pipelines for the 4 files derived from this L2 page.',
+    description: 'Submit the definitions (extracted from source) and controller dependsFiles for the 4 derived files.',
     parameters: {
       type: 'object',
       additionalProperties: false,
-      required: ['controllerSpec', 'contractSpec', 'sharedSpec', 'pageSpec'],
+      required: ['controllerDefinition', 'contractDefinition', 'sharedDefinition', 'pageDefinition', 'controllerDependsFiles'],
       properties: {
-        controllerSpec: { $ref: '#/$defs/FileSpec' },
-        contractSpec:   { $ref: '#/$defs/FileSpec' },
-        sharedSpec:     { $ref: '#/$defs/FileSpec' },
-        pageSpec:       { $ref: '#/$defs/FileSpec' },
-      },
-      $defs: {
-        FileSpec: {
+        controllerDefinition: {
           type: 'object',
-          additionalProperties: false,
-          required: ['definition', 'outputPath', 'dependsFiles', 'dependsOn'],
-          properties: {
-            definition: {
-              type: 'object',
-              description: 'JSON object describing this artifact (will be embedded in the .defs.ts)',
-            },
-            outputPath: {
-              type: 'string',
-              description: 'MLS path of the .ts file to be generated',
-            },
-            dependsFiles: {
-              type: 'array',
-              items: { type: 'string' },
-              description: 'MLS paths of already-generated .ts files the executor needs',
-            },
-            dependsOn: {
-              type: 'array',
-              items: { type: 'string' },
-              description: 'Pipeline item IDs that must complete before this one',
-            },
-          },
+          description: 'Original bffCommands data from the source — copied verbatim, not summarized',
+        },
+        contractDefinition: {
+          type: 'object',
+          description: 'Original bffCommands contract/interface data — copied verbatim',
+        },
+        sharedDefinition: {
+          type: 'object',
+          description: 'Original bffCommands + navigationRefs data — copied verbatim',
+        },
+        pageDefinition: {
+          type: 'object',
+          description: 'Original pageDefinition sections/organisms data — copied verbatim',
+        },
+        controllerDependsFiles: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'layer_3_usecases .ts paths (not .defs.ts) that this controller calls — extracted from usecaseRefs in bffCommands',
         },
       },
     },
@@ -98,7 +93,7 @@ async function beforePromptStep(
   _agent: IAgentMeta,
   context: mls.msg.ExecutionContext,
   parentStep: mls.msg.AIAgentStep,
-  step: mls.msg.AIAgentStep,
+  _step: mls.msg.AIAgentStep,
   hookSequential: number,
   args?: string,
 ): Promise<mls.msg.AgentIntent[]> {
@@ -107,25 +102,12 @@ async function beforePromptStep(
   const { moduleName, shortName }: StepArgs = JSON.parse(args);
   const project = mls.actualProject || 0;
 
-  // Read the source L2 page .defs.ts
   const content = await getFileContent(project, 2, moduleName, shortName, '.defs.ts');
-  if (!content) throw new Error(`[agentMaterializeL2] page not found: l2/${moduleName}/${shortName}.defs.ts`);
+  if (!content) throw new Error(`[agentMaterializeL2] not found: l2/${moduleName}/${shortName}.defs.ts`);
 
-  // List available L1 usecase .ts paths for BFF context (layer_3_usecases)
-  const usecasePaths = listDepLayerPaths(project, moduleName, 'layer_3_usecases');
-  // Also pass layer_2_controllers output paths if any already exist
-  const controllerFolder = `${moduleName}/layer_2_controllers`;
-  const controllerPaths: string[] = [];
-  for (const f of Object.values(mls.stor.files as Record<string, any>)) {
-    if (f.project !== project) continue;
-    if (f.level !== 1) continue;
-    if (f.folder !== controllerFolder) continue;
-    if (f.extension !== '.defs.ts') continue;
-    if (f.status === 'deleted') continue;
-    controllerPaths.push(toMlsPath(project, 1, controllerFolder, f.shortName, '.defs.ts'));
-  }
-
-  const pageDefPath = toMlsPath(project, 2, moduleName, shortName, '.defs.ts');
+  // Available layer_3_usecases as .ts paths (LLM picks which ones the controller uses)
+  const usecaseDefsPaths = listDepLayerPaths(project, moduleName, 'layer_3_usecases');
+  const usecaseTsPaths = usecaseDefsPaths.map(p => p.replace(/\.defs\.ts$/, '.ts'));
 
   const intent: mls.msg.AgentIntentPromptReady = {
     type: 'prompt_ready',
@@ -136,7 +118,11 @@ async function beforePromptStep(
     hookSequential,
     parentStepId: parentStep.stepId,
     systemPrompt: buildSystemPrompt(project, moduleName, shortName),
-    humanPrompt: buildHumanPrompt(pageDefPath, moduleName, shortName, content, usecasePaths, controllerPaths),
+    humanPrompt: buildHumanPrompt(
+      toMlsPath(project, 2, moduleName, shortName, '.defs.ts'),
+      content,
+      usecaseTsPaths,
+    ),
     tools: [toolSchema as unknown as mls.msg.LLMTool],
     toolChoice: { type: 'function', function: { name: TOOL_NAME } },
   };
@@ -160,40 +146,64 @@ async function afterPromptStep(
   const out = extractToolCallArgs<ToolOutput>(raw, TOOL_NAME);
 
   if (!out) {
-    return [mkStatus(context, parentStep, step, hookSequential, 'failed', '[agentMaterializeL2] missing tool output')];
+    return [mkStatus(context, parentStep, step, hookSequential, 'failed', 'missing tool output')];
   }
+
+  // ── Deterministic output paths ──────────────────────────────────────────────
+  const base = `_${project}_`;
+  const controllerOutputPath = `${base}/l1/${moduleName}/layer_2_controllers/${shortName}.ts`;
+  const contractOutputPath   = `${base}/l2/${moduleName}/web/desktop/page11/${shortName}.contract.ts`;
+  const sharedOutputPath     = `${base}/l2/${moduleName}/web/desktop/page11/${shortName}.shared.ts`;
+  const pageOutputPath       = `${base}/l2/${moduleName}/web/desktop/page11/${shortName}.ts`;
+
+  // ── Deterministic dependsFiles per file ─────────────────────────────────────
+  // controller → layer_3_usecases it calls (LLM-determined)
+  // contract   → controller .ts
+  // shared     → contract .ts + controller .ts
+  // page       → shared .ts + contract .ts
+  const contractDependsFiles = [controllerOutputPath];
+  const sharedDependsFiles   = [contractOutputPath, controllerOutputPath];
+  const pageDependsFiles     = [sharedOutputPath, contractOutputPath];
 
   const errors: string[] = [];
 
-  // 1. L1 controller: l1/{module}/layer_2_controllers/{shortName}.defs.ts
+  // 1. L1 controller
   const ok1 = await createDefsFile(
     project, 1, `${moduleName}/layer_2_controllers`, shortName,
-    out.controllerSpec.definition,
-    [mkItem(`${shortName}__layer_2_controllers`, 'layer_2_controllers', out.controllerSpec, project, 1, `${moduleName}/layer_2_controllers`, shortName)],
+    out.controllerDefinition,
+    [mkItem(`${shortName}__layer_2_controllers`, 'layer_2_controllers',
+      controllerOutputPath, project, 1, `${moduleName}/layer_2_controllers`, shortName,
+      out.controllerDependsFiles || [], [])],
   );
   if (!ok1) errors.push('controller');
 
-  // 2. L2 contract: l2/{module}/web/contracts/{shortName}.defs.ts
+  // 2. L2 contract
   const ok2 = await createDefsFile(
     project, 2, `${moduleName}/web/contracts`, shortName,
-    out.contractSpec.definition,
-    [mkItem(`${shortName}__l2_contract`, 'l2_contract', out.contractSpec, project, 2, `${moduleName}/web/contracts`, shortName)],
+    out.contractDefinition,
+    [mkItem(`${shortName}__l2_contract`, 'l2_contract',
+      contractOutputPath, project, 2, `${moduleName}/web/contracts`, shortName,
+      contractDependsFiles, [])],
   );
   if (!ok2) errors.push('contract');
 
-  // 3. L2 shared: l2/{module}/web/shared/{shortName}.defs.ts
+  // 3. L2 shared
   const ok3 = await createDefsFile(
     project, 2, `${moduleName}/web/shared`, shortName,
-    out.sharedSpec.definition,
-    [mkItem(`${shortName}__l2_shared`, 'l2_shared', out.sharedSpec, project, 2, `${moduleName}/web/shared`, shortName)],
+    out.sharedDefinition,
+    [mkItem(`${shortName}__l2_shared`, 'l2_shared',
+      sharedOutputPath, project, 2, `${moduleName}/web/shared`, shortName,
+      sharedDependsFiles, [])],
   );
   if (!ok3) errors.push('shared');
 
-  // 4. L2 page: l2/{module}/web/desktop/{shortName}/{shortName}.defs.ts
+  // 4. L2 page — path: l2/{module}/web/desktop/page11/{shortName}.defs.ts
   const ok4 = await createDefsFile(
-    project, 2, `${moduleName}/web/desktop/${shortName}`, shortName,
-    out.pageSpec.definition,
-    [mkItem(`${shortName}__l2_page`, 'l2_page', out.pageSpec, project, 2, `${moduleName}/web/desktop/${shortName}`, shortName)],
+    project, 2, `${moduleName}/web/desktop/page11`, shortName,
+    out.pageDefinition,
+    [mkItem(`${shortName}__l2_page`, 'l2_page',
+      pageOutputPath, project, 2, `${moduleName}/web/desktop/page11`, shortName,
+      pageDependsFiles, [])],
   );
   if (!ok4) errors.push('page');
 
@@ -210,19 +220,21 @@ async function afterPromptStep(
 function mkItem(
   id: string,
   type: string,
-  spec: FileSpec,
+  outputPath: string,
   project: number,
   level: number,
   folder: string,
   shortName: string,
+  dependsFiles: string[],
+  dependsOn: string[],
 ): PipelineItem {
   return {
     id,
     type,
-    outputPath: spec.outputPath,
+    outputPath,
     defPath: toMlsPath(project, level, folder, shortName, '.defs.ts'),
-    dependsFiles: spec.dependsFiles || [],
-    dependsOn: spec.dependsOn || [],
+    dependsFiles,
+    dependsOn,
     agent: 'agentMaterializeDef',
   };
 }
@@ -254,36 +266,34 @@ function mkStatus(
 function buildSystemPrompt(project: number, moduleName: string, shortName: string): string {
   return `<!-- modelType: codeinstruct -->
 
-You generate 4 .defs.ts planning artifacts from a L2 page definition.
+You extract and organize data from a L2 page .defs.ts to produce definitions for 4 derived files.
 
-Given a page .defs.ts, produce specs for:
-1. controllerSpec — L1 BFF controller: _${project}_/l1/${moduleName}/layer_2_controllers/${shortName}.defs.ts
-2. contractSpec   — L2 BFF contract:   _${project}_/l2/${moduleName}/web/contracts/${shortName}.defs.ts
-3. sharedSpec     — L2 shared calls:   _${project}_/l2/${moduleName}/web/shared/${shortName}.defs.ts
-4. pageSpec       — L2 page layout:    _${project}_/l2/${moduleName}/web/desktop/${shortName}/${shortName}.defs.ts
+IMPORTANT: Copy data verbatim from the source — do NOT summarize or invent content.
 
-Path format: _<project>_/l<level>/<folder>/<FileName>.ts
+Files to produce:
+1. controllerDefinition — L1 BFF controller (_${project}_/l1/${moduleName}/layer_2_controllers/${shortName}.defs.ts)
+   Content: the bffCommands array from the source, copied verbatim
 
-For each spec:
-- definition: a JSON object summarizing what this artifact contains (purpose, commands, fields, etc.)
-- outputPath: the .ts file the executor will generate
-- dependsFiles: .ts files the executor needs to read as context (already generated)
-  - controller needs layer_3_usecases .ts files
-  - contract needs the controller .ts
-  - shared needs the contract .ts and controller .ts
-  - page needs the shared .ts and contract .ts
-- dependsOn: pipeline item IDs that must complete first (e.g. "${shortName}__l2_contract")
+2. contractDefinition — L2 BFF contract (_${project}_/l2/${moduleName}/web/contracts/${shortName}.defs.ts)
+   Content: the bffCommands from the source (contract/interface aspect), copied verbatim
 
-Call ${TOOL_NAME} with all 4 specs.`;
+3. sharedDefinition — L2 shared (_${project}_/l2/${moduleName}/web/shared/${shortName}.defs.ts)
+   Content: ALL bffCommands + navigationRefs from the source, copied verbatim
+
+4. pageDefinition — L2 page (_${project}_/l2/${moduleName}/web/desktop/page11/${shortName}.defs.ts)
+   Content: the pageDefinition (sections + organisms) from the source, copied verbatim
+
+Additionally provide:
+- controllerDependsFiles: the layer_3_usecases .ts paths (not .defs.ts) that this controller calls
+  Look at usecaseRefs inside each bffCommand and find the matching path from the available list
+
+Call ${TOOL_NAME} with the result.`;
 }
 
 function buildHumanPrompt(
   pageDefPath: string,
-  moduleName: string,
-  shortName: string,
   content: string,
-  usecasePaths: string[],
-  controllerPaths: string[],
+  usecaseTsPaths: string[],
 ): string {
   return [
     `## Source page definition`,
@@ -294,13 +304,10 @@ function buildHumanPrompt(
     content,
     '```',
     ``,
-    `## Available layer_3_usecases .defs.ts (for controller dependsFiles)`,
-    usecasePaths.length ? usecasePaths.join('\n') : '(none)',
+    `## Available layer_3_usecases .ts files`,
+    usecaseTsPaths.length ? usecaseTsPaths.join('\n') : '(none)',
     ``,
-    `## Existing layer_2_controllers .defs.ts`,
-    controllerPaths.length ? controllerPaths.join('\n') : '(none)',
-    ``,
-    `Generate the 4 file specs. For dependsFiles use .ts output paths (not .defs.ts).`,
-    `Follow naming: controller/shared/contract/page output files use camelCase or PascalCase per layer conventions.`,
+    `Extract the 4 definitions verbatim from the source content.`,
+    `For controllerDependsFiles: look at usecaseRefs in each bffCommand and match to the available list above.`,
   ].join('\n');
 }

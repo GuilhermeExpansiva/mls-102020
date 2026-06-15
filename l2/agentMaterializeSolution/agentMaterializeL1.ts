@@ -33,10 +33,10 @@ interface StepArgs {
   layerFolder: string;
 }
 
+// dependsOn is always [] — first version
 interface ToolOutput {
   outputPath: string;
   dependsFiles: string[];
-  dependsOn: string[];
 }
 
 const toolSchema = {
@@ -47,7 +47,7 @@ const toolSchema = {
     parameters: {
       type: 'object',
       additionalProperties: false,
-      required: ['outputPath', 'dependsFiles', 'dependsOn'],
+      required: ['outputPath', 'dependsFiles'],
       properties: {
         outputPath: {
           type: 'string',
@@ -56,12 +56,7 @@ const toolSchema = {
         dependsFiles: {
           type: 'array',
           items: { type: 'string' },
-          description: 'MLS paths of already-generated .ts files the executor needs as context',
-        },
-        dependsOn: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Pipeline item IDs that must complete before this one',
+          description: 'MLS .ts paths (already-generated) that the executor needs as context',
         },
       },
     },
@@ -84,53 +79,26 @@ async function beforePromptStep(
   const project = mls.actualProject || 0;
   const folder = `${moduleName}/${layerFolder}`;
 
-  // Read the .defs.ts content
   const content = await getFileContent(project, 1, folder, shortName, '.defs.ts');
   if (!content) throw new Error(`[agentMaterializeL1] file not found: ${folder}/${shortName}.defs.ts`);
 
-  // Already has pipeline — skip LLM, complete immediately
+  // Already processed — skip
   if (content.includes('export const pipeline')) {
-    return [{
-      type: 'update-status',
-      hookSequential,
-      messageId: context.message.orderAt,
-      threadId: context.message.threadId,
-      taskId: context.task?.PK || '',
-      parentStepId: parentStep.stepId,
-      stepId: step.stepId,
-      status: 'completed',
-      traceMsg: 'pipeline already present — skipped',
-    } as mls.msg.AgentIntentUpdateStatus];
+    return [mkDone(context, parentStep, step, hookSequential, 'completed', 'already present')];
   }
 
-  // layer_1_external has no deps — handle deterministically without LLM
+  // layer_1_external has no deps — deterministic, no LLM needed
   if (layerFolder === 'layer_1_external') {
-    const item: PipelineItem = {
-      id: `${shortName}__layer_1_external`,
-      type: 'layer_1_external',
-      outputPath: toMlsPath(project, 1, folder, shortName, '.ts'),
-      defPath: toMlsPath(project, 1, folder, shortName, '.defs.ts'),
-      dependsFiles: [],
-      dependsOn: [],
-      agent: 'agentMaterializeDef',
-    };
+    const item = buildItem(shortName, layerFolder, toMlsPath(project, 1, folder, shortName, '.ts'), project, 1, folder, [], []);
     const ok = await appendPipelineToFile(project, 1, folder, shortName, [item]);
-    return [{
-      type: 'update-status',
-      hookSequential,
-      messageId: context.message.orderAt,
-      threadId: context.message.threadId,
-      taskId: context.task?.PK || '',
-      parentStepId: parentStep.stepId,
-      stepId: step.stepId,
-      status: ok ? 'completed' : 'failed',
-      traceMsg: ok ? undefined : 'appendPipelineToFile failed',
-    } as mls.msg.AgentIntentUpdateStatus];
+    return [mkDone(context, parentStep, step, hookSequential, ok ? 'completed' : 'failed', ok ? undefined : 'append failed')];
   }
 
-  // For layer_4 and layer_3 — use LLM to determine deps
-  const depPaths = listDepLayerPaths(project, moduleName, layerFolder as L1LayerFolder);
-  const defPath = toMlsPath(project, 1, folder, shortName, '.defs.ts');
+  // layer_4_entities → needs layer_1_external .ts files
+  // layer_3_usecases → needs layer_4_entities .ts files
+  // layer_2_controllers (if ever here) → needs layer_3_usecases .ts files
+  const depDefsPaths = listDepLayerPaths(project, moduleName, layerFolder as L1LayerFolder);
+  const depTsPaths = depDefsPaths.map(defsToTs);
 
   const intent: mls.msg.AgentIntentPromptReady = {
     type: 'prompt_ready',
@@ -140,8 +108,8 @@ async function beforePromptStep(
     taskId: context.task?.PK || '',
     hookSequential,
     parentStepId: parentStep.stepId,
-    systemPrompt: buildSystemPrompt(layerFolder, depPaths),
-    humanPrompt: buildHumanPrompt(defPath, layerFolder, content, depPaths),
+    systemPrompt: buildSystemPrompt(layerFolder, depTsPaths),
+    humanPrompt: buildHumanPrompt(toMlsPath(project, 1, folder, shortName, '.defs.ts'), layerFolder, content, depTsPaths),
     tools: [toolSchema as unknown as mls.msg.LLMTool],
     toolChoice: { type: 'function', function: { name: TOOL_NAME } },
   };
@@ -165,30 +133,49 @@ async function afterPromptStep(
   const raw = step.interaction?.payload?.[0] as any;
   const out = extractToolCallArgs<ToolOutput>(raw, TOOL_NAME);
 
-  let status: mls.msg.AIStepStatus = 'completed';
-  let traceMsg: string | undefined;
-
   if (!out?.outputPath) {
-    status = 'failed';
-    traceMsg = '[agentMaterializeL1] missing or invalid tool output';
-  } else {
-    const item: PipelineItem = {
-      id: `${shortName}__${layerFolder}`,
-      type: layerFolder,
-      outputPath: out.outputPath,
-      defPath: toMlsPath(project, 1, folder, shortName, '.defs.ts'),
-      dependsFiles: out.dependsFiles || [],
-      dependsOn: out.dependsOn || [],
-      agent: 'agentMaterializeDef',
-    };
-    const ok = await appendPipelineToFile(project, 1, folder, shortName, [item]);
-    if (!ok) {
-      status = 'failed';
-      traceMsg = '[agentMaterializeL1] appendPipelineToFile failed';
-    }
+    return [mkDone(context, parentStep, step, hookSequential, 'failed', 'missing tool output')];
   }
 
-  return [{
+  const item = buildItem(shortName, layerFolder, out.outputPath, project, 1, folder, out.dependsFiles || [], []);
+  const ok = await appendPipelineToFile(project, 1, folder, shortName, [item]);
+
+  return [mkDone(context, parentStep, step, hookSequential, ok ? 'completed' : 'failed', ok ? undefined : 'append failed', ok ? 'input_output' : undefined)];
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function buildItem(
+  shortName: string,
+  layerFolder: string,
+  outputPath: string,
+  project: number,
+  level: number,
+  folder: string,
+  dependsFiles: string[],
+  dependsOn: string[],
+): PipelineItem {
+  return {
+    id: `${shortName}__${layerFolder}`,
+    type: layerFolder,
+    outputPath,
+    defPath: toMlsPath(project, level, folder, shortName, '.defs.ts'),
+    dependsFiles,
+    dependsOn,
+    agent: 'agentMaterializeDef',
+  };
+}
+
+function mkDone(
+  context: mls.msg.ExecutionContext,
+  parentStep: mls.msg.AIAgentStep,
+  step: mls.msg.AIAgentStep,
+  hookSequential: number,
+  status: mls.msg.AIStepStatus,
+  traceMsg?: string,
+  cleaner?: 'input' | 'input_output',
+): mls.msg.AgentIntentUpdateStatus {
+  return {
     type: 'update-status',
     hookSequential,
     messageId: context.message.orderAt,
@@ -198,32 +185,39 @@ async function afterPromptStep(
     stepId: step.stepId,
     status,
     traceMsg,
-    cleaner: status === 'completed' ? 'input_output' : undefined,
-  } as mls.msg.AgentIntentUpdateStatus];
+    cleaner,
+  };
+}
+
+/** _102043_/l1/cafeFlow/layer_4_entities/pedidoEntity.defs.ts → .ts */
+function defsToTs(mlsPath: string): string {
+  return mlsPath.replace(/\.defs\.ts$/, '.ts');
 }
 
 // ─── Prompts ──────────────────────────────────────────────────────────────────
 
-function buildSystemPrompt(layerFolder: string, depPaths: string[]): string {
-  const depLayerLabel: Record<string, string> = {
-    layer_4_entities: 'layer_1_external (physical table .ts files)',
-    layer_3_usecases: 'layer_4_entities (entity .ts files)',
+function buildSystemPrompt(layerFolder: string, depTsPaths: string[]): string {
+  const depLabel: Record<string, string> = {
+    layer_4_entities:    'layer_1_external (physical table .ts files)',
+    layer_3_usecases:    'layer_4_entities (entity .ts files)',
+    layer_2_controllers: 'layer_3_usecases (usecase .ts files)',
   };
-  const depLabel = depLayerLabel[layerFolder] || 'dependency layer';
-
   return `<!-- modelType: codeinstruct -->
 
 You analyze a ${layerFolder} .defs.ts planning artifact and determine its pipeline item.
 
-The pipeline item describes how to materialize this file into its final .ts implementation.
+Path format: _<project>_/l<level>/<folder>/<FileName><ext>
 
-Path format: _<project>_/l<level>/<folder>/<filename><ext>
-  - outputPath: the .ts file to be generated (use the naming from materialization/className metadata in the file)
-  - dependsFiles: .ts files (already generated) from ${depLabel} that the executor needs as context
-  - dependsOn: pipeline item IDs of the dep items (format: <shortName>__<layerFolder>)
+You must provide:
+- outputPath: the .ts file to be generated (derive from materialization/className metadata in the content)
+- dependsFiles: .ts files from ${depLabel[layerFolder] || 'dependency layer'} that the executor needs as context
+  - Only include files this artifact actually references or uses
+  - Use the .ts output path, not .defs.ts
 
-Available ${depLabel} files:
-${depPaths.length ? depPaths.map(p => `  ${p}`).join('\n') : '  (none)'}
+Available dependency .ts files:
+${depTsPaths.length ? depTsPaths.map(p => `  ${p}`).join('\n') : '  (none)'}
+
+dependsOn is always [].
 
 Call ${TOOL_NAME} with the result.`;
 }
@@ -232,7 +226,7 @@ function buildHumanPrompt(
   defPath: string,
   layerFolder: string,
   content: string,
-  depPaths: string[],
+  depTsPaths: string[],
 ): string {
   return [
     `## File to process`,
@@ -244,10 +238,9 @@ function buildHumanPrompt(
     content,
     '```',
     ``,
-    `## Available dependency files`,
-    depPaths.length ? depPaths.join('\n') : '(none)',
+    `## Available dependency .ts files`,
+    depTsPaths.length ? depTsPaths.join('\n') : '(none)',
     ``,
-    `Determine the outputPath and which dependsFiles this artifact needs.`,
-    `For dependsFiles, use the .ts output path (replace .defs.ts with .ts and apply naming conventions from the file's metadata).`,
+    `Determine outputPath (from materialization metadata in the file) and which dependsFiles this artifact needs.`,
   ].join('\n');
 }
