@@ -165,17 +165,35 @@ async function afterPromptStep(
 
   if (tasks.length === 0) return [updateStatus];
 
-  const dispatch: mls.msg.AgentIntentAddMessageAI = {
-    type: 'add-message-ai',
-    request: {
-      action: 'addMessageAI',
+  const parallelPlanId = `materialize-l1-layers:project-${project}`;
+  const dispatch: mls.msg.AgentIntentAddStep = {
+    type: 'add-step',
+    messageId: context.message.orderAt,
+    threadId: context.message.threadId,
+    taskId: context.task?.PK || '',
+    parentStepId: parentStep.stepId,
+    step: {
+      type: 'agent',
+      stepId: 0,
+      interaction: {
+        input: [{ type: 'system', content: '<!-- modelType: codeinstruct -->' }],
+        cost: 0,
+        trace: [`queued ${tasks.length} parallel layers for agentMaterializeLayer`],
+        payload: null,
+      },
+      stepTitle: `materialize-l1-layers:project-${project} (${tasks.length})`,
+      status: 'in_progress',
+      nextSteps: [],
       agentName: 'agentMaterializeLayer',
-      inputAI: [{ type: 'system', content: '<!-- system prompt provided by agentMaterializeLayer.beforePromptStep -->' }],
-      taskTitle: `materialize-l1-layers:project-${project}`,
-      threadId: context.message.threadId,
-      userMessage: '',
-      longTermMemory: {},
-    },
+      prompt: JSON.stringify({ planId: parallelPlanId }),
+      rags: [],
+      planning: {
+        planId: parallelPlanId,
+        dependsOn: [],
+        executionMode: 'parallel_dynamic',
+        executionHost: 'client',
+      },
+    } as mls.msg.AIAgentStep,
     executionMode: {
       type: 'parallel',
       args: tasks.map(task => JSON.stringify({
@@ -183,6 +201,7 @@ async function afterPromptStep(
         moduleName: task.moduleName,
         layer: task.layer,
       })),
+      maxParallel: 5,
     },
   };
 
