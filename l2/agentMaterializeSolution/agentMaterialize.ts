@@ -303,7 +303,7 @@ async function afterPromptStep(
 // ─── system prompt ────────────────────────────────────────────────────────────
 
 const systemPrompt = `
-<!-- modelType: nano -->
+<!-- modelType: codeinstruct -->
 
 Echo back the content passed.
 
