@@ -137,7 +137,7 @@ async function afterPromptStep(
     return [mkDone(context, parentStep, step, hookSequential, 'failed', 'missing tool output')];
   }
 
-  const item = buildItem(shortName, layerFolder, out.outputPath, project, 1, folder, out.dependsFiles || [], []);
+  const item = buildItem(shortName, layerFolder, lowerFirstFilename(out.outputPath), project, 1, folder, out.dependsFiles || [], []);
   const ok = await appendPipelineToFile(project, 1, folder, shortName, [item]);
 
   return [mkDone(context, parentStep, step, hookSequential, ok ? 'completed' : 'failed', ok ? undefined : 'append failed', ok ? 'input_output' : undefined)];
@@ -192,6 +192,15 @@ function mkDone(
 /** _102043_/l1/cafeFlow/layer_4_entities/pedidoEntity.defs.ts → .ts */
 function defsToTs(mlsPath: string): string {
   return mlsPath.replace(/\.defs\.ts$/, '.ts');
+}
+
+/** Ensures the filename segment of an MLS path starts with a lowercase letter. */
+function lowerFirstFilename(mlsPath: string): string {
+  const slash = mlsPath.lastIndexOf('/');
+  if (slash < 0) return mlsPath;
+  const dir = mlsPath.slice(0, slash + 1);
+  const file = mlsPath.slice(slash + 1);
+  return dir + file.charAt(0).toLowerCase() + file.slice(1);
 }
 
 // ─── Prompts ──────────────────────────────────────────────────────────────────
