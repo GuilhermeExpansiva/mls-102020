@@ -203,8 +203,14 @@ function resolveSkillPaths(
     const genome = moduleExports.moduleGenome?.['web/desktop/page11'];
     if (!genome) return [];
     const paths: string[] = [];
-    if (genome.layout)       paths.push(...(projectJson.layouts?.[genome.layout]?.skillPath ?? []));
-    if (genome.designSystem) paths.push(...(projectJson.designSystems?.[genome.designSystem]?.skillPath ?? []));
+    if (genome.layout) {
+      const entry = Object.values(projectJson.layouts ?? {}).find(l => l.name === genome.layout);
+      if (entry?.skill) paths.push(entry.skill);
+    }
+    if (genome.designSystem) {
+      const entry = Object.values(projectJson.designSystems ?? {}).find(d => d.name === genome.designSystem);
+      if (entry?.skill) paths.push(entry.skill);
+    }
     return paths;
   }
   return [];

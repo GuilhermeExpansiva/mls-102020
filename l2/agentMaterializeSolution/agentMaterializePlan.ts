@@ -56,12 +56,18 @@ export interface ProjectModuleRef {
   moduleName: string;
 }
 
-export interface SkillEntry {
-  skillPath?: string[];
+export interface LayoutEntry {
+  name: string;
+  skill: string;
+}
+
+export interface DesignSystemEntry {
+  name: string;
+  skill: string;
 }
 
 export interface ProjectJson {
   modules: ProjectModuleRef[];
-  layouts?: Record<string, SkillEntry>;
-  designSystems?: Record<string, SkillEntry>;
+  layouts?: Record<string, LayoutEntry>;
+  designSystems?: Record<string, DesignSystemEntry>;
 }
