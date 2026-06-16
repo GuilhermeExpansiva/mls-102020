@@ -75,7 +75,9 @@ import { customElement } from 'lit/decorators.js';
 import { {BaseClassName} } from '{baseClassImportPath}';
 \`\`\`
 - \`BaseClassName\` = the exact class name read from the base class source in List 4 (e.g. \`CafeFlowPainelCozinhaBase\`)
-- \`baseClassImportPath\` = the path from the \`## Context Files\` header for the shared file, with \`.ts\` replaced by \`.js\`
+- \`baseClassImportPath\` = the MLS path from the \`## Context Files\` header for the shared file, prefixed with \`/\` and with \`.ts\` replaced by \`.js\`
+  - Example: header shows \`_102043_/l2/cafeFlow/web/shared/fechamentoTurno.ts\` → import path is \`/_102043_/l2/cafeFlow/web/shared/fechamentoTurno.js\`
+  - **NEVER** use relative paths (\`../\`, \`./\`). Always use the full absolute MLS path starting with \`/\`.
 - No other imports unless a Lit directive (e.g., \`repeat\`) is genuinely needed
 
 ### 3. Class
