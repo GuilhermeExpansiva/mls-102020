@@ -4,6 +4,7 @@ import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
 import { getAuraState } from '/_102020_/l2/auraState.js';
+import { getConfigProject } from '/_102027_/l2/libProjectConfig.js';
 import '/_102020_/l2/plugins/navHeader.js';
 
 // ─── i18n ─────────────────────────────────────────────────────────────
@@ -105,8 +106,7 @@ export class PluginSelectLayout extends StateLitElement {
         const project = getAuraState().actualProject;
         if (!project) return;
         try {
-            const mod = await import(`/_${project}_/l2/project.js`);
-            const config = mod?.projectConfig ?? null;
+            const config: any = await getConfigProject(project);
             const layoutsMap: Record<number, { name: string; skill: string }> = config?.layouts ?? {};
             this._layoutOptions = Object.entries(layoutsMap)
                 .map(([k, v]) => ({ value: Number(k), name: v.name, skill: v.skill, enabled: false }))

@@ -9,6 +9,7 @@ import { skills as listOfGroups } from '/_102020_/l2/skills/molecules/index.js';
 import { replaceComponentTag } from '/_102020_/l2/previewTextEditor.js';
 import { convertFileToTag, isPageFile } from '/_102020_/l2/utils.js';
 import { getLastOpenedFiles } from '/_102027_/l2/libCommom.js';
+import { getConfigProject } from '/_102027_/l2/libProjectConfig.js';
 
 import '/_102027_/l2/collabSelectKnob.js';
 import '/_102020_/l2/plugins/selectLayout.js';
@@ -143,8 +144,7 @@ export class ServiceGenome102020 extends ServiceBase {
         const project = getAuraState().actualProject;
         if (!project) return null;
         try {
-            const mod = await import(`/_${project}_/l2/project.js`);
-            return mod?.projectConfig ?? null;
+            return await getConfigProject(project) ?? null;
         } catch { return null; }
     }
 

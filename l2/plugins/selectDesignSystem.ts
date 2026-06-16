@@ -3,6 +3,7 @@
 import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
+import { getConfigProject } from '/_102027_/l2/libProjectConfig.js';
 import { dsSections, dsAxisList, type IDsAxisEntry, type IDsSection } from '/_102020_/l2/designSystemAuraBase.js';
 import '/_102020_/l2/plugins/navHeader.js';
 
@@ -149,10 +150,9 @@ interface IDsEntry {
 }
 
 interface INewDs {
-    dsIndex: number;
     name: string;
     description: string;
-    designsystem: Record<string, string>;
+    rules: Record<string, string>;
 }
 
 // ─── Component ───────────────────────────────────────────────────────
@@ -213,8 +213,8 @@ export class PluginSelectDesignSystem extends StateLitElement {
         this._loading = true;
         this.requestUpdate();
         try {
-            const mod = await import(`/_${projectId}_/l2/project.js`);
-            const dsMap: Record<number, { name: string; skill: string }> = mod?.projectConfig?.designSystems ?? {};
+            const config = await getConfigProject(projectId);
+            const dsMap = (config?.designSystems ?? {}) as unknown as Record<string, { name: string; skill: string }>;
             const keys = Object.keys(dsMap).map(Number).sort((a, b) => a - b);
             this._entries = keys.map(k => ({ key: k, name: dsMap[k].name, skill: dsMap[k].skill ?? '' }));
         } catch {
@@ -506,12 +506,12 @@ export class PluginSelectDesignSystem extends StateLitElement {
     }
 
     private _renderSavedPreview(ds: INewDs) {
-        const entries = Object.entries(ds.designsystem);
+        const entries = Object.entries(ds.rules);
         return html`
             <div class="rounded-lg border border-emerald-200 dark:border-emerald-800/40 bg-emerald-50 dark:bg-emerald-900/10 px-3 py-2.5 flex flex-col gap-1.5">
                 <div class="flex items-center gap-2">
                     <span class="text-sm font-semibold text-emerald-700 dark:text-emerald-300">${this.msg.savedTitle}</span>
-                    <span class="ml-auto text-xs font-mono px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">#${ds.dsIndex}</span>
+                    <span class="ml-auto text-xs font-mono px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">#${this._customKey}</span>
                 </div>
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-200">${ds.name}</span>
                 ${ds.description
@@ -564,9 +564,9 @@ export class PluginSelectDesignSystem extends StateLitElement {
 
         // Each DS stands on its own: store ONLY the axes the user configured.
         // Unconfigured axes are simply absent — no inheritance from a default DS.
-        const designsystem: Record<string, string> = { ...this._axisValues };
+        const rules: Record<string, string> = { ...this._axisValues };
 
-        const ds: INewDs = { dsIndex: this._customKey, name, description: this._dsDesc.trim(), designsystem };
+        const ds: INewDs = { name, description: this._dsDesc.trim(), rules };
         this._savedDs = ds;
 
         console.log('[selectDesignSystem] new design system', ds);

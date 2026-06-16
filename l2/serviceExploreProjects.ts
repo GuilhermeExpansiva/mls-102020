@@ -5,6 +5,7 @@ import { customElement, state } from 'lit/decorators.js';
 import { ServiceBase, IService, IToolbarContent, IServiceMenu } from '/_102027_/l2/serviceBase.js';
 import { checkIfHasLocalProject, getLocalProjectName } from '/_102027_/l2/libCommom.js';
 import { AuraInitState, getAuraState, setAuraState, saveAuraProject } from '/_102020_/l2/auraState.js';
+import { getConfigProject } from '/_102027_/l2/libProjectConfig.js';
 
 import '/_102027_/l2/collabSelectKnob.js';
 import '/_102020_/l2/plugins/selectOrganization.js';
@@ -412,8 +413,8 @@ export class ServiceExploreProjects102020 extends ServiceBase {
 
     private async _initDsConfig(projectId: number): Promise<void> {
         try {
-            const mod = await import(`/_${projectId}_/l2/project.js`);
-            const dsMap: Record<number, { name: string }> = mod?.projectConfig?.designSystems ?? {};
+            const config = await getConfigProject(projectId);
+            const dsMap = (config?.designSystems ?? {}) as unknown as Record<number, { name: string }>;
             const keys = Object.keys(dsMap).map(Number).sort((a, b) => a - b);
             const labels: Record<number, string> = { 0: 'All' };
             keys.forEach(k => { labels[k] = dsMap[k].name; });
