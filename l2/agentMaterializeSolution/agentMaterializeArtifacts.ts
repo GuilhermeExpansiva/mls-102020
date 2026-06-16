@@ -315,7 +315,16 @@ export function parseDefinitionFromContent(content: string): string {
   return match ? match[1].trim() : content;
 }
 
-/** Returns the updatedAt timestamp (ms) of a file, or null if unavailable. */
+/**
+ * Returns the updatedAt timestamp (ms) of a file, or a sentinel, or null.
+ *
+ * null              → file does not exist → needs generation
+ * Number.MAX_SAFE_INTEGER → file exists, no timestamp, status 'new'|'changed'
+ *                       → treat as very recent, DO NOT regenerate
+ * null (second case) → file exists, no timestamp, other status
+ *                       → cannot determine staleness, treat as missing → regenerate
+ * >0                → normal timestamp comparison
+ */
 export function getFileModified(
   project: number,
   level: number,
@@ -327,7 +336,9 @@ export function getFileModified(
     const key = mls.stor.getKeyToFile({ project, level, folder, shortName, extension });
     const file = (mls.stor.files as Record<string, mls.stor.IFileInfo>)[key];
     if (!file || file.status === 'deleted') return null;
-    return file.updatedAt ? Date.parse(file.updatedAt) : null;
+    if (file.updatedAt) return Date.parse(file.updatedAt);
+    const status = (file as any).status as string;
+    return (status === 'new' || status === 'changed') ? Number.MAX_SAFE_INTEGER : null;
   } catch {
     return null;
   }
