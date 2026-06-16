@@ -110,33 +110,35 @@ async function afterPromptStep(
       const { moduleName } = mod;
       const moduleExports = await loadModuleExports(project, moduleName);
       const candidates = await findCandidates(project, moduleName);
+      const byType = groupByType(candidates, moduleName);
 
-      // Determine which planIds we'll actually create (subset that needs generation)
-      const createdPlanIds = new Set<string>();
-      for (const c of candidates) {
-        const ft = detectFileType(c.folder, moduleName);
-        if (ft) createdPlanIds.add(makePlanId(moduleName, c.shortName, ft));
+      // Pre-compute planId arrays — used as group barriers
+      const contractPlanIds = byType.contract.map(c => makePlanId(moduleName, c.shortName, 'contract'));
+      const sharedPlanIds   = byType.shared.map(c => makePlanId(moduleName, c.shortName, 'shared'));
+
+      // Group 1: contracts — start immediately (waiting_human_input triggers beforePromptStep right away)
+      for (const c of byType.contract) {
+        const planId = makePlanId(moduleName, c.shortName, 'contract');
+        const defPath = toMlsPath(project, 2, c.folder, c.shortName, '.defs.ts');
+        const args: GenStepArgs = { planId, defPath, pipelineItem: c.pipeline[0], skillPaths: resolveSkillPaths('contract', moduleExports, projectJson), fileType: 'contract' };
+        intents.push(mkStep(context, step, planId, `Gen contract: ${moduleName}/${c.shortName}`, args, [], 'waiting_human_input'));
       }
 
-      for (const c of candidates) {
-        const ft = detectFileType(c.folder, moduleName);
-        if (!ft) continue;
-
-        const planId = makePlanId(moduleName, c.shortName, ft);
+      // Group 2: shared — wait for ALL contracts to complete
+      for (const c of byType.shared) {
+        const planId = makePlanId(moduleName, c.shortName, 'shared');
         const defPath = toMlsPath(project, 2, c.folder, c.shortName, '.defs.ts');
-        const skillPaths = resolveSkillPaths(ft, moduleExports, projectJson);
+        const args: GenStepArgs = { planId, defPath, pipelineItem: c.pipeline[0], skillPaths: resolveSkillPaths('shared', moduleExports, projectJson), fileType: 'shared' };
+        intents.push(mkStep(context, step, planId, `Gen shared: ${moduleName}/${c.shortName}`, args, contractPlanIds));
+      }
 
-        // Dependency chain: contract → shared → page
-        const potentialDeps: Record<L2FileType, string[]> = {
-          contract: [],
-          shared:   [makePlanId(moduleName, c.shortName, 'contract')],
-          page:     [makePlanId(moduleName, c.shortName, 'contract'), makePlanId(moduleName, c.shortName, 'shared')],
-        };
-        // Only depend on steps that are actually being created in this run
-        const dependsOn = potentialDeps[ft].filter(id => createdPlanIds.has(id));
-
-        const args: GenStepArgs = { planId, defPath, pipelineItem: c.pipeline[0], skillPaths, fileType: ft };
-        intents.push(mkStep(context, step, planId, `Gen ${ft}: ${moduleName}/${c.shortName}`, args, dependsOn));
+      // Group 3: pages — wait for ALL shared (fallback to ALL contracts if no shared)
+      const pageDep = sharedPlanIds.length > 0 ? sharedPlanIds : contractPlanIds;
+      for (const c of byType.page) {
+        const planId = makePlanId(moduleName, c.shortName, 'page');
+        const defPath = toMlsPath(project, 2, c.folder, c.shortName, '.defs.ts');
+        const args: GenStepArgs = { planId, defPath, pipelineItem: c.pipeline[0], skillPaths: resolveSkillPaths('page', moduleExports, projectJson), fileType: 'page' };
+        intents.push(mkStep(context, step, planId, `Gen page: ${moduleName}/${c.shortName}`, args, pageDep));
       }
     }
 
@@ -240,6 +242,7 @@ function mkStep(
   title: string,
   args: GenStepArgs,
   dependsOn: string[],
+  status: mls.msg.AIStepStatus = 'waiting_dependency',
 ): mls.msg.AgentIntentAddStep {
   return {
     type: 'add-step',
@@ -252,7 +255,7 @@ function mkStep(
       stepId: 0,
       interaction: null,
       stepTitle: title,
-      status: 'waiting_dependency',
+      status,
       nextSteps: [],
       agentName: 'agentMaterializeGen',
       prompt: JSON.stringify(args),

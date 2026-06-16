@@ -22,20 +22,18 @@ Extract \`pageName\` from the last segment of \`item.outputPath\` (strip the lea
 
 ---
 
-## MANDATORY FIRST STEP — derive contract interface names from commands
+## MANDATORY FIRST STEP — read contract interface names from the contract file
 
-You do NOT receive the contracts file. Derive every interface name directly from the \`commands\` array using the same deterministic convention the contract generator uses:
+The contract file is provided in \`##Context Files\`. Open it and collect every exported interface name.
+Do **not** guess or derive names from a convention — use only the names that actually appear in that file.
 
-| Name | Rule | Example (moduleName = \`petShopStripe\`, commandName = \`getCart\`) |
-|---|---|---|
-| \`Prefix\` | moduleName with first letter uppercased (rest unchanged) | \`PetShopStripe\` |
-| \`CommandPascal\` | commandName with first letter uppercased | \`GetCart\` |
-| Input interface | \`{Prefix}{CommandPascal}Input\` | \`PetShopStripeGetCartInput\` |
-| Output interface | \`{Prefix}{CommandPascal}Output\` | \`PetShopStripeGetCartOutput\` |
+Rules:
+- Scan all \`export interface\` declarations in the contract file
+- For each command, find the matching Input and Output interface by their actual names in the file
+- If a command has no matching interface in the contract file, fall back to \`any\` and add a \`// TODO: missing contract\` comment
+- Build the full list of interface names you will import — only names that truly exist in the file
 
-Build the full list from every entry in \`commands\`. These interfaces **will exist** in the contracts file when the system runs — never fall back to \`any\` for command input/output types.
-
-**CRITICAL: never use \`any\` for a type that corresponds to a command's input or output. Always use the derived interface name.**
+**CRITICAL: never invent, guess, or derive interface names. Use only what is exported in the contract file.**
 
 ---
 
@@ -221,11 +219,11 @@ import { subscribe, unsubscribe, getState, setState } from '/_102029_/l2/collabS
 
 **Contracts import (always emit when there are commands):**
 
-Using the derived interface names from MANDATORY FIRST STEP, add:
+Using the interface names collected in MANDATORY FIRST STEP (the actual names from the contract file), add:
 \`\`\`typescript
 import type { InterfaceA, InterfaceB } from '/_{project}_/l2/{moduleName}/web/contracts/{pageName}.js';
 \`\`\`
-Include all interface names that are actually referenced in the class body.
+Include only the interface names that are actually referenced in the class body AND exist in the contract file.
 The path uses \`project\`, \`moduleName\`, and \`pageName\` from \`##User info\`.
 Omit this line only if there are zero commands.
 
@@ -395,9 +393,10 @@ Substitution rules:
 Before writing the final output, verify each of the following. Fix anything that fails.
 
 **A. Contracts**
-- [ ] Every command has a derived Input and Output interface name (MANDATORY FIRST STEP convention applied)
-- [ ] All derived interface names used in the class body are imported from the contracts path
-- [ ] NO command uses \`any\` where a derived interface name must be used
+- [ ] Every interface name used in the class body was read from the actual contract file (MANDATORY FIRST STEP)
+- [ ] No interface name was guessed or derived from a convention — only names that exist in the contract file
+- [ ] All interface names used in the class body are imported from the contracts path
+- [ ] \`any\` is used only when no matching interface was found in the contract file (with a \`// TODO: missing contract\` comment)
 
 **B. Navigation (check per outbound entry from MANDATORY SECOND STEP)**
 - [ ] \`message_pt\` contains key \`navigateTo{PageIdPascal}\` with the trigger text in Portuguese
@@ -414,8 +413,8 @@ If ANY of the navigation checks fail → add the missing code before outputting.
 
 ## Method parameter typing
 
-For each load/action method, always use the derived interface names from MANDATORY FIRST STEP.
-Every command will have a matching Input and Output interface — never fall back to \`any\` or inline shapes:
+For each load/action method, always use the interface names read from the contract file in MANDATORY FIRST STEP.
+Never fall back to \`any\` or inline shapes unless no matching interface exists in the contract file:
 
 \`\`\`typescript
 async load{CommandPascal}(params?: {Prefix}{CommandPascal}Input, options?: BffClientOptions): Promise<void>

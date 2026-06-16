@@ -10,76 +10,51 @@ All state, all methods, and all i18n live in the base class. You NEVER invent na
 
 ## What you receive
 
-- \`##User data\`: the **page spec** JSON — \`pageId\`, \`pageName\`, \`actor\`, \`purpose\`, \`sections[]\`, \`navigationRefs[]\`.
+- \`## Definition\`: the **page spec** JSON — \`pageId\`, \`pageName\`, \`actor\`, \`purpose\`, \`sections[]\`, \`navigationRefs[]\`.
   Each section: \`sectionName\`, \`mode\`, \`organisms[]\`.
   Each organism: \`organismName\`, \`purpose\`, \`userActions[]\`, \`requiredEntities[]\`, \`readsFields[]\`, \`writesFields[]\`.
   Each navigationRef: \`direction\` ("inbound" | "outbound"), \`pageId\`, \`trigger\`.
+- \`## Context Files\`: the already-generated source files for this page.
+  The shared base class \`.ts\` file is listed here — it contains the real class name, all \`@property()\` declarations, all handler methods, and the i18n message object.
+  The contract \`.ts\` file may also be listed here for type reference.
 - \`##User info\`: JSON with \`moduleName\`, \`device\`, \`type\`, \`project\`, \`item.outputPath\`.
-- \`##Base Class\`: the **shared defs spec** — the \`commands\` + \`navigationRefs\` JSON that was used to generate the shared base class. Use it to derive the base class structure (properties, methods, i18n keys).
 - \`##Design System\` (optional): component and styling guidelines.
 
 ---
 
-## MANDATORY FIRST STEP — derive base class structure from the shared defs
+## MANDATORY FIRST STEP — read base class structure from the actual source
 
-You do NOT receive the compiled base class source. \`##Base Class\` contains the **shared defs spec** (commands + navigationRefs JSON). From it, derive the four lists deterministically before writing any render code.
-
-Naming conventions (same as the shared generator uses):
-- \`FileName\` = **last path segment of \`item.outputPath\` without the \`.ts\` extension**
-  (e.g. \`/_102043_/l2/cafeFlow/web/render/consultaEstoque.ts\` → \`consultaEstoque\`)
-- \`Prefix\` = moduleName first letter uppercased (e.g. \`petShopStripe\` → \`PetShopStripe\`)
-- \`PageNamePascal\` = \`FileName\` first letter uppercased (e.g. \`consultaEstoque\` → \`ConsultaEstoque\`)
-- \`CommandPascal\` = commandName first letter uppercased
-- \`PageIdPascal\` = pageId first letter uppercased
-
-> **CRITICAL — never use \`pageName\` as an identifier.**
-> \`pageName\` is a human-readable label and may contain spaces, accents, or special characters
-> (e.g. \`"Consulta de Estoque"\`, \`"Relatório de Fechamento"\`).
-> Using it directly produces invalid TypeScript such as \`extends Consulta Estoque Base\`
-> or a broken custom-element tag. **Always derive \`PageNamePascal\` from \`FileName\`.**
-
-The base class is: \`{Prefix}{PageNamePascal}Base\` in \`/_\${project}_/l2/{moduleName}/web/shared/{FileName}.js\`
+Open the shared base class file in \`## Context Files\` and extract the four lists below.
+**Never guess, derive, or invent names.** Every identifier you use in \`render()\` must exist in that source file.
 
 ### List 1 — Reactive properties
-Derive from \`commands\` in \`##Base Class\`:
+Read every \`@property()\` declaration from the base class source.
+Record the exact property name and type as declared.
 
-- For each **query** command (\`kind: "query"\`):
-  - **If commandName starts with \`listar\` / \`buscar\` / \`getAll\` / \`list\`** → **one** array property for the whole list.
-    Property name = commandName with leading verb stripped (e.g. \`listarItensCardapio\` → \`itensCardapio\`).
-    Type: array (\`= []\`). **Never explode item fields into separate properties.**
-  - **Otherwise** (structured result) → one property per top-level key of \`output\`
-    - Array-valued key → \`{key}: any[] = []\`
-    - Object/primitive key → \`{key}: any = undefined\`
-
-- For each **command** (\`kind: "command"\`): \`{commandName}State: 'idle'|'loading'|'success'|'error'\`
-- Always present: \`status: string\`
-
-> **CRITICAL:** For \`listar*\` queries, the shared base class has ONE array property (e.g. \`itensCardapio\`),
-> not a separate property for each item field (\`menuItemId\`, \`nome\`, etc.).
-> Iterating must use that single array property: \`(this.itensCardapio ?? []).map(...)\`.
+> **CRITICAL:** Use only the property names found in the source.
+> Never assume a property exists based on command names or conventions.
+> If a field is not declared as \`@property()\` in the source, it does not exist.
 
 ### List 2 — Handler methods
-Derive from \`commands\` and \`navigationRefs\` in \`##Base Class\`:
-- For each command (\`kind: "command"\`): \`handle{CommandPascal}Click()\`
-- For each outbound navigationRef: \`handleNavigateTo{PageIdPascal}Click(params?: Record<string, unknown>)\`
+Read every method whose name starts with \`handle\` from the base class source.
+Record the exact method name and signature as declared.
+
+> **CRITICAL:** Only bind events to methods that are actually in List 2.
+> Never invent handler names from command names or navigation targets.
 
 ### List 3 — i18n keys
-Derive using these exact patterns:
-- Always: \`brand\`, \`pageTitle\`, \`loaded\`, \`couldNotLoad\`
-- Per query command: \`loading{CommandPascal}\`
-- Per command: \`{commandName}Label\`, \`{commandName}Loading\`, \`couldNot{CommandPascal}\`
-- Per outbound navigationRef: \`navigateTo{PageIdPascal}\`
+Read the \`message_pt\` (or \`message_en\`) object from the base class source.
+Record every key name exactly as it appears.
 
-### List 4 — Outbound navigation targets
-From \`navigationRefs\` in \`##Base Class\`: entries with \`direction: "outbound"\`.
-\`\`\`
-outbound: productServiceDetailPage  trigger: "Selecionar item"
-outbound: catalogPage               trigger: "Explorar catálogo"
-...
-\`\`\`
+> **CRITICAL:** Only use \`this.msg.{key}\` for keys that exist in List 3.
+> Never invent i18n key names.
 
-These four lists are the ONLY names and targets you may use inside \`render()\`.
-Do not use any name not derivable by the rules above.
+### List 4 — Base class name and import path
+Read the \`export class\` declaration from the source to get the exact class name (e.g. \`CafeFlowPainelCozinhaBase\`).
+Read the file path from the \`## Context Files\` header to build the import path.
+
+These four lists are the ONLY names you may use inside \`render()\`.
+Do not reference any property, method, or i18n key that is not in these lists.
 
 ---
 
@@ -95,11 +70,10 @@ Do not use any name not derivable by the rules above.
 \`\`\`typescript
 import { html } from 'lit';
 import { customElement } from 'lit/decorators.js';
-import { {Prefix}{PageNamePascal}Base } from '/_\${project}_/l2/{moduleName}/web/shared/{FileName}.js';
+import { {BaseClassName} } from '{baseClassImportPath}';
 \`\`\`
-- \`FileName\` = last segment of \`item.outputPath\` without \`.ts\` — use this in the import path, **never \`pageName\`**
-- \`Prefix\` = \`moduleName\` first letter uppercased (e.g., \`locadora\` → \`Locadora\`)
-- \`PageNamePascal\` = \`FileName\` first letter uppercased — use this in the class/base name, **never \`pageName\`**
+- \`BaseClassName\` = the exact class name read from the base class source in List 4 (e.g. \`CafeFlowPainelCozinhaBase\`)
+- \`baseClassImportPath\` = the path from the \`## Context Files\` header for the shared file, with \`.ts\` replaced by \`.js\`
 - No other imports unless a Lit directive (e.g., \`repeat\`) is genuinely needed
 
 ### 3. Class
@@ -107,9 +81,12 @@ import { {Prefix}{PageNamePascal}Base } from '/_\${project}_/l2/{moduleName}/web
 Tag name: \`{kebab-module}--web--{device}--page11--{kebab-page}-{project}\`
 Class name: \`{Prefix}{DevicePascal}Page11{PageNamePascal}Page\`
 
+where \`Prefix\` and \`PageNamePascal\` must match what is used in the base class name from List 4
+(e.g. if the base is \`CafeFlowPainelCozinhaBase\`, then \`Prefix=CafeFlow\` and \`PageNamePascal=PainelCozinha\`).
+
 \`\`\`typescript
 @customElement('{tag}')
-export class {ClassName} extends {Prefix}{PageNamePascal}Base {
+export class {ClassName} extends {BaseClassName} {
   render() {
     // Extract busy booleans from action-state props (only for props that exist in List 1):
     const saveBusy    = this.save    === 'loading';
@@ -152,7 +129,7 @@ export class {ClassName} extends {Prefix}{PageNamePascal}Base {
 
 The decision tree for every interactive element:
 1. Is this a **navigation action** (outbound navigationRef trigger)? → Rule C (see below)
-2. Does \`##Base Class\` have a \`handle*\` method that fits this action? → Rule A
+2. Does List 2 (from the actual base class source) have a \`handle*\` method that fits this action? → Rule A
 3. Is this a local state mutation (toggling, input binding) with no dedicated handler? → Rule B
 4. Neither → do not add interactivity (the feature does not exist in the base)
 
@@ -197,7 +174,7 @@ Cross-reference List 4 (outbound targets) with organism \`userActions[]\`:
 Use \`##User data\` sections and organisms to understand what to show and where.
 Use \`##Base Class\` lists to decide exactly how to show it.
 
-**Before mapping organisms**, scan List 4 for outbound navigation targets and mark which organisms own them (match \`trigger\` against \`userActions\`). Navigation buttons are part of those organisms — they are not separate sections.
+**Before mapping organisms**, scan List 2 for outbound navigation handler methods and List 4 (from \`## Definition\` navigationRefs) to identify which organisms own navigation buttons (match \`trigger\` against \`userActions\`). Navigation buttons are part of those organisms — they are not separate sections.
 
 ### Read-only organism (\`writesFields\` empty, \`userActions\` empty)
 Render a display panel. For each field in \`readsFields\`:
@@ -242,8 +219,8 @@ Design for the \`purpose\` and \`actor\` from \`##User data\`.
 - \`mode: "edit"\` → interactive; \`mode: "view"\` → read-only
 - Extract busy booleans at the top of \`render()\` — only for props in List 1
 - Guard nullable props with \`??\` and \`?.\`
-- Show \`this.status\` visibly
-- All human-visible text via \`this.msg.*\` using keys from List 3 only — never hardcode strings
+- Show \`this.status\` visibly (property exists in List 1)
+- All human-visible text via \`this.msg.*\` using only keys from List 3 (read from the actual source) — never hardcode strings and never use a key not present in the base class message object
 
 ---
 
