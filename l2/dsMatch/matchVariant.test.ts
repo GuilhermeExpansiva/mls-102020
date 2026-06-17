@@ -8,7 +8,7 @@ import { matchVariant, type MatchResult } from '/_102020_/l2/dsMatch/matchVarian
 import type { ResolvedDs, MoleculeCatalogEntry } from '/_102020_/l2/dsMatch/types.js';
 
 function entry(group: string, variant: string, layoutConfig: Record<string, string>): MoleculeCatalogEntry {
-    return { group, variant, tag: `${group.toLowerCase()}--${variant}`, layoutConfig, objective: '', usagePath: '' };
+    return { project: 102040, group, variant, tag: `${group.toLowerCase()}--${variant}`, layoutConfig, objective: '', usagePath: '' };
 }
 
 function ds(rules: Record<string, string>): ResolvedDs {

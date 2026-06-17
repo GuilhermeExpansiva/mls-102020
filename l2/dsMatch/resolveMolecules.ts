@@ -24,6 +24,7 @@ import type { ResolvedDs, MoleculeCatalogEntry } from '/_102020_/l2/dsMatch/type
 import type { Agent1Output } from '/_102020_/l2/dsMatch/agent1.js';
 
 export interface ResolvedMolecule {
+    project: number;      // molecule component project (e.g. 102040) — import origin
     group: string;
     tag: string;
     variant: string;
@@ -36,7 +37,7 @@ export interface ResolvedMolecule {
 /** group → the single molecule this DS resolves to. */
 export type ResolvedMolecules = Record<string, ResolvedMolecule>;
 
-export interface AssignedMolecule { group: string; tag: string; purpose: string; }
+export interface AssignedMolecule { project: number; group: string; tag: string; purpose: string; }
 export interface OrganismAssignment { organismName: string; molecules: AssignedMolecule[]; }
 export interface PageAssignment { path: string; organisms: OrganismAssignment[]; }
 
@@ -69,6 +70,7 @@ export function resolveMolecules(
         const r = matchVariant(group, dsRules, catalog);
         if (!r) { console.warn(`[resolveMolecules] no molecules for group '${group}' (skipped)`); continue; }
         out[group] = {
+            project: r.entry.project,
             group,
             tag: r.entry.tag,
             variant: r.entry.variant,
@@ -92,7 +94,7 @@ export function assignMoleculesToPage(output: Agent1Output, resolved: ResolvedMo
         molecules: po.groups
             .map(g => resolved[g])
             .filter((rm): rm is ResolvedMolecule => !!rm)
-            .map(rm => ({ group: rm.group, tag: rm.tag, purpose: rm.objective })),
+            .map(rm => ({ project: rm.project, group: rm.group, tag: rm.tag, purpose: rm.objective })),
     }));
     return { path: output.path, organisms };
 }
@@ -117,6 +119,7 @@ export async function persistResolvedMolecules(
     project: number,
     dsIndex: number | string,
     resolved: ResolvedMolecules,
+    catalogVersion?: string,
 ): Promise<void> {
     const config: any = await getConfigProject(project);
     if (!config) throw new Error(`[persistResolvedMolecules] project config not found: ${project}`);
@@ -131,5 +134,6 @@ export async function persistResolvedMolecules(
     if (!ds) throw new Error(`[persistResolvedMolecules] designSystem '${key}' not found in project ${project}`);
 
     ds.resolvedMolecules = resolved;
+    if (catalogVersion !== undefined) ds.catalogVersion = catalogVersion;
     await updateConfigProject(project, config);
 }

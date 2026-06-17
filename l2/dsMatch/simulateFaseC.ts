@@ -11,7 +11,8 @@
 
 import { readDsRules } from '/_102020_/l2/dsMatch/readDsRules.js';
 import { buildMoleculeCatalog } from '/_102020_/l2/dsMatch/buildMoleculeCatalog.js';
-import { resolveMolecules, persistResolvedMolecules, type ResolvedMolecules } from '/_102020_/l2/dsMatch/resolveMolecules.js';
+import { resolveMolecules, type ResolvedMolecules } from '/_102020_/l2/dsMatch/resolveMolecules.js';
+import { recordResolvedMolecules } from '/_102020_/l2/dsMatch/recordResolvedMolecules.js';
 import { runResolveMoleculesTests } from '/_102020_/l2/dsMatch/resolveMolecules.test.js';
 
 export interface FaseCReport {
@@ -48,13 +49,14 @@ export async function simulateFaseC(
 
     console.log(`\n=== Fase C simulation — project ${project}, ds ${dsIndex} ===`);
     console.log(`Resolved ${entries.length} groups — ${matchedCount} matched, ${fallbackCount} fallback`);
-    console.table(entries.map(e => ({ group: e.group, molecule: e.variant, matched: e.matched, spec: e.specificity })));
+    console.table(entries.map(e => ({ group: e.group, project: e.project, molecule: e.variant, matched: e.matched, spec: e.specificity })));
 
     let persisted = false;
     if (opts.persist) {
-        await persistResolvedMolecules(project, dsIndex, resolved);
+        // Record the DS-level table on designSystems[ds] (with project per entry + catalogVersion).
+        const { catalogVersion } = await recordResolvedMolecules(project, dsIndex);
         persisted = true;
-        console.log(`Persisted resolvedMolecules into designSystems[${dsIndex}].`);
+        console.log(`Persisted resolvedMolecules into designSystems[${dsIndex}] (catalogVersion=${catalogVersion}).`);
     } else {
         console.log(`(dry-run — pass { persist: true } to write designSystems[${dsIndex}].resolvedMolecules)`);
     }

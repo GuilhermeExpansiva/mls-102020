@@ -18,6 +18,8 @@ export type ResolvedDs = Record<DsAxisKey, string>;
  * `buildMoleculeCatalog` from the `ml-*.defs.ts` files of mls-102040.
  */
 export interface MoleculeCatalogEntry {
+    /** Source project of the molecule COMPONENT (e.g. 102040) — defines the import origin. */
+    project: number;
     /** camelCase, e.g. 'groupEnterText' — from `export const group`. */
     group: string;
     /** e.g. 'groupentertext--ml-floating-text-input' (from the skill's TagName). */

@@ -15,6 +15,7 @@ import type { Agent1Output } from '/_102020_/l2/dsMatch/agent1.js';
 
 function entry(group: string, variant: string, layoutConfig: Record<string, string>): MoleculeCatalogEntry {
     return {
+        project: 102040,
         group, variant,
         tag: `${group.toLowerCase()}--${variant}`,
         layoutConfig,
@@ -91,6 +92,7 @@ export function runResolveMoleculesTests(): { passed: number } {
         const m = assignment.organisms[0].molecules[0];
         assert(m.group === 'groupEnterText' && m.tag.includes('ml-floating-text-input') && m.purpose === 'obj-ml-floating-text-input',
             `assigned molecule wrong: ${JSON.stringify(m)}`);
+        assert(m.project === 102040, `assigned molecule project wrong: ${m.project}`);
         assert(assignment.organisms[1].molecules.length === 0, 'empty organism stays empty');
         passed++;
     }

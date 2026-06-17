@@ -55,6 +55,7 @@ export async function buildMoleculeCatalog(force = false): Promise<MoleculeCatal
             const skill: string = typeof mod.skill === 'string' ? mod.skill : '';
 
             catalog.push({
+                project: sf.project, // molecule component project (102040)
                 group,
                 tag: parseTag(skill) || `${group.toLowerCase()}--${sf.shortName}`,
                 variant: sf.shortName,
