@@ -9,9 +9,11 @@
 // A `catalogVersion` signature is stored alongside so staleness can be detected when the
 // molecule catalog changes (recompute when it differs).
 
+import { collabImport } from '/_102027_/l2/collabImport.js';
 import { readDsRules } from '/_102020_/l2/dsMatch/readDsRules.js';
 import { buildMoleculeCatalog } from '/_102020_/l2/dsMatch/buildMoleculeCatalog.js';
 import { resolveMolecules, persistResolvedMolecules, type ResolvedMolecules } from '/_102020_/l2/dsMatch/resolveMolecules.js';
+import { listWorkItems } from '/_102020_/l2/dsMatch/derivePaths.js';
 import type { MoleculeCatalogEntry } from '/_102020_/l2/dsMatch/types.js';
 
 export interface DsResolution {
@@ -50,6 +52,64 @@ export async function recordResolvedMolecules(project: number, dsIndex: number |
     const resolution = buildDsResolution(dsRules, catalog);
     await persistResolvedMolecules(project, dsIndex, resolution.resolvedMolecules, resolution.catalogVersion);
     return resolution;
+}
+
+// ─── record ONLY the molecules the pages actually used (flow terminal step) ──
+
+/**
+ * Distinct groups actually used across the derived pages, read from each page's
+ * `moleculeAssignments` export (written by the select step). Structured (collabImport),
+ * no text parsing. Pages without the export contribute nothing (warned).
+ */
+export async function collectUsedGroupsFromPages(
+    project: number,
+    module: string,
+    layout: number | string,
+    ds: number | string,
+    device: string,
+): Promise<string[]> {
+    const items = listWorkItems(project, module, layout, ds, device);
+    const groups = new Set<string>();
+    for (const item of items) {
+        const ref = item.defsDestino.startsWith('/') ? item.defsDestino.slice(1) : item.defsDestino;
+        const f = mls.stor.convertFileReferenceToFile(ref);
+        try {
+            const mod = await collabImport({ project: f.project, folder: f.folder, shortName: f.shortName, extension: '.defs.ts' });
+            const assignments = (mod && (mod as any).moleculeAssignments) as Array<{ molecules?: Array<{ group?: string }> }> | undefined;
+            if (Array.isArray(assignments)) {
+                for (const org of assignments) {
+                    for (const m of (org?.molecules || [])) if (m?.group) groups.add(m.group);
+                }
+            } else {
+                console.warn(`[collectUsedGroupsFromPages] no moleculeAssignments in ${item.page}`);
+            }
+        } catch (err) {
+            console.warn(`[collectUsedGroupsFromPages] skip ${item.page}`, err);
+        }
+    }
+    return [...groups].sort();
+}
+
+/**
+ * Flow terminal step: record on the DS ONLY the molecules the pages actually used.
+ * Reads the used groups from the generated page defs, resolves them deterministically
+ * (project/variant/matched/specificity) and persists designSystems[ds].resolvedMolecules.
+ * @param project the project that holds the module + DS (e.g. 102043)
+ */
+export async function recordUsedMolecules(
+    project: number,
+    module: string,
+    layout: number | string,
+    ds: number | string,
+    device = 'desktop',
+): Promise<DsResolution> {
+    const usedGroups = await collectUsedGroupsFromPages(project, module, layout, ds, device);
+    const dsRules = await readDsRules(project, ds);
+    const catalog = await buildMoleculeCatalog();
+    const resolvedMolecules = resolveMolecules(dsRules, catalog, usedGroups); // ONLY used groups
+    const catalogVersion = catalogSignature(catalog);
+    await persistResolvedMolecules(project, ds, resolvedMolecules, catalogVersion);
+    return { resolvedMolecules, catalogVersion };
 }
 
 // ─── helpers ──────────────────────────────────────────────────────────────

@@ -2,11 +2,13 @@
 
 // Terminal step — NO-LLM wrapper agent (like agentNewSolutionPlanner: only
 // beforePromptStep, returns completed). Its `dependsOn` lists EVERY gen:<page> step, so
-// the framework only starts it once ALL pages produced their final defs. It then
-// registers the variation in module.ts ONCE (module-level, deterministic).
+// the framework only starts it once ALL pages produced their final defs. It then, ONCE:
+//   1. registers the variation in module.ts (module-level, deterministic);
+//   2. records on the DS the molecules the pages actually USED (designSystems[ds].resolvedMolecules).
 
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import { registerPageGenome } from '/_102020_/l2/dsMatch/registerPageGenome.js';
+import { recordUsedMolecules } from '/_102020_/l2/dsMatch/recordResolvedMolecules.js';
 import { parseStepArgs, mkCompleted, mkFail } from '/_102020_/l2/agentImplementsDesignSystem2/planning.js';
 
 export function createAgent(): IAgentAsync {
@@ -32,7 +34,12 @@ async function beforePromptStep(
   try {
     const a = parseStepArgs(args ?? step.prompt);
     const project = mls.actualProject || 0;
-    if (!context.isTest) await registerPageGenome(project, a.module, a.layout, a.ds, a.device);
+    if (!context.isTest) {
+      // 1. Register the new variation in module.ts.
+      await registerPageGenome(project, a.module, a.layout, a.ds, a.device);
+      // 2. Record ONLY the molecules the pages actually used on the DS.
+      await recordUsedMolecules(project, a.module, a.layout, a.ds, a.device);
+    }
     return [mkCompleted(context, parentStep, step, hookSequential)];
   } catch (error) {
     return [mkFail(context, parentStep, step, hookSequential, `[agentRegisterGenome2] ${error instanceof Error ? error.message : String(error)}`)];

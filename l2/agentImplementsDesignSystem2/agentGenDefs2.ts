@@ -108,6 +108,9 @@ Produce the FINAL page defs for the new design system, given the ORIGINAL page d
 - Repoint the first line /// <mls fileReference=...> and any outputPath/defPath from
   page11 to the Output path's folder (page{layout}{ds}); keep the page name the same.
 - Keep the loose JSON-ish formatting of the original definition.
+- PRESERVE, at the END of the output file, the exact "export const moleculeAssignments = ..."
+  and "export const usagePaths = ..." statements from the resolved-molecules input,
+  unchanged. (They are read later to record which molecules the pages used.)
 
 ## Output format
 [[OutputSection]]
