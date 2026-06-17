@@ -15,7 +15,9 @@
 
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import { createStorFile, IReqCreateStorFile } from '/_102027_/l2/libStor.js';
-import { listWorkItems, DEFAULT_DEVICE } from '/_102020_/l2/dsMatch/derivePaths.js';
+import { listWorkItems, listPages, DEFAULT_DEVICE } from '/_102020_/l2/dsMatch/derivePaths.js';
+import { getDerivationTracker, derivationKey, clearDerivationTracker } from '/_102020_/l2/dsMatch/derivationTracker.js';
+import { registerPageGenome } from '/_102020_/l2/dsMatch/registerPageGenome.js';
 
 interface EntryArgs { module: string; layout: number | string; ds: number | string; device?: string; }
 interface PageArgs { defsOrigem: string; defsDestino: string; }
@@ -46,6 +48,9 @@ async function beforePromptImplicit(
   const dev = device || DEFAULT_DEVICE;
   const items = listWorkItems(project, module, layout, ds, dev);
   if (items.length === 0) throw new Error(`(${agent.agentName}) no pages found in ${module}/web/${dev}/page11`);
+
+  // Register the pages this derivation must complete (Option 2 — completion tracker).
+  getDerivationTracker(derivationKey(project, module, layout, ds, dev)).ensureExpected(items.map(i => i.page));
 
   const addMessageAI: mls.msg.AgentIntentAddMessageAI = {
     type: "add-message-ai",
@@ -117,6 +122,10 @@ async function afterPromptStep(
   // Overwrite the destination defs with the final assembled source.
   if (!context.isTest) await saveFile(out.path, out.srcFile);
 
+  // Completion tracking (Option 2): mark this page done; when ALL pages of the
+  // derivation are done, run the terminal step once (register the page in module.ts).
+  if (!context.isTest) await trackAndMaybeRegister(context, out.path);
+
   const updateStatus: mls.msg.AgentIntentUpdateStatus = {
     type: 'update-status',
     hookSequential,
@@ -129,6 +138,36 @@ async function afterPromptStep(
   };
 
   return [updateStatus];
+}
+
+/** Mark this page completed in the derivation tracker; register module.ts when all done. */
+async function trackAndMaybeRegister(context: mls.msg.ExecutionContext, defsDestino: string): Promise<void> {
+  const lm = (context.task?.iaCompressed?.longMemory || {}) as Record<string, string>;
+  const module = lm['module'];
+  const layout = lm['layout'];
+  const ds = lm['ds'];
+  const device = lm['device'] || DEFAULT_DEVICE;
+  if (!module || layout == null || ds == null) { console.warn('[agentGenDefs] missing run params in longMemory; skip tracking'); return; }
+
+  const project = mls.actualProject || 0;
+  const page = pageShortName(defsDestino);
+  const key = derivationKey(project, module, layout, ds, device);
+
+  const tracker = getDerivationTracker(key);
+  // Re-assert expected (robust to a singleton reset mid-run): re-derive page list.
+  tracker.ensureExpected(listPages(project, module, device));
+
+  const allDone = tracker.complete(page);
+  if (allDone) {
+    await registerPageGenome(project, module, layout, ds, device);
+    clearDerivationTracker(key);
+  }
+}
+
+function pageShortName(ref: string): string {
+  const norm = ref.startsWith('/') ? ref.slice(1) : ref;
+  const f = mls.stor.convertFileReferenceToFile(norm);
+  return f?.shortName || '';
 }
 
 async function buildPrompt(defsOrigem: string, defsDestino: string): Promise<string> {
