@@ -222,9 +222,6 @@ async function loadSkillContent(skillPath: string): Promise<string> {
   return await getContentByMlsPath(clean) ?? '';
 }
 
-
-"## Definition
-
 ## Definition
 \\`\\`\\`JSON
 [
