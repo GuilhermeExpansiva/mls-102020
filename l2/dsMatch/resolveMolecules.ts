@@ -37,7 +37,7 @@ export interface ResolvedMolecule {
 /** group → the single molecule this DS resolves to. */
 export type ResolvedMolecules = Record<string, ResolvedMolecule>;
 
-export interface AssignedMolecule { project: number; group: string; tag: string; purpose: string; }
+export interface AssignedMolecule { project: number; group: string; tag: string; purpose: string; import?: string; }
 export interface OrganismAssignment { organismName: string; molecules: AssignedMolecule[]; }
 export interface PageAssignment { path: string; organisms: OrganismAssignment[]; }
 

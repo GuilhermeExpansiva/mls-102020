@@ -14,6 +14,7 @@ import { loadPageSource, loadPageDefinitionText, buildAgent1HumanPrompt, validat
 import { readDsRules } from '/_102020_/l2/dsMatch/readDsRules.js';
 import { buildMoleculeCatalog } from '/_102020_/l2/dsMatch/buildMoleculeCatalog.js';
 import { resolveMolecules, assignMoleculesToPage, collectUsedGroups, collectUsagePaths } from '/_102020_/l2/dsMatch/resolveMolecules.js';
+import { resolveTagToFile } from '/_102020_/l2/utils.js';
 import { parseStepArgs, mkCompleted, mkFail, saveFile } from '/_102020_/l2/agentImplementsDesignSystem2/planning.js';
 
 export function createAgent(): IAgentAsync {
@@ -86,6 +87,15 @@ async function afterPromptStep(
     const resolved = resolveMolecules(dsRules, catalog, collectUsedGroups([validated]));
     const assignment = assignMoleculesToPage(validated, resolved);
     const usagePaths = collectUsagePaths(assignment, resolved);
+
+    // Add the molecule import path per molecule (resolveTagToFile → file → import).
+    for (const org of assignment.organisms) {
+      for (const m of org.molecules) {
+        const f = resolveTagToFile(m.tag);
+        m.import = f ? `/_${f.project}_/l2/${f.folder}/${f.shortName}.js` : '';
+        if (!f) console.warn(`(${agent.agentName}) could not resolve import for tag ${m.tag}`);
+      }
+    }
 
     if (!context.isTest) await saveFile(item.defsDestino, buildNovoDefs(item.defsDestino, assignment.organisms, usagePaths));
 
