@@ -5,7 +5,7 @@ export const skills = [
     // Category 1: Data Entry & Editing
     {
         name: 'groupSelectOne',
-        description: 'Allows the user to select exactly one option from a list of mutually exclusive choices. Ideal for scenarios where a single, clear decision is required. Implementations include dropdown, radio group, segmented control, knob, and list picker.',
+        description: 'Allows the user to select exactly one option from a list of mutually exclusive choices. Ideal for scenarios where a single, clear decision is required. Layout is chosen via the `variant` property: dropdown/combobox (default), radio group, segmented control, list picker, and table (a radio group laid out as a table with column headers — for comparing options that each have multiple attributes, e.g. plan name/price/limits). The selected value is always the chosen item value, regardless of variant.',
         skillReference: '/_102020_/l2/skills/molecules/groupSelectOne/creation',
         skillUsageReference: '/_102020_/l2/skills/molecules/groupSelectOne/usage',
     },

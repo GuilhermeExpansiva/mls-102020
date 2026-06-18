@@ -120,7 +120,11 @@ Produce the FINAL page defs for the new design system, given the ORIGINAL page d
   organismName): each entry { "group", "tag", "purpose" }. Organisms with no assigned
   molecules stay unchanged.
 - NEVER change/add/remove molecule choices — use EXACTLY the tags given. You only PLACE them.
-- Add "moleculesPaths" to the pipeline entry, copied from usagePaths.
+- Do NOT add a "moleculesPaths" key. Instead, for EACH path in the input "usagePaths",
+  append an entry to the pipeline's EXISTING "dependsFiles" array, in the form
+  "<path>?key=skill" (e.g. "_102020_/l2/skills/molecules/groupViewData/usage.ts?key=skill").
+  Keep ALL existing dependsFiles entries; do not duplicate; do not add the bare path
+  without the "?key=skill" suffix.
 - Repoint the first line /// <mls fileReference=...> and any outputPath/defPath from
   page11 to the Output path's folder (page{layout}{ds}); keep the page name the same.
 - Keep the loose JSON-ish formatting of the original definition.
