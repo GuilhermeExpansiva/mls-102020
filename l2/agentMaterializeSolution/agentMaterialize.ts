@@ -5,6 +5,8 @@ import {
   readProjectJson,
   scanL1DefsFiles,
   scanL2PageDefsFiles,
+  getContentByMlsPath,
+  parsePipelineFromContent,
 } from '/_102020_/l2/agentMaterializeSolution/agentMaterializeArtifacts.js';
 
 import { buildModuleTs, buildIndexTs, buildRouterTs, buildPersistenceTs, buildConfig } from '/_102020_/l2/agentMaterializeSolution/templateMaterialize.js';
@@ -117,22 +119,27 @@ async function afterPromptStep(
     for (const mod of projectJson.modules) {
       const { moduleName } = mod;
 
-      // One step per L1 .defs.ts file (add pipeline)
+      // One step per L1 .defs.ts file that does NOT yet have a pipeline
       for (const file of scanL1DefsFiles(project, moduleName)) {
+        const content = await getContentByMlsPath(file.mlsPath);
+        if (content && parsePipelineFromContent(content)?.length) continue;
         const layerFolder = file.folder.split('/').pop() || '';
         const planId = `mat-l1-${safe(moduleName)}-${safe(file.shortName)}-${safe(layerFolder)}`;
         const args: L1StepArgs = { planId, moduleName, shortName: file.shortName, layerFolder };
         intents.push(mkStep(context, step, planId, `L1 pipeline: ${moduleName}/${layerFolder}/${file.shortName}`, 'agentMaterializeL1Def', args));
       }
 
-      // One step per L2 page .defs.ts file (create sub-files)
+      // One step per L2 page .defs.ts file that does NOT yet have a pipeline
       for (const file of scanL2PageDefsFiles(project, moduleName)) {
+        const content = await getContentByMlsPath(file.mlsPath);
+        if (content && parsePipelineFromContent(content)?.length) continue;
         const planId = `mat-l2-${safe(moduleName)}-${safe(file.shortName)}`;
         const args: L2StepArgs = { planId, moduleName, shortName: file.shortName };
         intents.push(mkStep(context, step, planId, `L2 files: ${moduleName}/${file.shortName}`, 'agentMaterializeL2Def', args));
       }
     }
 
+    if (!intents.length) return [mkComplete(context, _parentStep, step, hookSequential, 'nothing to process')];
     return intents;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
@@ -187,6 +194,26 @@ function mkFail(
     parentStepId: parentStep?.stepId ?? step.stepId,
     stepId: step.stepId,
     status: 'failed',
+    traceMsg,
+  };
+}
+
+function mkComplete(
+  context: mls.msg.ExecutionContext,
+  parentStep: mls.msg.AIAgentStep,
+  step: mls.msg.AIAgentStep,
+  hookSequential: number,
+  traceMsg?: string,
+): mls.msg.AgentIntentUpdateStatus {
+  return {
+    type: 'update-status',
+    hookSequential,
+    messageId: context.message.orderAt,
+    threadId: context.message.threadId,
+    taskId: context.task?.PK || '',
+    parentStepId: parentStep?.stepId ?? step.stepId,
+    stepId: step.stepId,
+    status: 'completed',
     traceMsg,
   };
 }
