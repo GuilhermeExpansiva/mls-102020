@@ -106,6 +106,12 @@ async function beforePromptStep(
   const content = await getFileContent(project, 2, moduleName, shortName, '.defs.ts');
   if (!content) throw new Error(`[agentMaterializeL2Def] not found: l2/${moduleName}/${shortName}.defs.ts`);
 
+  // Already processed — derived controller .defs.ts exists with pipeline
+  const controllerContent = await getFileContent(project, 1, `${moduleName}/layer_2_controllers`, shortName, '.defs.ts');
+  if (controllerContent?.includes('export const pipeline')) {
+    return [mkStatus(context, parentStep, _step, hookSequential, 'completed', 'already present')];
+  }
+
   // Available layer_3_usecases as .ts paths (LLM picks which ones the controller uses)
   const usecaseDefsPaths = listDepLayerPaths(project, moduleName, 'layer_3_usecases');
   const usecaseTsPaths = usecaseDefsPaths.map(p => p.replace(/\.defs\.ts$/, '.ts'));
