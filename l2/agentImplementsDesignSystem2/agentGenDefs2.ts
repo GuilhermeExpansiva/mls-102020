@@ -117,8 +117,9 @@ Produce the FINAL page defs for the new design system, given the ORIGINAL page d
 ## Rules
 - Mirror the ORIGINAL defs structure exactly (same exports, sections, organisms, fields).
 - For each organism, inject a "molecules" array from moleculeAssignments (match by
-  organismName): each entry { "group", "tag", "purpose" }. Organisms with no assigned
-  molecules stay unchanged.
+  organismName): each entry { "group", "tag", "purpose", "import" } — copy ALL four
+  fields exactly, including "import", from the matching moleculeAssignments molecule.
+  Organisms with no assigned molecules stay unchanged.
 - NEVER change/add/remove molecule choices — use EXACTLY the tags given. You only PLACE them.
 - Do NOT add a "moleculesPaths" key. Instead, for EACH path in the input "usagePaths",
   append an entry to the pipeline's EXISTING "dependsFiles" array, in the form
