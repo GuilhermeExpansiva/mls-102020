@@ -225,7 +225,7 @@ async function getGroupSkill(group: string): Promise<string> {
 }
 
 async function getBaseMolecule(): Promise<string> {
-    const key = mls.stor.getKeyToFile({ project: 102020, shortName: 'moleculeBase', folder: '', extension: '.ts', level: 2 });
+    const key = mls.stor.getKeyToFile({ project: 102033, shortName: 'moleculeBase', folder: '', extension: '.ts', level: 2 });
     const storFile = mls.stor.files[key];
     if (!storFile) return '';
     const content = await storFile.getContent() as string;

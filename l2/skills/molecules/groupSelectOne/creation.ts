@@ -19,20 +19,22 @@ export const skill = `# groupSelectOne — Creation
 
 ## 2. Slot Tags
 
-| Tag | Required | Description |
-|-----|:--------:|-------------|
-| \`Label\` | No | Label displayed above or beside the field |
-| \`Helper\` | No | Help text displayed below the field |
-| \`Trigger\` | No | Custom content for the trigger button. When no item is selected, this content acts as the placeholder |
-| \`Item\` | Yes | Defines one selectable option. Attributes: \`value\` (required), \`disabled\` |
-| \`Group\` | No | Groups items under a named heading. Attribute: \`label\` |
-| \`Empty\` | No | Content shown when no items are available |
+| Tag | Required | Used by variant | Description |
+|-----|:--------:|-----------------|-------------|
+| \`Label\` | No | all | Label displayed above or beside the field |
+| \`Helper\` | No | all | Help text displayed below the field |
+| \`Trigger\` | No | \`dropdown\` only | Custom content for the trigger button. When no item is selected, this content acts as the placeholder |
+| \`Item\` | Yes | all | Defines one selectable option (one **row** in \`table\`). Attributes: \`value\` (required), \`disabled\` |
+| \`Cell\` | No | \`table\` only | A data cell inside an \`Item\`. One \`Cell\` per column, in column order. May contain text or web components |
+| \`Column\` | No | \`table\` only | A single column header, as a direct child of the component (no wrapper). Declare them in column order |
+| \`Group\` | No | \`dropdown\`, \`radio\`, \`list\` | Groups items under a named heading. Attribute: \`label\` |
+| \`Empty\` | No | all | Content shown when no items are available |
 
 \`\`\`typescript
-slotTags = ['Label', 'Helper', 'Trigger', 'Item', 'Group', 'Empty'];
+slotTags = ['Label', 'Helper', 'Trigger', 'Item', 'Cell', 'Column', 'Group', 'Empty'];
 \`\`\`
 
-### Slot Hierarchy
+### Slot Hierarchy — \`dropdown\` (default)
 
 \`\`\`
 component (root)
@@ -44,6 +46,28 @@ component (root)
 ├── <Empty>
 └── <Helper>
 \`\`\`
+
+### Slot Hierarchy — \`table\`
+
+\`\`\`
+component (root)
+├── <Label>
+├── <Column>Name</Column>       ← header cells, direct children, in column order
+├── <Column>Price</Column>
+├── <Item value="basic">        ← one row; this value is emitted on selection
+│   ├── <Cell>Basic</Cell>
+│   └── <Cell>$10</Cell>
+├── <Item value="pro">
+│   ├── <Cell>Pro</Cell>
+│   └── <Cell>$20</Cell>
+├── <Empty>
+└── <Helper>
+\`\`\`
+
+> The \`table\` variant is a **radiogroup rendered as a table**: column headers come from
+> the \`Column\` slots, one row per \`Item\`, and the first cell of each row holds the radio control.
+> The value contract is identical to \`dropdown\` — the emitted value is always the selected
+> \`Item\`'s \`value\` attribute (never a row index). See **§13 Variants**.
 
 ---
 
@@ -61,8 +85,9 @@ component (root)
 
 | Property | Type | Default | Decorator | Description |
 |----------|------|---------|-----------|-------------|
-| \`placeholder\` | \`string\` | \`''\` | \`@propertyDataSource\` | Text shown when no item is selected (fallback when no \`Trigger\` slot) |
-| \`searchable\` | \`boolean\` | \`false\` | \`@propertyDataSource\` | Show a search input inside the selector to filter items |
+| \`variant\` | \`string\` | \`'dropdown'\` | \`@propertyDataSource\` | Layout/implementation: \`dropdown\` (combobox popover, default), \`radio\` (always-visible radio group), \`segmented\` (segmented control), \`list\` (always-visible list picker), \`table\` (radio group laid out as a table). See **§13 Variants** |
+| \`placeholder\` | \`string\` | \`''\` | \`@propertyDataSource\` | Text shown when no item is selected (\`dropdown\` only; fallback when no \`Trigger\` slot) |
+| \`searchable\` | \`boolean\` | \`false\` | \`@propertyDataSource\` | Show a search input to filter items (\`dropdown\`, \`list\`, \`table\`) |
 
 ### 3.3 States
 
@@ -78,7 +103,7 @@ component (root)
 
 | Property | Type | Default | Decorator | Description |
 |----------|------|---------|-----------|-------------|
-| \`isOpen\` | \`boolean\` | \`false\` | \`@state\` | Whether the selector panel is currently open |
+| \`isOpen\` | \`boolean\` | \`false\` | \`@state\` | Whether the selector panel is currently open (\`dropdown\` only; inline variants render items always-visible and ignore this) |
 | \`searchQuery\` | \`string\` | \`''\` | \`@state\` | Current search filter text (used when \`searchable=true\`) |
 
 ---
@@ -123,14 +148,18 @@ this.dispatchEvent(new CustomEvent('change', {
 
 | Mode | \`isEditing\` | Behavior |
 |------|-------------|----------|
-| **Edit** | \`true\` | Renders trigger button + selector panel |
+| **Edit** | \`true\` | Renders the active variant's interactive layout (dropdown trigger+panel, or always-visible radio/segmented/list/table) |
 | **View** | \`false\` | Renders selected item label as static text |
 
-- In view mode: no trigger, no panel, no events, no error, no helper
+- In view mode: no trigger, no panel, no radios, no events, no error, no helper — regardless of variant
 
 ---
 
 ## 7. Open/Close Behavior
+
+> Applies to the \`dropdown\` variant only. The inline variants (\`radio\`, \`segmented\`,
+> \`list\`, \`table\`) have no panel: items are always visible and selecting one just sets
+> \`value\` and emits \`change\`.
 
 - Clicking the trigger toggles \`isOpen\`
 - Selecting an item sets \`value\`, closes the panel (\`isOpen = false\`), emits \`change\`
@@ -166,36 +195,132 @@ this.dispatchEvent(new CustomEvent('change', {
 | State | Behavior |
 |-------|----------|
 | **Normal** | Default appearance |
-| **Open** | Selector panel visible |
-| **Selected** | Trigger shows selected item label |
+| **Open** | (\`dropdown\`) Selector panel visible |
+| **Selected** | (\`dropdown\`) Trigger shows selected item label; (inline) selected row/option highlighted and its radio checked |
 | **Disabled** | Reduced opacity, no interaction |
 | **Readonly** | No interaction, text selectable |
 | **Error** | Error border/style, error message visible |
-| **Loading** | Loading indicator in trigger; panel does not open |
+| **Loading** | Loading indicator; in \`dropdown\` the panel does not open |
 | **View Mode** | Selected label as plain text |
 
 ---
 
 ## 11. Accessibility (a11y)
 
+### \`dropdown\` variant
+
 | Requirement | Implementation |
 |-------------|----------------|
 | Trigger | \`role="combobox"\`, \`aria-expanded\`, \`aria-haspopup="listbox"\` |
 | Panel | \`role="listbox"\` |
 | Items | \`role="option"\`, \`aria-selected\`, \`aria-disabled\` |
+| Keyboard | \`ArrowDown\`/\`ArrowUp\` navigate items; \`Enter\` selects; \`Escape\` closes |
+
+### Inline variants (\`radio\`, \`segmented\`, \`list\`, \`table\`)
+
+| Requirement | Implementation |
+|-------------|----------------|
+| Container | \`role="radiogroup"\` (in \`table\`, set on the \`<table>\` or its wrapper) |
+| Options/rows | \`role="radio"\` + \`aria-checked\`, or native \`<input type="radio">\` sharing one \`name\` (e.g. a per-instance uid). Disabled items: \`aria-disabled\` / \`disabled\` |
+| Column headers | (\`table\`) real \`<th scope="col">\` from \`Column\` slots |
+| Keyboard | \`ArrowUp\`/\`ArrowDown\` (and \`ArrowLeft\`/\`ArrowRight\` for \`segmented\`) move selection; \`Space\`/\`Enter\` selects |
+
+### All variants
+
+| Requirement | Implementation |
+|-------------|----------------|
 | Label | \`aria-labelledby\` pointing to rendered label |
 | Error | \`aria-describedby\` pointing to error element |
 | Invalid | \`aria-invalid="true"\` when error exists |
 | Required | \`aria-required="true"\` |
-| Keyboard | \`ArrowDown\`/\`ArrowUp\` navigate items; \`Enter\` selects; \`Escape\` closes |
 
 ---
 
-## 12. Changelog
+## 13. Variants
+
+The \`variant\` property selects the layout. **All variants share the same value contract**
+(§4): a single string equal to the selected \`Item\`'s \`value\` attribute, \`null\` when nothing
+is selected. Only rendering and a11y differ. Default is \`dropdown\` to preserve existing
+behavior.
+
+| \`variant\` | Layout | When to use |
+|-----------|--------|-------------|
+| \`dropdown\` | Trigger button + popover panel (combobox) | Many options, compact footprint, value chosen occasionally |
+| \`radio\` | Always-visible vertical radio group | A handful of options that benefit from being all visible |
+| \`segmented\` | Horizontal segmented control | 2–5 short, mutually exclusive options |
+| \`list\` | Always-visible single-column list picker | Medium option counts where each row is one label |
+| \`table\` | Always-visible radio group laid out as a table | Each option has **multiple comparable attributes** (e.g. plan name, price, limits) and the user picks one row |
+
+### 13.1 \`table\` variant — details
+
+Reference implementation: \`_102040_/l2/molecules/groupviewtable/ml-data-table-select\`
+(its \`select-mode="single"\` path). That molecule lives in \`groupViewTable\` and keys its
+value by **row index**; here in \`groupSelectOne\` the value is keyed by the \`Item\`'s
+\`value\` attribute instead, keeping this group's contract intact.
+
+**Markup**
+
+\`\`\`html
+<component variant="table" required>
+  <Label>Choose a plan</Label>
+  <Column>Plan</Column>
+  <Column>Price</Column>
+  <Column>Seats</Column>
+  <Item value="basic">
+    <Cell>Basic</Cell>
+    <Cell>$10/mo</Cell>
+    <Cell>3</Cell>
+  </Item>
+  <Item value="pro">
+    <Cell>Pro</Cell>
+    <Cell>$25/mo</Cell>
+    <Cell>10</Cell>
+  </Item>
+  <Item value="enterprise" disabled>
+    <Cell>Enterprise</Cell>
+    <Cell>Contact us</Cell>
+    <Cell>∞</Cell>
+  </Item>
+  <Empty>No plans available</Empty>
+  <Helper>You can change your plan later.</Helper>
+</component>
+\`\`\`
+
+**Rendering**
+
+- Render a \`<table>\`. \`<thead>\` has one \`<th scope="col">\` per \`Column\` slot, plus a leading
+  empty \`<th>\` for the radio column.
+- \`<tbody>\` has one \`<tr>\` per \`Item\`. The first \`<td>\` holds
+  \`<input type="radio" name="\${uid}">\` (one shared \`name\` per instance so only one row can
+  be checked); the remaining \`<td>\`s render the \`Cell\` contents in order.
+- A row is checked when its \`Item\` \`value\` equals \`this.value\`. Clicking the row (or its
+  radio) sets \`this.value = item.value\` and emits \`change\` — no panel, no \`isOpen\`.
+- \`Item\` with \`disabled\`: radio disabled, row not selectable.
+- If \`searchable\`, filter rows by their visible cell text.
+- When no \`Column\` slots are present, render rows with no header (just the radio + cells).
+- View mode (\`isEditing=false\`): render only the selected \`Item\`'s cells as static text
+  (or the placeholder/\`—\` when none selected) — no table chrome, no radios.
+
+**Selection handler (adapted from the reference's single-select path)**
+
+\`\`\`typescript
+private handleRowSelect(item: { value: string; disabled: boolean }) {
+  if (this.disabled || this.readonly || item.disabled) return;
+  this.value = item.value;                 // value = Item value, NOT row index
+  this.dispatchEvent(new CustomEvent('change', {
+    bubbles: true, composed: true, detail: { value: this.value },
+  }));
+}
+\`\`\`
+
+---
+
+## 14. Changelog
 
 | Version | Date | Description |
 |---------|------|-------------|
 | 1.0.0 | 2026-04-20 | Initial creation reference |
 | 1.1.0 | 2026-04-20 | Removed item parsing helpers; inline pattern in Rendering Logic |
+| 1.2.0 | 2026-06-15 | Added \`variant\` property (dropdown/radio/segmented/list/table); documented inline layouts and the \`table\` variant (flat \`Column\` headers + \`Cell\` rows, radio selection) based on \`ml-data-table-select\`; made Trigger/placeholder/isOpen/open-close and combobox a11y dropdown-scoped |
 
 `

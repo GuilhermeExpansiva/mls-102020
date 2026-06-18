@@ -12,7 +12,7 @@ export const skill = `# Molecule Generation Skill
 | Field       | Value                                                           |
 |-------------|-----------------------------------------------------------------|
 | **Name**    | moleculeGeneration                                              |
-| **Version** | 2.6.0                                                           |
+| **Version** | 2.7.0                                                           |
 | **Category**| ui-generation                                                   |
 
 ---
@@ -48,8 +48,12 @@ PascalCase + Molecule
 
 \`\`\`typescript
 
-import { html, ...} from 'lit';
-import { customElement, ... } from 'lit/decorators.js';
+// Lit core (templating)
+import { html, nothing, svg, TemplateResult } from 'lit';
+// Lit decorators
+import { customElement, state, property } from 'lit/decorators.js';
+// Lit directives — each directive has its OWN module; NEVER import from 'lit'
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 
 // Data Binding decorators
 import { propertyDataSource, propertyCompositeDataSource } from '/_102029_/l2/collabDecorators.js';
@@ -57,6 +61,20 @@ import { propertyDataSource, propertyCompositeDataSource } from '/_102029_/l2/co
 // Base Class
 import { MoleculeAuraElement } from '/_102033_/l2/moleculeBase.js';
 \`\`\`
+
+> Import only what you actually use, but **always from the correct module**. The two most common mistakes are using \`@state()\` without importing \`state\`, and importing \`unsafeHTML\` from \`'lit'\` (it is a directive — wrong module).
+
+### Symbol → module reference
+
+| Symbol(s) | Module |
+|-----------|--------|
+| \`html\`, \`nothing\`, \`svg\`, \`TemplateResult\` | \`'lit'\` |
+| \`customElement\`, \`state\`, \`property\` | \`'lit/decorators.js'\` |
+| \`unsafeHTML\` | \`'lit/directives/unsafe-html.js'\` |
+| \`propertyDataSource\`, \`propertyCompositeDataSource\` | \`'/_102029_/l2/collabDecorators.js'\` |
+| \`MoleculeAuraElement\` | \`'/_102033_/l2/moleculeBase.js'\` |
+
+**Rule:** every decorator (\`@state\`, \`@customElement\`, \`@property\`, \`@propertyDataSource\`) and directive (\`unsafeHTML\`) you use MUST appear in the imports, from the module above.
 
 
 > **Note:** Do NOT import \`classMap\`. Use template strings for CSS classes instead (see Section 7).
@@ -68,6 +86,13 @@ import { MoleculeAuraElement } from '/_102033_/l2/moleculeBase.js';
 
 ### \`@propertyDataSource\`
 Binds the property to a **single dynamic state**.
+
+> ⚠️ **Contract — this is a TWO-WAY binding, not a plain field.**
+> When bound to \`{{...}}\`, \`@propertyDataSource\` behaves differently from \`@property\`/\`@state\`:
+> - **getter** resolves the value **live** from \`getState(stateKey)\` — reading \`this.prop\` always returns the current state value. Syncing it by assignment is **redundant**.
+> - **setter** (when the attribute is \`{{...}}\`) **writes back** to global state via \`setState(stateKey, value)\`. So assigning \`this.prop = ...\` has a **side effect**: it fires an ICA notification to all subscribers.
+>
+> **Rule:** never reassign a \`@propertyDataSource\` inside \`handleIcaStateChange\` (see §11) — it re-fires \`setState\` and causes an **infinite render loop**.
 
 \`\`\`typescript
 @propertyDataSource({ type: String }) 
@@ -104,16 +129,6 @@ minDurationMinutes: number = 0;
 Rule: \`camelCase\` property name → \`kebab-case\` attribute name, always.
 
 Single-word properties of any type can omit the \`attribute\` field.
-
----
-
-### \`@@state\`
-Standard Lit state for ** local UI state**.
-
-\`\`\`typescript
-@state({ type: Boolean }) 
-loading = false;
-\`\`\`
 
 ---
 
@@ -320,6 +335,12 @@ html\\\`\\\${content}\\\`  // Outputs: "<strong>Bold</strong>" as text
 
 ### Use \`unsafeHTML\` for Slot Tag content
 
+\`unsafeHTML\` is a Lit **directive** — import it from its own module (NEVER from \`'lit'\`):
+
+\`\`\`typescript
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+\`\`\`
+
 \`\`\`typescript
 
 // ✅ CORRECT - HTML is rendered properly
@@ -421,6 +442,26 @@ handleIcaStateChange(key: string, value: any) {
 }
 \`\`\`
 
+> ⚠️ **Critical rule:** inside \`handleIcaStateChange\`, only assign to **derived** \`@state()\`. **Never** reassign a \`@propertyDataSource\` property (e.g. \`this.value = ...\`, \`this.isEditing = ...\`): its setter calls \`setState\`, which re-notifies and **re-enters this handler → infinite loop**. The value is already synced by the getter (reads from \`getState\`), so the assignment is redundant as well as dangerous.
+>
+> The base implementation (\`StateLitElement.handleIcaStateChange\`, in \`/_102029_/l2/stateLitElement.js\`) already syncs the property and has an equality guard (\`isEqual\`) that breaks re-entrancy. When overriding, **keep the handler side-effect-light** (recalculate a derived value and/or propagate) — do not redo the base's work.
+
+### Case: propagation to children (no derived value)
+
+When the handler only needs to **propagate** a state to child components (e.g. \`is-editing\` in a table), do NOT assign the property — just propagate. The \`value\` parameter is intentionally unused; read \`this.prop\` (already updated by the getter):
+
+\`\`\`typescript
+handleIcaStateChange(key: string, value: any) {
+  const isEditingAttr = this.getAttribute('is-editing');
+  if (isEditingAttr === \`{{\${key}}}\`) {
+    this.propagateEditing();   // propagate only; NEVER do this.isEditing = ...
+  }
+  this.requestUpdate();
+}
+\`\`\`
+
+To also react to a direct Lit binding (\`.is-editing=\${...}\`), combine with \`firstUpdated()\` + \`updated(changedProps)\` (see §11-B).
+
 ### When to Use
 
 Use \`handleIcaStateChange\` when your molecule has:
@@ -429,7 +470,7 @@ Use \`handleIcaStateChange\` when your molecule has:
 |-----------|---------|--------|
 | Derived/computed values | \`rawValue\` from \`value\` | Recalculate in handler |
 | Formatted display values | \`displayText\` from \`value\` | Recalculate in handler |
-| Internal state that depends on props | \`isOpen\` based on \`value\` | Update in handler |
+| Internal state that depends on props | \`isOpen\` (must be \`@state\`) based on \`value\` | Update in handler — **only if the target is \`@state\`, NEVER a \`@propertyDataSource\`** |
 
 ### When NOT to Use
 
@@ -533,6 +574,58 @@ handleIcaStateChange(key: string, value: any) {
 }
 \`\`\`
 
+### 11-B. Supplement: \`updated()\` for Lit property bindings
+
+\`handleIcaStateChange\` only covers ICA bindings (\`value="{{key}}"\`). For direct Lit bindings (\`.value=\${...}\`), use \`updated(changedProps)\`:
+
+\`\`\`typescript
+updated(changedProps: Map<string, unknown>) {
+  if (changedProps.has('value')) {
+    this.rawValue = this.value === null || this.value === undefined
+      ? ''
+      : this.formatNumberToRaw(this.value);
+  }
+}
+\`\`\`
+
+#### Guard against overwriting while typing
+
+For inputs where the user may be typing, use a guard that avoids overwriting internal state if \`rawValue\` already represents the current \`value\`:
+
+\`\`\`typescript
+updated(changedProps: Map<string, unknown>) {
+  if (changedProps.has('value')) {
+    if (this.value === null || this.value === undefined) {
+      this.rawValue = '';
+    } else {
+      const parsed = this.parseRawToNumber(this.rawValue);
+      if (parsed !== this.value) {
+        this.rawValue = this.formatNumberToRaw(this.value);
+      }
+    }
+  }
+}
+\`\`\`
+
+#### Rule: use BOTH when you have derived state
+
+| Binding | Sync mechanism |
+|---|---|
+| \`value="{{state.key}}"\` (ICA) | \`handleIcaStateChange\` |
+| \`.value=\${this.prop}\` (Lit property) | \`updated(changedProps)\` |
+
+Molecules that accept both binding types must implement **both mechanisms**.
+
+#### Checklist before finishing the molecule
+
+- [ ] Does the molecule have any \`@state()\` derived from a \`@propertyDataSource\`?
+  - **Yes** → implement \`handleIcaStateChange\` + \`updated(changedProps)\`
+  - **No** → neither is needed
+- [ ] Does the molecule need to **propagate** state to child components (e.g. \`is-editing\`)?
+  - **Yes** → a handler that **only** calls \`propagate...()\` + \`firstUpdated()\`/\`updated()\`; **never** reassign the bound property
+- [ ] In \`handleIcaStateChange\`, I confirmed that I do **not** assign to any \`@propertyDataSource\` property (only to derived \`@state\`)
+- [ ] Every decorator (\`@customElement\`, \`@state\`, \`@property\`, \`@propertyDataSource\`) and directive (\`unsafeHTML\`) I use is imported, from the correct module (see §4)
+
 ---
 
 ## 12. Dark Mode
@@ -626,7 +719,8 @@ When rendering SVG elements inside a Lit template, use the \`svg\` tagged templa
 ### Import
 
 \`\`\`typescript
-import { html, svg, TemplateResult, unsafeHTML } from 'lit';
+import { html, svg, TemplateResult } from 'lit';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 \`\`\`
 
 ### Usage
@@ -672,8 +766,9 @@ render() {
 // Skill Group: [group-name] (e.g., select + one)
 // This molecule does NOT contain business logic.
 
-import { html, ...(anothers if need) } from 'lit';
-import { customElement ...(anothers if need) } from 'lit/decorators.js';
+import { html, nothing, TemplateResult } from 'lit';                 // add svg only if rendering SVG
+import { customElement, state } from 'lit/decorators.js';            // state only if you declare @state()
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';          // only if rendering Slot Tag HTML
 import { propertyDataSource } from '/_102029_/l2/collabDecorators.js';
 import { MoleculeAuraElement } from '/_102033_/l2/moleculeBase.js';
 
@@ -734,15 +829,21 @@ export class [ComponentName]Molecule extends MoleculeAuraElement {
   private isOpen = false;
 
   // ===========================================================================
-  // STATE CHANGE HANDLER (if needed for derived values)
+  // STATE CHANGE HANDLER — only if molecule has derived @state() (see section 11)
   // ===========================================================================
 
   // handleIcaStateChange(key: string, value: any) {
   //   const valueAttr = this.getAttribute('value');
   //   if (valueAttr === \\\`{{\\\${key}}}\\\`) {
-  //     // Recalculate derived values here
+  //     this.derivedState = this.computeFromValue(value);
   //   }
   //   this.requestUpdate();
+  // }
+
+  // updated(changedProps: Map<string, unknown>) {
+  //   if (changedProps.has('value')) {
+  //     this.derivedState = !this.value ? defaultValue : this.computeFromValue(this.value);
+  //   }
   // }
 
   // ===========================================================================
@@ -817,4 +918,7 @@ The contract defines:
 | 2.4.0 | 04/13/2026 | Added section 9: correct usage of \`nothing\` with proper return types |
 | 2.5.0 | 04/16/2026 | Added section 11: handleIcaStateChange for derived values |
 | 2.6.0 | 04/22/2026 | Added section 12: dark mode — semantic color pairs and required dark: variants |
+| 2.7.0 | 06/11/2026 | Added section 11-B: \`updated()\` for Lit property bindings; updated section 14 template with both sync mechanisms |
+| 2.8.0 | 06/15/2026 | §5/§11: documented \`@propertyDataSource\` as a two-way binding; anti-loop rule (no reassigning inside \`handleIcaStateChange\`); propagation-only pattern for children |
+| 2.9.0 | 06/15/2026 | §4: explicit imports + symbol→module table (\`state\`, \`unsafeHTML\`); fixed wrong \`unsafeHTML\` import in §13; added correct import in §8 and §14 skeleton; import-completeness checklist item; removed invalid \`@@state\`/\`@state({ type })\` block |
 `

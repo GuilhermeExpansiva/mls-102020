@@ -10,14 +10,16 @@ export const skill = `
 
 ## Slot Tags
 
-| Tag | Description |
-|-----|-------------|
-| \`Label\` | Label displayed above or beside the field |
-| \`Helper\` | Descriptive text shown below the field when there is no error |
-| \`Trigger\` | Custom content for the trigger button. When no item is selected, this content acts as the placeholder |
-| \`Item\` | One selectable option. Attributes: \`value\` (required), \`disabled\` |
-| \`Group\` | Groups items under a named heading. Attribute: \`label\` |
-| \`Empty\` | Content shown when no items are available |
+| Tag | Used by variant | Description |
+|-----|-----------------|-------------|
+| \`Label\` | all | Label displayed above or beside the field |
+| \`Helper\` | all | Descriptive text shown below the field when there is no error |
+| \`Trigger\` | \`dropdown\` only | Custom content for the trigger button. When no item is selected, this content acts as the placeholder |
+| \`Item\` | all | One selectable option (one **row** in \`table\`). Attributes: \`value\` (required), \`disabled\` |
+| \`Cell\` | \`table\` only | A data cell inside an \`Item\`, one per column, in column order. May contain text or web components |
+| \`Column\` | \`table\` only | A single column header, as a direct child of the component (no wrapper), in column order |
+| \`Group\` | \`dropdown\`, \`radio\`, \`list\` | Groups items under a named heading. Attribute: \`label\` |
+| \`Empty\` | all | Content shown when no items are available |
 
 ---
 
@@ -28,13 +30,14 @@ export const skill = `
 | \`value\` | \`string \| null\` | \`null\` | Value of the selected item. \`null\` = nothing selected |
 | \`error\` | \`string\` | \`''\` | Error message. Empty string means no error |
 | \`name\` | \`string\` | \`''\` | Field name for form identification |
-| \`placeholder\` | \`string\` | \`''\` | Text shown when no item is selected |
-| \`searchable\` | \`boolean\` | \`false\` | Show a search input to filter items |
+| \`variant\` | \`string\` | \`'dropdown'\` | Layout: \`dropdown\` (combobox), \`radio\`, \`segmented\`, \`list\`, or \`table\`. The selected value is the same in every variant |
+| \`placeholder\` | \`string\` | \`''\` | Text shown when no item is selected (\`dropdown\`; in \`table\` view mode it is the empty fallback) |
+| \`searchable\` | \`boolean\` | \`false\` | Show a search input to filter items (\`dropdown\`, \`list\`, \`table\`) |
 | \`isEditing\` | \`boolean\` | \`true\` | \`true\` = interactive selector, \`false\` = read-only label |
 | \`disabled\` | \`boolean\` | \`false\` | Disables the field entirely |
 | \`readonly\` | \`boolean\` | \`false\` | Prevents selection but keeps the field focusable |
 | \`required\` | \`boolean\` | \`false\` | Marks a selection as required |
-| \`loading\` | \`boolean\` | \`false\` | Shows a loading indicator; panel does not open |
+| \`loading\` | \`boolean\` | \`false\` | Shows a loading indicator (in \`dropdown\`, the panel does not open) |
 
 
 ---
@@ -53,7 +56,8 @@ export const skill = `
 
 - Value is a plain **string** matching the \`value\` attribute of the selected \`<Item>\`
 - \`null\` when nothing is selected
-- The displayed label comes from the \`<Item>\` inner content — not stored in \`value\`
+- The displayed label comes from the \`<Item>\` inner content (its \`<Cell>\`s in the \`table\` variant) — not stored in \`value\`
+- The same contract holds for every variant — switching layout never changes the stored value
 
 ---
 
@@ -92,6 +96,42 @@ export const skill = `
   </Group>
   <Empty>No categories available</Empty>
 </molecules--dropdown-102020>
+\`\`\`
+
+### Table variant (compare options across columns)
+
+> Use \`variant="table"\` when each option has several comparable attributes. Declare the
+> column headers as flat \`<Column>\` children (in order), then one \`<Item value="...">\` per
+> row with one \`<Cell>\` per column. Selecting a row stores that \`Item\`'s \`value\`.
+
+\`\`\`html
+<groupselectone--ml-table-single-select
+  value="{{ui.form.plan}}"
+  error="{{ui.form.planError}}"
+  name="plan"
+  required>
+  <Label>Choose a plan</Label>
+  <Column>Plan</Column>
+  <Column>Price</Column>
+  <Column>Seats</Column>
+  <Item value="basic">
+    <Cell>Basic</Cell>
+    <Cell>$10/mo</Cell>
+    <Cell>3</Cell>
+  </Item>
+  <Item value="pro">
+    <Cell>Pro</Cell>
+    <Cell>$25/mo</Cell>
+    <Cell>10</Cell>
+  </Item>
+  <Item value="enterprise" disabled>
+    <Cell>Enterprise</Cell>
+    <Cell>Contact us</Cell>
+    <Cell>Unlimited</Cell>
+  </Item>
+  <Empty>No plans available</Empty>
+  <Helper>You can change your plan later.</Helper>
+</groupselectone--ml-table-single-select>
 \`\`\`
 
 `
