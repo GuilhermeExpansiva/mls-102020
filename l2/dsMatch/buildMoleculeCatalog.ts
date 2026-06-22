@@ -76,38 +76,9 @@ export async function buildMoleculeCatalog(force = false): Promise<MoleculeCatal
 /** Clear the cache (e.g. after editing molecules). */
 export function clearMoleculeCatalogCache(): void { catalogCache = null; }
 
-/**
- * Deterministic signature of the catalog (count + hash of tag+layoutConfig). Changes
- * whenever a molecule is added/removed or its candidacy (layoutConfig) changes — used to
- * detect when generated pages are stale relative to the catalog. Pure & order-independent.
- */
-export function catalogSignature(catalog: MoleculeCatalogEntry[]): string {
-    const serialized = [...catalog]
-        .map(m => `${m.project}|${m.group}|${m.tag}|${JSON.stringify(sortedAxes(m.layoutConfig))}`)
-        .sort()
-        .join('\n');
-    return `${catalog.length}-${hash(serialized)}`;
-}
-
 // ─── helpers ──────────────────────────────────────────────────────────────
 
 function cmp(a: string, b: string): number { return a < b ? -1 : a > b ? 1 : 0; }
-
-function sortedAxes(axes: Record<string, string>): Record<string, string> {
-    const out: Record<string, string> = {};
-    for (const k of Object.keys(axes).sort()) out[k] = axes[k];
-    return out;
-}
-
-/** Small deterministic string hash (FNV-1a, 32-bit) — no mls dependency, testable. */
-function hash(s: string): string {
-    let h = 0x811c9dc5;
-    for (let i = 0; i < s.length; i++) {
-        h ^= s.charCodeAt(i);
-        h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
-    }
-    return h.toString(16).padStart(8, '0');
-}
 
 /** Keep only axis=value pairs that are valid in the vocabulary; drop the rest (with a warning). */
 function sanitizeLayoutConfig(raw: unknown, ref: string): Record<string, string> {

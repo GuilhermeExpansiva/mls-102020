@@ -91,10 +91,11 @@ async function afterPromptStep(
     }
 
     if (!context.isTest) {
-      // Stamp the DS version (effective rules hash + catalog) this page was generated
-      // under, so staleness can be detected when the DS or catalog later changes.
+      // Stamp the DS version (effective rules hash + used-molecules hash) this page was
+      // generated under, so staleness can be detected when the DS rules or the molecules
+      // it uses later change. Built from finalSrc (which already carries moleculeAssignments).
       if (!finalSrc.includes('export const dsVersion')) {
-        const stamp = await buildPageDsStamp(project, a.module, a.ds, a.page!, new Date().toISOString());
+        const stamp = await buildPageDsStamp(project, a.module, a.ds, a.page!, new Date().toISOString(), finalSrc);
         finalSrc = `${finalSrc.replace(/\s*$/, '')}\n\n${renderDsVersionExport(stamp)}\n`;
       }
       await saveFile(item.defsDestino, finalSrc);

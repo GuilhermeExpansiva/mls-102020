@@ -5,7 +5,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
 import { getAuraState } from '/_102020_/l2/auraState.js';
 import { getContentByMlsPath } from '/_102020_/l2/agentMaterializeSolution/agentMaterializeArtifacts.js';
-import { isPageStaleByDefs, currentCatalogVersion } from '/_102020_/l2/dsMatch/dsVersion.js';
+import { pageDsStatusByDefs, type PageDsStatus } from '/_102020_/l2/dsMatch/dsVersion.js';
 import '/_102020_/l2/plugins/navHeader.js';
 
 // ─── i18n ─────────────────────────────────────────────────────────────
@@ -27,6 +27,7 @@ const message_en = {
     notCreated: 'Pages have not been created for this layout / design system combination.',
     generatePages: 'Generate pages',
     outdated: 'Outdated',
+    review: 'Review',
 };
 type MessageType = typeof message_en;
 const messages: Record<string, MessageType> = {
@@ -48,6 +49,7 @@ const messages: Record<string, MessageType> = {
         notCreated: 'As páginas não foram criadas para esta combinação de layout / design system.',
         generatePages: 'Gerar páginas',
         outdated: 'Desatualizada',
+        review: 'Revisar',
     },
     es: {
         title: 'Páginas',
@@ -66,6 +68,7 @@ const messages: Record<string, MessageType> = {
         notCreated: 'Las páginas no se han creado para esta combinación de layout / design system.',
         generatePages: 'Generar páginas',
         outdated: 'Desactualizada',
+        review: 'Revisar',
     },
 };
 /// **collab_i18n_end**
@@ -112,8 +115,9 @@ export class PluginSelectPage extends StateLitElement {
     @state() private _search: string = '';
     @state() private _activeDevice: string | null = null;
     @state() private _pagesNotCreated: boolean = false;
-    // page name → true when generated under an older DS version (needs re-materialize).
-    @state() private _staleByName: Record<string, boolean> = {};
+    // page name → DS-version status: 'stale' (needs re-materialize), 'review' (a used
+    // molecule changed but the selection is still valid), or 'fresh' (omitted).
+    @state() private _statusByName: Record<string, PageDsStatus> = {};
 
     connectedCallback() {
         super.connectedCallback();
@@ -240,39 +244,47 @@ export class PluginSelectPage extends StateLitElement {
         this._dispatchConfig();
         this.requestUpdate();
         this._autoSelectActivePage();
-        this._loadStaleness();
+        this._loadPageStatus();
     }
 
-    // Flag pages whose generated defs were stamped under an older DS version
-    // (effective rules or molecule catalog changed since). Only meaningful for
+    // Compute each page's DS-version status (stale / review / fresh). Only meaningful for
     // non-default design systems (the default DS / origin pages carry no stamp).
-    private async _loadStaleness(): Promise<void> {
-        this._staleByName = {};
+    private async _loadPageStatus(): Promise<void> {
+        this._statusByName = {};
         const module = this._modulePath;
         const ds = getAuraState().actualDesignSystem ?? 1;
         if (!module || !ds || ds <= 1 || this._pages.length === 0) return;
 
-        // Compute the catalog signature once and reuse it across all pages.
-        const catalogVersion = await currentCatalogVersion();
-
         const results = await Promise.all(this._pages.map(async (p) => {
             try {
-                const stale = await isPageStaleByDefs(
+                const status = await pageDsStatusByDefs(
                     { project: p.file.project, folder: p.file.folder ?? '', shortName: p.file.shortName },
                     module,
                     ds,
-                    catalogVersion,
                 );
-                return [p.name, stale] as const;
+                return [p.name, status] as const;
             } catch {
-                return [p.name, false] as const;
+                return [p.name, 'fresh'] as const;
             }
         }));
 
-        const map: Record<string, boolean> = {};
-        for (const [name, stale] of results) map[name] = stale;
-        this._staleByName = map;
+        const map: Record<string, PageDsStatus> = {};
+        for (const [name, status] of results) map[name] = status;
+        this._statusByName = map;
         this.requestUpdate();
+    }
+
+    private _renderStatusBadge(pageName: string) {
+        const status = this._statusByName[pageName];
+        if (status === 'stale') return html`
+            <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+                ${this.msg.outdated}
+            </span>`;
+        if (status === 'review') return html`
+            <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400">
+                ${this.msg.review}
+            </span>`;
+        return nothing;
     }
 
     // Re-fire the select event for the page already active in the state, so the
@@ -376,11 +388,7 @@ export class PluginSelectPage extends StateLitElement {
                 <div class="flex items-baseline gap-1">
                     <span class="text-xs text-gray-400 dark:text-gray-500">${this._moduleName}/</span>
                     <span class="text-sm font-semibold text-gray-700 dark:text-gray-200">${page.name}</span>
-                    ${this._staleByName[page.name] ? html`
-                        <span class="ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
-                            ${this.msg.outdated}
-                        </span>
-                    ` : nothing}
+                    <span class="ml-auto">${this._renderStatusBadge(page.name)}</span>
                 </div>
                 <div class="flex items-center gap-1 flex-wrap">
                     <span class="text-xs text-gray-400 dark:text-gray-600">${this.msg.devices}:</span>
@@ -533,11 +541,7 @@ export class PluginSelectPage extends StateLitElement {
                     <span class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">${page.name}</span>
                 </div>
                 <div class="flex items-center gap-1 shrink-0">
-                    ${this._staleByName[page.name] ? html`
-                        <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
-                            ${this.msg.outdated}
-                        </span>
-                    ` : nothing}
+                    ${this._renderStatusBadge(page.name)}
                     ${page.devices.map(d => html`
                         <span class="text-[10px] font-medium px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
                             ${DEVICE_LABELS[d]?.replace('Web ', '') ?? d}

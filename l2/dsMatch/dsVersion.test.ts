@@ -1,52 +1,117 @@
 /// <mls fileReference="_102020_/l2/dsMatch/dsVersion.test.ts" enhancement="_blank" />
 
-// Tests for the pure parts of dsVersion (effectiveRulesSignature, renderDsVersionExport).
-// No mls runtime. Exposes `runDsVersionTests()`.
+// Tests for the pure parts of dsVersion. No mls runtime. Exposes `runDsVersionTests()`.
 
-import { effectiveRulesSignature, renderDsVersionExport, type PageDsStamp } from '/_102020_/l2/dsMatch/dsVersion.js';
+import {
+    effectiveRulesSignature,
+    moleculeContentSignature,
+    parseUsedMolecules,
+    decidePageDsStatus,
+    renderDsVersionExport,
+    type PageDsStamp,
+} from '/_102020_/l2/dsMatch/dsVersion.js';
+import type { MoleculeCatalogEntry, ResolvedDs } from '/_102020_/l2/dsMatch/types.js';
 
 function assert(cond: boolean, msg: string): void { if (!cond) throw new Error(`[dsVersion.test] FAIL: ${msg}`); }
+
+function mol(project: number, group: string, tag: string, layoutConfig: Record<string, string> = {}, description = `desc-${tag}`): MoleculeCatalogEntry {
+    return { project, group, tag, variant: tag, layoutConfig, objective: '', description, usagePath: '' };
+}
+function ds(rules: Record<string, string>): ResolvedDs { return rules as ResolvedDs; }
 
 export function runDsVersionTests(): { passed: number } {
     let passed = 0;
 
-    // 1. Signature is order-independent (sorted canonical form).
+    // ── effectiveRulesSignature ──────────────────────────────────────────────
     {
-        const a = effectiveRulesSignature({ boolean: 'toggle', recordsView: 'table' });
-        const b = effectiveRulesSignature({ recordsView: 'table', boolean: 'toggle' });
-        assert(a === b, `signature should be order-independent: ${a} vs ${b}`);
-        passed++;
-    }
-
-    // 2. Signature changes when a value changes.
-    {
-        const before = effectiveRulesSignature({ recordsView: 'table' });
-        const after = effectiveRulesSignature({ recordsView: 'grid' });
-        assert(before !== after, 'signature should change when an axis value changes');
-        passed++;
-    }
-
-    // 3. Signature changes when an axis is added/removed (configured set matters).
-    {
-        const base = effectiveRulesSignature({ recordsView: 'table' });
-        const extra = effectiveRulesSignature({ recordsView: 'table', density: 'compact' });
-        assert(base !== extra, 'signature should change when an axis is added');
-        passed++;
-    }
-
-    // 4. Empty rules (default DS) is stable.
-    {
+        assert(
+            effectiveRulesSignature({ boolean: 'toggle', recordsView: 'table' }) ===
+            effectiveRulesSignature({ recordsView: 'table', boolean: 'toggle' }),
+            'rules signature should be order-independent',
+        );
+        assert(effectiveRulesSignature({ recordsView: 'table' }) !== effectiveRulesSignature({ recordsView: 'grid' }), 'value change should change hash');
         assert(effectiveRulesSignature({}) === effectiveRulesSignature({}), 'empty rules should be stable');
         passed++;
     }
 
-    // 5. renderDsVersionExport emits a valid `as const` export carrying the fields.
+    // ── moleculeContentSignature (definition / description) ───────────────────
     {
-        const stamp: PageDsStamp = { ds: 2, dsName: 'Collab design', rulesHash: 'ab12cd34', catalogVersion: '145-efeb16b3', generatedAt: '2026-06-22T10:00:00Z' };
+        const a = moleculeContentSignature(mol(102040, 'g', 'ml-x', {}, 'same'));
+        const b = moleculeContentSignature(mol(102040, 'g', 'ml-x', {}, 'same'));
+        const c = moleculeContentSignature(mol(102040, 'g', 'ml-x', {}, 'changed'));
+        assert(a === b, 'same description → same signature');
+        assert(a !== c, 'changed description → changed signature');
+        passed++;
+    }
+
+    // ── parseUsedMolecules ────────────────────────────────────────────────────
+    {
+        const src = `export const moleculeAssignments = ${JSON.stringify([
+            { organismName: 'A', molecules: [{ project: 102040, group: 'g1', tag: 'ml-toast' }] },
+            { organismName: 'B', molecules: [{ project: 102040, group: 'g1', tag: 'ml-toast' }, { project: 102041, group: 'g2', tag: 'ml-grid' }] },
+        ], null, 2)} as const;`;
+        assert(parseUsedMolecules(src).length === 2, 'should flatten + dedupe to 2 molecules');
+        assert(parseUsedMolecules('nothing here').length === 0, 'missing export → empty');
+        passed++;
+    }
+
+    // ── decidePageDsStatus ────────────────────────────────────────────────────
+    const catalog: MoleculeCatalogEntry[] = [
+        mol(102040, 'groupNotifyUser', 'ml-toast', { feedback: 'toast' }, 'v1'),
+        mol(102041, 'groupViewData', 'ml-grid', { recordsView: 'grid' }, 'v1'), // different source project
+    ];
+    const used = [{ project: 102040, tag: 'ml-toast' }];
+    const rules = ds({ feedback: 'toast' });
+    const configuredAxes = new Set(['feedback']);
+    const freshStamp: PageDsStamp = {
+        ds: 2, dsName: 'X', rulesHash: effectiveRulesSignature({ feedback: 'toast' }),
+        moleculesSeen: { '102040|ml-toast': moleculeContentSignature(catalog[0]) }, generatedAt: 't',
+    };
+    const base = { used, catalog, rules, configuredAxes, currentRulesHash: effectiveRulesSignature({ feedback: 'toast' }) };
+
+    // 4. No stamp → stale.
+    { assert(decidePageDsStatus({ ...base, stamp: null }) === 'stale', 'no stamp → stale'); passed++; }
+
+    // 5. Everything matches → fresh.
+    { assert(decidePageDsStatus({ ...base, stamp: freshStamp }) === 'fresh', 'all unchanged → fresh'); passed++; }
+
+    // 6. Rules changed → stale.
+    { assert(decidePageDsStatus({ ...base, stamp: { ...freshStamp, rulesHash: 'different' } }) === 'stale', 'rules change → stale'); passed++; }
+
+    // 7. Used molecule removed → stale.
+    { assert(decidePageDsStatus({ ...base, catalog: [catalog[1]], stamp: freshStamp }) === 'stale', 'removed used molecule → stale'); passed++; }
+
+    // 8. Used molecule no longer compatible (DS now wants feedback=banner) → stale.
+    {
+        const rules2 = ds({ feedback: 'banner' });
+        const status = decidePageDsStatus({
+            ...base, rules: rules2, currentRulesHash: effectiveRulesSignature({ feedback: 'banner' }),
+            stamp: { ...freshStamp, rulesHash: effectiveRulesSignature({ feedback: 'banner' }) },
+        });
+        assert(status === 'stale', 'incompatible used molecule → stale');
+        passed++;
+    }
+
+    // 9. Unrelated molecule (other project, not used) changed → still fresh.
+    {
+        const catalog2 = [catalog[0], mol(102041, 'groupViewData', 'ml-grid', { recordsView: 'grid' }, 'v2-changed')];
+        assert(decidePageDsStatus({ ...base, catalog: catalog2, stamp: freshStamp }) === 'fresh', 'unrelated change → fresh');
+        passed++;
+    }
+
+    // 10. Used molecule changed (still present + compatible) → review.
+    {
+        const catalog2 = [mol(102040, 'groupNotifyUser', 'ml-toast', { feedback: 'toast' }, 'v2-changed'), catalog[1]];
+        assert(decidePageDsStatus({ ...base, catalog: catalog2, stamp: freshStamp }) === 'review', 'used molecule changed → review');
+        passed++;
+    }
+
+    // ── renderDsVersionExport ─────────────────────────────────────────────────
+    {
+        const stamp: PageDsStamp = { ds: 2, dsName: 'Collab design', rulesHash: 'ab12cd34', moleculesSeen: { '102040|ml-toast': '9f2a' }, generatedAt: '2026-06-22T10:00:00Z' };
         const src = renderDsVersionExport(stamp);
-        assert(src.startsWith('export const dsVersion = '), 'should declare dsVersion');
-        assert(src.trimEnd().endsWith('as const;'), 'should be `as const`');
-        assert(src.includes('"rulesHash": "ab12cd34"'), 'should carry the rulesHash');
+        assert(src.startsWith('export const dsVersion = ') && src.trimEnd().endsWith('as const;'), 'valid as-const export');
+        assert(src.includes('"moleculesSeen"'), 'should carry moleculesSeen');
         passed++;
     }
 
