@@ -365,6 +365,11 @@ export class PluginSelectDesignSystem extends StateLitElement {
         return this._entries.length ? this._entries[this._entries.length - 1].key : 0;
     }
 
+    /** Top of the selectable range: includes the "+" slot only at project scope (l6). */
+    private get _maxValue(): number {
+        return this._isProjectScope ? this._customKey : this._lastEntryKey;
+    }
+
     private get _isAll(): boolean { return this.value === 0; }
     // Adding a new DS is only allowed at project scope (l6). Module (l5) and
     // page (l3) scopes only edit rules for existing design systems.
@@ -406,15 +411,9 @@ export class PluginSelectDesignSystem extends StateLitElement {
         const labels: Record<number, string> = { 0: 'All' };
         this._entries.forEach(e => { labels[e.key] = e.name; });
         // The "+" (new DS) slot only exists at project scope (l6).
-        let max: number;
-        if (this._isProjectScope) {
-            labels[this._customKey] = '+';
-            max = this._customKey;
-        } else {
-            max = this._lastEntryKey;
-        }
+        if (this._isProjectScope) labels[this._customKey] = '+';
         this.dispatchEvent(new CustomEvent('ds-config', {
-            detail: { min: 0, max, labels },
+            detail: { min: 0, max: this._maxValue, labels },
             bubbles: true,
             composed: true,
         }));
@@ -451,7 +450,7 @@ export class PluginSelectDesignSystem extends StateLitElement {
     }
 
     private _renderAll() {
-        const max = this._customKey;
+        const max = this._maxValue;
         return html`
             <div class="flex flex-col gap-3">
                 <plugins--nav-header-102020
@@ -474,7 +473,7 @@ export class PluginSelectDesignSystem extends StateLitElement {
 
     private _renderSelected() {
         const entry = this._selectedEntry;
-        const max = this._customKey;
+        const max = this._maxValue;
         if (!entry) return nothing;
         return html`
             <div class="flex flex-col gap-3">
@@ -493,7 +492,7 @@ export class PluginSelectDesignSystem extends StateLitElement {
     }
 
     private _renderCustom() {
-        const max = this._customKey;
+        const max = this._maxValue;
         return html`
             <div class="flex flex-col gap-3">
                 <plugins--nav-header-102020

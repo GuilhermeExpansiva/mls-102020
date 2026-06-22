@@ -181,7 +181,8 @@ export class ServiceGenome102020 extends ServiceBase {
     private _onDsConfig(e: CustomEvent) {
         this._dsConfig = { key: 'designSystem', min: e.detail.min, max: e.detail.max, labels: e.detail.labels };
         const actualDs = getAuraState().actualDesignSystem;
-        if (actualDs !== null && actualDs > 0 && actualDs < e.detail.max) {
+        if (actualDs !== null && actualDs > 0 && actualDs <= e.detail.max
+            && e.detail.labels[actualDs] !== '+') {
             this._dsValue = actualDs;
         } else if (this._dsValue === null || this._dsValue > this._dsConfig.max) {
             this._dsValue = 0;
@@ -349,7 +350,10 @@ export class ServiceGenome102020 extends ServiceBase {
                 break;
             case 'designSystem':
                 this._dsValue = value;
-                if (value !== null && value > 0 && value < this._dsConfig.max) {
+                // The "+" slot (new DS, only at project scope) must not be persisted;
+                // every real DS up to and including max is a valid selection.
+                if (value !== null && value > 0 && value <= this._dsConfig.max
+                    && this._dsConfig.labels[value] !== '+') {
                     setAuraState('actualDesignSystem', value);
                     saveAuraProject();
                 }
