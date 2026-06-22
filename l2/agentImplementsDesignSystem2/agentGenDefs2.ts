@@ -80,13 +80,14 @@ async function afterPromptStep(
     const project = mls.actualProject || 0;
     const item = buildWorkItem(project, a.module, a.layout, a.ds, a.page!, a.device);
 
-    // The LLM returns ONLY the clean merged defs. We append the molecule metadata exports
-    // here, deterministically, by reading them from the NEW defs BEFORE we overwrite it
-    // (so the terminal can record which molecules the page used). Guarded so we never
-    // duplicate if the model already emitted them.
+    // The LLM returns ONLY the clean merged defs (with molecules already placed per organism
+    // inside `definition`). We append the molecule metadata exports here, deterministically,
+    // by reading them from the NEW (per-organism) defs BEFORE we overwrite it. The stored
+    // `moleculeAssignments` is FLATTENED + de-duplicated (the per-organism placement already
+    // lives in `definition`; this tail is just the page's unique used-molecule list).
     let finalSrc = out.srcFile;
     if (!finalSrc.includes('export const moleculeAssignments')) {
-      const tail = extractAssignmentsTail(await readRawSource(item.defsDestino));
+      const tail = buildAssignmentsTail(await readRawSource(item.defsDestino));
       if (tail) finalSrc = `${finalSrc.replace(/\s*$/, '')}\n\n${tail}\n`;
     }
 
@@ -107,10 +108,34 @@ async function afterPromptStep(
   }
 }
 
-/** The molecule metadata exports from the NEW defs (moleculeAssignments + usagePaths). */
-function extractAssignmentsTail(novoSource: string): string {
-  const idx = novoSource.indexOf('export const moleculeAssignments');
-  return idx >= 0 ? novoSource.slice(idx).trim() : '';
+/**
+ * Build the metadata tail for the FINAL defs from the NEW (per-organism) defs:
+ * `moleculeAssignments` flattened to a unique molecule list (no organismName, no repeats),
+ * plus the `usagePaths` export verbatim.
+ */
+function buildAssignmentsTail(novoSource: string): string {
+  const ma = novoSource.match(/export\s+const\s+moleculeAssignments\s*=\s*(\[[\s\S]*?\])\s+as\s+const\s*;/);
+  if (!ma) return '';
+  let organisms: Array<{ molecules?: Array<Record<string, unknown>> }>;
+  try { organisms = JSON.parse(ma[1]); } catch { return ''; }
+
+  const seen = new Set<string>();
+  const molecules: Array<Record<string, unknown>> = [];
+  for (const org of organisms ?? []) {
+    for (const m of org?.molecules ?? []) {
+      const tag = m?.tag;
+      if (typeof tag !== 'string' || !tag) continue;
+      const key = `${(m as { project?: number }).project ?? 0}|${tag}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      molecules.push(m);
+    }
+  }
+
+  const lines = [`export const moleculeAssignments = ${JSON.stringify(molecules, null, 2)} as const;`];
+  const up = novoSource.match(/export\s+const\s+usagePaths\s*=\s*(\[[\s\S]*?\])\s+as\s+const\s*;/);
+  if (up) lines.push('', `export const usagePaths = ${up[1]} as const;`);
+  return lines.join('\n');
 }
 
 const system1 = `
