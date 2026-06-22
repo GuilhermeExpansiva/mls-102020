@@ -134,6 +134,10 @@ export class PluginSelectPage extends StateLitElement {
         return this.selectedModule?.path ?? getAuraState().actualModule ?? null;
     }
 
+    private get _moduleName(): string | null {
+        return this.selectedModule?.name ?? getAuraState().actualModule ?? null;
+    }
+
     private async _loadPages(): Promise<void> {
         this._pages = [];
         const modulePath = this._modulePath;
@@ -224,7 +228,7 @@ export class PluginSelectPage extends StateLitElement {
     createRenderRoot() { return this; }
 
     render() {
-        if (!this.selectedModule) return this._renderNoModule();
+        if (!this._modulePath) return this._renderNoModule();
         if (this._isAll) return this._renderAll();
         if (this._isCustom) return this._renderCustom();
         return this._renderSelected();
@@ -280,7 +284,7 @@ export class PluginSelectPage extends StateLitElement {
         return html`
             <div class="rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 px-3 py-2.5 flex flex-col gap-2">
                 <div class="flex items-baseline gap-1">
-                    <span class="text-xs text-gray-400 dark:text-gray-500">${this.selectedModule?.name}/</span>
+                    <span class="text-xs text-gray-400 dark:text-gray-500">${this._moduleName}/</span>
                     <span class="text-sm font-semibold text-gray-700 dark:text-gray-200">${page.name}</span>
                 </div>
                 <div class="flex items-center gap-1 flex-wrap">
@@ -401,7 +405,7 @@ export class PluginSelectPage extends StateLitElement {
             >
                 ${isActive ? html`<div class="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 shrink-0"></div>` : nothing}
                 <div class="flex-1 flex items-baseline gap-1 min-w-0">
-                    <span class="text-[10px] text-gray-400 dark:text-gray-600 shrink-0">${this.selectedModule?.name}/</span>
+                    <span class="text-[10px] text-gray-400 dark:text-gray-600 shrink-0">${this._moduleName}/</span>
                     <span class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">${page.name}</span>
                 </div>
                 <div class="flex items-center gap-1 shrink-0">
