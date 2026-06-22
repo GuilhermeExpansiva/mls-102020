@@ -1,24 +1,21 @@
 /// <mls fileReference="_102020_/l2/dsMatch/resolveMolecules.ts" enhancement="_blank" />
 
-// Fase C — deterministic variant resolution + the per-DS resolution table.
+// Fase C — deterministic variant resolution (pure helpers).
 //
 // The key idea: a DS axis is page-wide, so the molecule chosen for a group is
 // resolved ONCE per DS (not per page/organism). matchVariant is already a pure
 // function of (group, dsRules, catalog), so two pages cannot diverge — consistency
-// by construction (this is what makes Fase D / Agent3 a mere audit, not the
-// mechanism).
+// by construction.
 //
 // Pipeline here:
 //   1. collectUsedGroups  — distinct groups Agent1 selected across all pages
 //   2. resolveMolecules   — (group → molecule) for the DS, via matchVariant
 //   3. assignMoleculesToPage — combine Agent1 output + the table → per-organism molecules
-//   4. persistResolvedMolecules — write the table into designSystems[dsIndex]
 //
 // Scale overrides (selectOne, listOverflow) depend on runtime volume (option/record
 // counts) not available here; they are applied later at generation time, NOT in this
 // deterministic table.
 
-import { getConfigProject, updateConfigProject } from '/_102027_/l2/libProjectConfig.js';
 import { matchVariant } from '/_102020_/l2/dsMatch/matchVariant.js';
 import type { ResolvedDs, MoleculeCatalogEntry } from '/_102020_/l2/dsMatch/types.js';
 import type { Agent1Output } from '/_102020_/l2/dsMatch/agent1.js';
@@ -130,31 +127,4 @@ export function collectUsagePaths(assignment: PageAssignment, resolved: Resolved
         }
     }
     return [...set].sort();
-}
-
-/**
- * Persist the resolution table as `designSystems[dsIndex].resolvedMolecules` in
- * project.json. Idempotent: re-running with the same DS overwrites the same field.
- */
-export async function persistResolvedMolecules(
-    project: number,
-    dsIndex: number | string,
-    resolved: Record<string, unknown>, // the table to write (slim or full)
-    catalogVersion?: string,
-): Promise<void> {
-    const config: any = await getConfigProject(project);
-    if (!config) throw new Error(`[persistResolvedMolecules] project config not found: ${project}`);
-
-    const designSystems = config.designSystems;
-    if (!designSystems || typeof designSystems !== 'object') {
-        throw new Error(`[persistResolvedMolecules] no 'designSystems' in project ${project}`);
-    }
-
-    const key = String(dsIndex);
-    const ds = designSystems[key];
-    if (!ds) throw new Error(`[persistResolvedMolecules] designSystem '${key}' not found in project ${project}`);
-
-    ds.resolvedMolecules = resolved;
-    if (catalogVersion !== undefined) ds.catalogVersion = catalogVersion;
-    await updateConfigProject(project, config);
 }

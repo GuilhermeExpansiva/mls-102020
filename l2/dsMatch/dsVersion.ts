@@ -4,16 +4,19 @@
 //
 // A generated page defs is "fresh" only while two things are unchanged since it was built:
 //   1. the EFFECTIVE DS rules for THAT page (project → module → page cascade), and
-//   2. the molecule catalog (catalogVersion, already tracked on the DS).
+//   2. the molecule catalog (catalogSignature, computed live — NOT stored on the DS).
 //
 // We hash the effective rules (not a date) so a no-op DS save doesn't invalidate pages, and
 // we hash them PER PAGE (not the whole DS) so editing one page's override only invalidates
 // that page — the invalidation radius equals the influence radius of the edited rule.
-// See resolveRulesForPage for the cascade and recordResolvedMolecules for catalogVersion.
+// The stamp is self-contained: both signatures are computed at generation time and recomputed
+// at check time, so the DS carries no version bookkeeping. See resolveRulesForPage (cascade)
+// and catalogSignature (catalog).
 
 import { getConfigProject } from '/_102027_/l2/libProjectConfig.js';
 import { resolveRulesForPage } from '/_102020_/l2/dsMatch/resolveRulesForPage.js';
 import { pageRef, DEFAULT_DEVICE } from '/_102020_/l2/dsMatch/derivePaths.js';
+import { buildMoleculeCatalog, catalogSignature } from '/_102020_/l2/dsMatch/buildMoleculeCatalog.js';
 
 /** What gets stamped on each generated page defs as `export const dsVersion`. */
 export interface PageDsStamp {
@@ -45,7 +48,7 @@ export function renderDsVersionExport(stamp: PageDsStamp): string {
     return `export const dsVersion = ${JSON.stringify(stamp, null, 2)} as const;`;
 }
 
-/** FNV-1a 32-bit (mirrors recordResolvedMolecules — no mls dependency, testable). */
+/** FNV-1a 32-bit (same impl as catalogSignature's — no mls dependency, testable). */
 function hash(s: string): string {
     let h = 0x811c9dc5;
     for (let i = 0; i < s.length; i++) {
@@ -70,13 +73,23 @@ async function configuredRulesForPage(
     return configured;
 }
 
-/** Build the stamp for a page from the CURRENT project config. */
+/** Current molecule-catalog signature (computed live — not stored on the DS). */
+export async function currentCatalogVersion(): Promise<string> {
+    return catalogSignature(await buildMoleculeCatalog());
+}
+
+/**
+ * Build the stamp for a page from the CURRENT project config + live catalog signature.
+ * Pass `catalogVersion` to reuse a signature computed once across many pages (avoids
+ * rebuilding the catalog per page); omit to compute it here.
+ */
 export async function buildPageDsStamp(
     project: number,
     module: string,
     ds: number | string,
     page: string,
     generatedAt: string,
+    catalogVersion?: string,
 ): Promise<PageDsStamp> {
     const configured = await configuredRulesForPage(project, module, page, ds);
     const config: any = await getConfigProject(project);
@@ -85,7 +98,7 @@ export async function buildPageDsStamp(
         ds,
         dsName: dsEntry.name ?? String(ds),
         rulesHash: effectiveRulesSignature(configured),
-        catalogVersion: dsEntry.catalogVersion ?? '',
+        catalogVersion: catalogVersion ?? await currentCatalogVersion(),
         generatedAt,
     };
 }
@@ -142,10 +155,11 @@ export async function isPageStaleByDefs(
     defsFile: { project: number; folder: string; shortName: string },
     module: string,
     ds: number | string,
+    catalogVersion?: string,
 ): Promise<boolean> {
     const stamp = await readStampFromDefs(defsFile);
     if (!stamp) return true;
-    const current = await buildPageDsStamp(defsFile.project, module, ds, defsFile.shortName, stamp.generatedAt);
+    const current = await buildPageDsStamp(defsFile.project, module, ds, defsFile.shortName, stamp.generatedAt, catalogVersion);
     return stamp.rulesHash !== current.rulesHash || stamp.catalogVersion !== current.catalogVersion;
 }
 
@@ -161,9 +175,10 @@ export async function isPageStale(
     ds: number | string,
     page: string,
     device = DEFAULT_DEVICE,
+    catalogVersion?: string,
 ): Promise<boolean> {
     const stamp = await readPageDsStamp(project, module, layout, ds, page, device);
     if (!stamp) return true;
-    const current = await buildPageDsStamp(project, module, ds, page, stamp.generatedAt);
+    const current = await buildPageDsStamp(project, module, ds, page, stamp.generatedAt, catalogVersion);
     return stamp.rulesHash !== current.rulesHash || stamp.catalogVersion !== current.catalogVersion;
 }

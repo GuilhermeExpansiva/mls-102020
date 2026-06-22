@@ -5,7 +5,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
 import { getAuraState } from '/_102020_/l2/auraState.js';
 import { getContentByMlsPath } from '/_102020_/l2/agentMaterializeSolution/agentMaterializeArtifacts.js';
-import { isPageStaleByDefs } from '/_102020_/l2/dsMatch/dsVersion.js';
+import { isPageStaleByDefs, currentCatalogVersion } from '/_102020_/l2/dsMatch/dsVersion.js';
 import '/_102020_/l2/plugins/navHeader.js';
 
 // ─── i18n ─────────────────────────────────────────────────────────────
@@ -252,12 +252,16 @@ export class PluginSelectPage extends StateLitElement {
         const ds = getAuraState().actualDesignSystem ?? 1;
         if (!module || !ds || ds <= 1 || this._pages.length === 0) return;
 
+        // Compute the catalog signature once and reuse it across all pages.
+        const catalogVersion = await currentCatalogVersion();
+
         const results = await Promise.all(this._pages.map(async (p) => {
             try {
                 const stale = await isPageStaleByDefs(
                     { project: p.file.project, folder: p.file.folder ?? '', shortName: p.file.shortName },
                     module,
                     ds,
+                    catalogVersion,
                 );
                 return [p.name, stale] as const;
             } catch {
