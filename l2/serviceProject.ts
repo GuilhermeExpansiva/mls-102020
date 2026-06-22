@@ -239,8 +239,12 @@ export class ServiceProject102020 extends ServiceBase {
             }
             case 'designSystem':
                 this._dsValue = value;
-                setAuraState('actualDesignSystem', value);
-                saveAuraProject();
+                // Skip 0 (the "All" listing) and the "+" slot (add DS); only real DS persist.
+                if (value !== null && value > 0 && value <= this._dsConfig.max
+                    && this._dsConfig.labels[value] !== '+') {
+                    setAuraState('actualDesignSystem', value);
+                    saveAuraProject();
+                }
                 break;
             case 'device':
                 this._deviceValue = value;
@@ -379,13 +383,19 @@ export class ServiceProject102020 extends ServiceBase {
                         @select-module=${(e: CustomEvent) => this._setKnobValue('module', e.detail.value)}
                     ></plugins--select-module-102020>
                 `;
-            case 'designSystem':
+            case 'designSystem': {
+                // Project service configures the SELECTED module's overrides; with no module
+                // selected ("All") it falls back to editing the project-level base rules.
+                const mod = this._selectedModule?.name ?? null;
                 return html`
                     <plugins--select-design-system-102020
                         .projectId=${getAuraState().actualProject}
                         .value=${this._dsValue}
+                        .scope=${mod ? 'module' : 'project'}
+                        .module=${mod}
                     ></plugins--select-design-system-102020>
                 `;
+            }
             case 'device':
                 return html`
                     <plugins--select-device-102020
