@@ -12,6 +12,7 @@ import { getThreadByName } from '/_102025_/l2/collabMessagesIndexedDB.js';
 import { getTemporaryContext } from '/_102027_/l2/aiAgentHelper.js';
 import { openElementInServiceDetails } from '/_102027_/l2/libCommom.js';
 import { setTask, getTask, subscribeTaskManager } from '/_102020_/l2/taskManager.js';
+import { getState, setState } from '/_102029_/l2/collabState.js';
 import '/_102020_/l2/plugins/navHeader.js';
 
 // ─── i18n ─────────────────────────────────────────────────────────────
@@ -43,7 +44,7 @@ const message_en = {
     staleReasonIncompatible: 'A molecule it uses is no longer compatible.',
     staleReasonNoStamp: 'The page predates DS versioning.',
     regeneratePage: 'Regenerate page',
-    regenerating: 'Starting…',
+    regenerating: 'Regenerating…',
     regenerated: 'Task started',
     followTask: 'Follow task',
 };
@@ -77,7 +78,7 @@ const messages: Record<string, MessageType> = {
         staleReasonIncompatible: 'Uma molécula usada ficou incompatível.',
         staleReasonNoStamp: 'A página é anterior ao versionamento do DS.',
         regeneratePage: 'Refazer página',
-        regenerating: 'Iniciando…',
+        regenerating: 'Refazendo…',
         regenerated: 'Task iniciada',
         followTask: 'Acompanhar task',
     },
@@ -108,7 +109,7 @@ const messages: Record<string, MessageType> = {
         staleReasonIncompatible: 'Una molécula usada ya no es compatible.',
         staleReasonNoStamp: 'La página es anterior al versionado del DS.',
         regeneratePage: 'Regenerar página',
-        regenerating: 'Iniciando…',
+        regenerating: 'Regenerando…',
         regenerated: 'Tarea iniciada',
         followTask: 'Seguir tarea',
     },
@@ -555,14 +556,22 @@ export class PluginSelectPage extends StateLitElement {
         if (getTask(taskKey)?.status === 'running') return;
 
         const prompt = JSON.stringify({ module, layout, ds, device, pages: [page.name] });
+        // Pause the preview while the agent rewrites the defs (avoids repaint thrash); restore after.
+        const prevPause = getState('preview.pausePreview');
+        setState('preview.pausePreview', true);
         setTask(taskKey, { status: 'running', startedAt: Date.now() });
         try {
-            await this._executeAgent('agentImplementsDesignSystem2', prompt, (data) => this._taskInfoByName.set(page.name, data));
+            await this._executeAgent('agentImplementsDesignSystem2', prompt, (data) => {
+                this._taskInfoByName.set(page.name, data);
+                this.requestUpdate(); // surface "Follow task" as soon as the task exists
+            });
             setTask(taskKey, { ...getTask(taskKey)!, status: 'done' });
         } catch (e: any) {
             setTask(taskKey, { ...getTask(taskKey)!, status: 'error', message: e?.message });
+        } finally {
+            setState('preview.pausePreview', prevPause ?? false);
+            await this._loadPageStatus(); // re-check: the regenerated page should now be fresh
         }
-        this.requestUpdate();
     }
 
     private async _executeAgent(
